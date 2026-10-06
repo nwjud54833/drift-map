@@ -1,4 +1,4 @@
-import type { ChangeKind, ContractChange, ContractDirection, ContractNode, InferredContract } from "./types";
+import type { ChangeKind, ContractChange, ContractDirection, ContractNode, InferredContract, JsonKind } from "./types";
 import { classifyChange } from "./compatibility";
 import { pointerDepth } from "./normalize";
 import { collectContractNodes } from "./infer";
@@ -43,4 +43,25 @@ export function buildDiff(baselineSnapshotId: string, candidateSnapshotId: strin
   const summary = { breaking: 0, warning: 0, safe: 0, info: 0, total: changes.length };
   changes.forEach((change) => { summary[change.severity] += 1; });
   return { baselineSnapshotId, candidateSnapshotId, direction, generatedAt, summary, changes };
+}
+
+export interface UnchangedNode {
+  pointer: string;
+  label: string;
+  kinds: JsonKind[];
+  required: boolean;
+}
+
+/** Paths that exist on both sides with identical inferred kinds and requiredness. */
+export function collectUnchangedNodes(baseline: InferredContract, candidate: InferredContract): UnchangedNode[] {
+  const beforeNodes = collectContractNodes(baseline);
+  const afterNodes = collectContractNodes(candidate);
+  const unchanged: UnchangedNode[] = [];
+  for (const [pointer, node] of beforeNodes) {
+    const other = afterNodes.get(pointer);
+    if (other && node.kinds.join("|") === other.kinds.join("|") && node.required === other.required) {
+      unchanged.push({ pointer, label: node.label, kinds: node.kinds, required: node.required });
+    }
+  }
+  return unchanged.sort((a, b) => pointerDepth(a.pointer) - pointerDepth(b.pointer) || a.pointer.localeCompare(b.pointer));
 }

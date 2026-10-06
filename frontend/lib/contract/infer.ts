@@ -1,7 +1,12 @@
-import type { ContractNode, InferredContract, JsonKind, JsonObject, JsonValue, PayloadSample } from "./types";
+import type { ContractNode, ExampleValue, InferredContract, JsonKind, JsonObject, JsonValue, PayloadSample } from "./types";
 import { exampleFor, escapePointerSegment, getJsonKind, pointerLabel } from "./normalize";
 
-interface NodeAccumulator { pointer: string; kinds: Set<JsonKind>; present: Set<number>; examples: (string | number | boolean | null | "[object]" | "[array]")[] }
+interface NodeAccumulator { pointer: string; kinds: Set<JsonKind>; present: Set<number>; examples: ExampleValue[] }
+
+/** Deterministic example ordering, independent of sample or array encounter order. */
+function compareExamples(a: ExampleValue, b: ExampleValue): number {
+  return String(a).localeCompare(String(b)) || (typeof a).localeCompare(typeof b);
+}
 function hashString(input: string): string {
   let hash = 0x811c9dc5;
   for (let index = 0; index < input.length; index += 1) { hash ^= input.charCodeAt(index); hash = Math.imul(hash, 0x01000193); }
@@ -14,7 +19,7 @@ function visit(value: JsonValue, pointer: string, sampleIndex: number, nodes: Ma
   node.kinds.add(getJsonKind(value));
   node.present.add(sampleIndex);
   const example = exampleFor(value);
-  if (!node.examples.some((existing) => Object.is(existing, example)) && node.examples.length < 3) node.examples.push(example);
+  if (!node.examples.some((existing) => Object.is(existing, example))) node.examples.push(example);
   nodes.set(pointer, node);
   if (Array.isArray(value)) {
     for (const item of value) visit(item, `${pointer}/*`, sampleIndex, nodes);
@@ -38,7 +43,7 @@ export function inferContract(samples: PayloadSample[], generatedAt = new Date()
     presentInSamples: node.present.size,
     totalSamples: samples.length,
     required: node.present.size === samples.length,
-    examples: node.examples,
+    examples: [...node.examples].sort(compareExamples).slice(0, 3),
   })).sort((a, b) => a.pointer.localeCompare(b.pointer));
   const canonical = JSON.stringify({ rootKinds: [...rootKinds].sort(), nodes: contractNodes.map(({ pointer, kinds, required }) => ({ pointer, kinds, required })) });
   return { rootKinds: [...rootKinds].sort(), nodes: contractNodes, fingerprint: hashString(canonical), generatedAt, inferenceVersion: 1 };

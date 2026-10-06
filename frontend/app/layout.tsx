@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
-import Providers from "./providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Personal AI Coding Agent",
+  title: "Contract Atlas — local-first contract drift workbench",
   description:
-    "Read-only explorer for public GitHub repositories with file-grounded AI answers. Repositories are never executed.",
+    "Turn real JSON payload samples into an inferred contract and highlight semantic API, webhook, and structured output drift. Fully local: nothing leaves your browser.",
 };
 
 export default function RootLayout({
@@ -13,9 +12,7 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className="min-h-screen antialiased">
-        <Providers>{children}</Providers>
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

@@ -8,6 +8,7 @@ interface UIStore extends WorkspaceUIState {
   setQuery: (query: string) => void;
   toggleSeverity: (severity: ChangeSeverity) => void;
   resetFilters: () => void;
+  setShowUnchanged: (show: boolean) => void;
   setImportOpen: (open: boolean) => void;
   setRawOpen: (open: boolean) => void;
   setPaletteOpen: (open: boolean) => void;
@@ -22,6 +23,7 @@ export const useWorkspaceUIStore = create<UIStore>((set) => ({
   setQuery: (query) => set((state) => ({ filters: { ...state.filters, query } })),
   toggleSeverity: (severity) => set((state) => ({ filters: { ...state.filters, severities: state.filters.severities.includes(severity) ? state.filters.severities.filter((item) => item !== severity) : [...state.filters.severities, severity] } })),
   resetFilters: () => set((state) => ({ filters: { ...state.filters, query: "", severities: ["breaking", "warning", "safe", "info"] } })),
+  setShowUnchanged: (show) => set((state) => ({ filters: { ...state.filters, showUnchanged: show } })),
   setImportOpen: (open) => set((state) => ({ isImportSheetOpen: open, importDraft: open ? initialDraft : state.importDraft })),
   setRawOpen: (open) => set({ isRawJsonDrawerOpen: open }),
   setPaletteOpen: (open) => set({ isCommandPaletteOpen: open }),

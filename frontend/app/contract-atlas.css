@@ -1,5 +1,3 @@
-@import "tailwindcss";
-
 .ca-app { --ca-ink:#202923; --ca-muted:#69766d; --ca-soft:#f4f6f3; --ca-line:#dce3dd; --ca-panel:#fff; --ca-green:#24644b; --ca-red:#a43c35; --ca-amber:#9b671c; --ca-blue:#426b8b; min-height:100svh; background:#f5f7f5; color:var(--ca-ink); font:13px/1.45 Inter,"Segoe UI",system-ui,sans-serif; display:flex; flex-direction:column; }
 .ca-app * { box-sizing:border-box; }
 .ca-app button,.ca-app input,.ca-app select,.ca-app textarea { font:inherit; }
@@ -96,3 +94,50 @@
 @media (max-width:1100px) { .ca-header { height:auto;min-height:58px;flex-wrap:wrap;padding:10px 15px; }.ca-header-actions { margin-left:auto; }.ca-palette-button kbd { display:none; }.ca-three-pane { grid-template-columns:minmax(0,1fr);max-height:none; }.ca-tree-pane,.ca-change-pane { min-height:240px;max-height:38svh; }.ca-tree-pane + .ca-change-pane,.ca-change-pane + .ca-tree-pane { border-left:0;border-top:1px solid var(--ca-line); }.ca-inspector-grid { grid-template-columns:1fr 1fr; }.ca-inspector-grid > div:last-child { grid-column:1/-1; } }
 @media (max-width:650px) { .ca-header { gap:7px;padding:9px 10px; }.ca-brand strong { display:none; }.ca-header-sep { display:none; }.ca-header select { max-width:145px;min-width:0; }.ca-header select:nth-of-type(2) { min-width:92px; }.ca-header-actions { width:100%;order:4;justify-content:space-between;margin:0; }.ca-header-actions button { flex:1;justify-content:center;padding:0 4px;font-size:10px; }.ca-action-label { display:none; }.ca-palette-button { margin-left:auto; }.ca-workspace-title { align-items:flex-start;flex-direction:column;padding:15px 12px 10px; }.ca-workspace-title h1 { font-size:18px; }.ca-compare-meta { flex-wrap:wrap; }.ca-three-pane { margin:0 8px; }.ca-tree-pane,.ca-change-pane { max-height:42svh; }.ca-tree-row { gap:5px;padding-left:10px!important; }.ca-required { display:none; }.ca-kind { font-size:8px; }.ca-inspector { margin:9px 8px;padding:11px; }.ca-inspector-grid { grid-template-columns:1fr;gap:11px; }.ca-inspector-grid > div:last-child { grid-column:auto; }.ca-footer { flex-wrap:wrap;gap:8px;padding:10px; }.ca-footer > span:first-child { width:100%; }.ca-shortcut-hint { display:none; }.ca-empty-state { padding:21px;margin:5vh auto; }.ca-empty-actions > button { flex:1 1 40%; }.ca-modal-backdrop { padding:8px; }.ca-import-modal { max-height:96svh; }.ca-form-label { margin-right:13px;margin-left:13px; }.ca-import-modal > header,.ca-import-modal footer { padding-right:13px;padding-left:13px; }.ca-import-source { margin-left:13px; } }
 @media (prefers-reduced-motion: reduce) { .ca-app *, .ca-app *::before, .ca-app *::after { scroll-behavior:auto!important;transition:none!important; } }
+
+/* --- workspace actions menu --- */
+.ca-menu-wrap { position:relative; }
+.ca-menu-backdrop { position:fixed; z-index:24; inset:0; }
+.ca-menu { position:absolute; z-index:25; top:calc(100% + 6px); right:0; min-width:205px; padding:5px; border:1px solid var(--ca-line); border-radius:7px; background:#fff; box-shadow:0 10px 30px #1d2f2418; display:flex; flex-direction:column; }
+.ca-menu button { display:flex; align-items:center; gap:8px; padding:8px 9px; border:0; border-radius:5px; background:transparent; color:#44524a; font-size:11px; font-weight:600; text-align:left; }
+.ca-menu button:hover { background:#f2f6f3; }
+.ca-menu button.is-danger { color:var(--ca-red); }
+.ca-menu hr { border:0; border-top:1px solid #eef2ee; margin:4px 2px; }
+
+/* --- command palette --- */
+.ca-command-input { width:calc(100% - 24px); margin:12px 12px 6px; padding:9px 11px; border:1px solid #d5ded7; border-radius:6px; background:#fff; color:#27342c; font-size:12px; }
+.ca-command-list { max-height:46svh; overflow:auto; padding:0 8px 6px; }
+.ca-command-item { width:100%; display:flex; align-items:center; gap:9px; padding:9px; border:0; border-radius:5px; background:transparent; color:#46554b; font-size:11px; font-weight:600; text-align:left; }
+.ca-command-item svg { flex:none; color:#718077; }
+.ca-command-item.is-active { background:#edf3ee; box-shadow:inset 2px 0 #327451; }
+.ca-command-hint { margin-left:auto; color:#98a49c; font:9px "Cascadia Code",Consolas,monospace; }
+.ca-command-empty { padding:14px 12px; color:#8a968e; font-size:11px; }
+
+/* --- unchanged paths --- */
+.ca-unchanged-toggle { display:flex; align-items:center; gap:6px; border:0; background:none; color:#6f7c73; font-size:10px; font-weight:600; }
+.ca-unchanged-toggle[aria-pressed="true"] { color:#327451; }
+.ca-unchanged-list { border-top:1px dashed #dfe6e0; }
+.ca-unchanged-row { width:100%; display:flex; align-items:center; gap:7px; padding:5px 11px; border:0; background:transparent; color:#93a099; font-size:10px; text-align:left; }
+.ca-unchanged-row:hover { background:#f7faf7; }
+.ca-unchanged-row code { min-width:0; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:"Cascadia Code",Consolas,monospace; font-size:10px; }
+.ca-unchanged-row .ca-kind { color:#a5b0a9; }
+.ca-unchanged-note { padding:6px 11px 10px; color:#9aa69e; font-size:9px; }
+
+/* --- import preview --- */
+.ca-import-preview { margin:11px 20px 0; padding:9px 11px; border:1px solid #e2e9e3; border-radius:5px; background:#fafcfa; }
+.ca-import-preview .ca-overline { margin-bottom:5px; }
+.ca-import-paths { margin:0; font:10px/1.7 "Cascadia Code",Consolas,monospace; color:#4c5c51; overflow-wrap:anywhere; }
+.ca-file-chip { display:inline-flex; align-items:center; gap:5px; max-width:230px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:4px 8px; border:1px solid #dbe4dc; border-radius:4px; background:#fff; color:#4f5e54; font-size:10px; }
+
+/* --- inspector extras --- */
+.ca-inspector-rule { margin-top:7px; padding:7px 9px; border-left:3px solid #cfe0d4; background:#f7faf7; color:#4d5c52; font-size:10px; }
+.ca-examples { margin:5px 0 0; font:10px/1.6 "Cascadia Code",Consolas,monospace; color:#66756b; overflow-wrap:anywhere; }
+.ca-sample-count { display:block; margin-top:3px; color:#8a968e; font-size:9px; }
+
+/* --- tree rows are focusable divs --- */
+.ca-tree-row { cursor:pointer; }
+.ca-tree-row:focus-visible { outline:2px solid #32785a; outline-offset:-2px; }
+.ca-twisty { display:inline-flex; align-items:center; justify-content:center; width:14px; height:14px; padding:0; border:0; border-radius:3px; background:none; color:#829087; font-size:10px; line-height:1; }
+.ca-twisty:hover { background:#e7eee9; }
+
+@media (max-width:650px) { .ca-menu { right:-60px; } .ca-file-chip { max-width:150px; } }

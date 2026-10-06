@@ -1,13 +1,6 @@
-import Header from "@/components/Header";
-import StatusBar from "@/components/StatusBar";
-import Workspace from "@/components/Workspace";
+import ContractAtlasClient from "@/components/contract-atlas/contract-atlas-client";
+import "./contract-atlas.css";
 
-export default function HomePage() {
-  return (
-    <>
-      <Header />
-      <Workspace />
-      <StatusBar />
-    </>
-  );
+export default function ContractAtlasPage() {
+  return <ContractAtlasClient />;
 }
