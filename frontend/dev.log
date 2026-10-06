@@ -1,0 +1,15 @@
+
+> personal-ai-coding-agent-frontend@0.1.0 dev
+> next dev --port 3000
+
+   ▲ Next.js 15.5.4
+   - Local:        http://localhost:3000
+   - Network:      http://192.168.29.173:3000
+   - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 7.4s
+ ○ Compiling / ...
+ ✓ Compiled / in 1231ms (643 modules)
+ GET / 200 in 1529ms
+ GET / 200 in 2365ms

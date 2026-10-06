@@ -1,0 +1,41 @@
+# Infrastructure for local development (Phase 1).
+# The app itself runs natively (uvicorn + npm run dev); this file provides the
+# optional backing services. Without it, the backend falls back to SQLite and
+# Redis is reported as "disabled" in /health.
+#
+#   docker compose up -d
+#   DATABASE_URL=postgresql+psycopg://paia:paia@localhost:5432/paia
+#   REDIS_URL=redis://localhost:6379/0
+#
+# NOTE: this compose file does NOT run the sandbox runner. Execution stays
+# disabled until Phase 7 and requires explicit configuration (SANDBOX_ENABLED).
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: paia
+      POSTGRES_PASSWORD: paia
+      POSTGRES_DB: paia
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paia"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:

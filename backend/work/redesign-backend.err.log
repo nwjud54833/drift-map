@@ -1,0 +1,9 @@
+2026-10-03 01:46:03,382 INFO    app.main: personal-ai-coding-agent-api v0.2.0 ready (LLM configured: True)
+INFO:     Started server process [14720]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+2026-10-03 01:46:22,330 INFO    app.db.session: Database engine ready (sqlite)
+2026-10-03 01:47:04,513 INFO    app.services.git_service: Cloned repository octocat/Hello-World into workspace 1c48e67e-849a-4860-b7c6-3944ca455f32
+2026-10-03 01:47:36,535 INFO    httpx: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-10-03 01:47:50,064 INFO    httpx: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"

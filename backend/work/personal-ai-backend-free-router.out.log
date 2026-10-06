@@ -1,0 +1,26 @@
+INFO:     127.0.0.1:60596 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56125 - "POST /api/chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57401 - "GET /api/repositories/dc462bc6-c37b-41c1-bedb-2995c7a94aac/file?path=.node-version HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57401 - "GET /api/repositories/dc462bc6-c37b-41c1-bedb-2995c7a94aac/file?path=.gitignore HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57401 - "OPTIONS /api/chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57401 - "POST /api/chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54672 - "GET /api/repositories/dc462bc6-c37b-41c1-bedb-2995c7a94aac/file?path=.github%2Fdependabot.yml HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54672 - "GET /api/repositories/dc462bc6-c37b-41c1-bedb-2995c7a94aac/file?path=.npmignore HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54672 - "GET /api/repositories/dc462bc6-c37b-41c1-bedb-2995c7a94aac/file?path=.npmignore HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54672 - "GET /api/repositories/dc462bc6-c37b-41c1-bedb-2995c7a94aac/file?path=docker-compose.selfhost.yml HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54672 - "GET /api/repositories/dc462bc6-c37b-41c1-bedb-2995c7a94aac/file?path=docker-compose.selfhost.yml HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54672 - "GET /api/repositories/dc462bc6-c37b-41c1-bedb-2995c7a94aac/file?path=.size-limit.json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54672 - "GET /api/repositories/dc462bc6-c37b-41c1-bedb-2995c7a94aac/file?path=CONTRIBUTING.md HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54397 - "GET /api/repositories/dc462bc6-c37b-41c1-bedb-2995c7a94aac/file?path=.github%2Fworkflows%2Fci.yml HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54397 - "POST /api/chat HTTP/1.1" 413 Request Entity Too Large
+INFO:     127.0.0.1:53996 - "GET /api/repositories/dc462bc6-c37b-41c1-bedb-2995c7a94aac/file?path=.github%2Fworkflows%2Frelease-acceptance.yml HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53996 - "POST /api/chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57717 - "GET /api/repositories/dc462bc6-c37b-41c1-bedb-2995c7a94aac/file?path=%40omniroute%2Fopencode-plugin-v2%2Fpackage-lock.json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57717 - "POST /api/chat HTTP/1.1" 403 Forbidden
+INFO:     127.0.0.1:63281 - "POST /api/chat HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:61576 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61576 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61576 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61576 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61576 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61576 - "GET /health HTTP/1.1" 200 OK

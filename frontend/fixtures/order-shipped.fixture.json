@@ -1,0 +1,12 @@
+{
+  "baseline": [
+    {"event_id":"evt_01J8A1","event_type":"order.shipped","occurred_at":"2026-09-05T10:14:00.000Z","data":{"order_id":"ORD-1001","status":"shipped","total_cents":12900,"currency":"USD","customer":{"id":"CUS-201","email":"taylor@example.com"},"shipping":{"carrier":"UPS","tracking_number":"1Z999AA10123456784"},"items":[{"sku":"MUG-BLUE","quantity":1,"unit_price_cents":12900}]}},
+    {"event_id":"evt_01J8A2","event_type":"order.shipped","occurred_at":"2026-09-06T15:42:00.000Z","data":{"order_id":"ORD-1002","status":"shipped","total_cents":7500,"currency":"USD","customer":{"id":"CUS-202","email":"morgan@example.com"},"shipping":{"carrier":"USPS","tracking_number":"9400111899223856928499"},"items":[{"sku":"NOTEBOOK-GRID","quantity":2,"unit_price_cents":3750}]}},
+    {"event_id":"evt_01J8A3","event_type":"order.shipped","occurred_at":"2026-09-08T09:03:00.000Z","data":{"order_id":"ORD-1003","status":"shipped","total_cents":22000,"discount_cents":2000,"currency":"USD","customer":{"id":"CUS-203","email":"alex@example.com"},"shipping":{"carrier":"DHL","tracking_number":"JD014600006281000000"},"items":[{"sku":"TOTE-CANVAS","quantity":1,"unit_price_cents":22000}]}}
+  ],
+  "candidate": [
+    {"event_id":"evt_01K1B1","event_type":"order.shipped","occurred_at":"2026-10-01T10:14:00.000Z","schema_version":"2026-10","data":{"order_id":"ORD-1001","status":"shipped","total":{"amount":129,"currency":"USD"},"customer":{"id":"CUS-201"},"shipping":{"carrier":"UPS","tracking":"1Z999AA10123456784"},"fulfillment":{"location_id":"WH-NY-01"},"items":[{"sku":"MUG-BLUE","quantity":1,"unit_price":{"amount":129,"currency":"USD"}}]}},
+    {"event_id":"evt_01K1B2","event_type":"order.shipped","occurred_at":"2026-10-02T15:42:00.000Z","schema_version":"2026-10","data":{"order_id":"ORD-1002","status":"shipped","total":{"amount":75,"currency":"USD"},"customer":{"id":"CUS-202"},"shipping":{"carrier":"USPS","tracking":"9400111899223856928499"},"fulfillment":{"location_id":"WH-NY-01"},"items":[{"sku":"NOTEBOOK-GRID","quantity":2,"unit_price":{"amount":37.5,"currency":"USD"}}]}},
+    {"event_id":"evt_01K1B3","event_type":"order.shipped","occurred_at":"2026-10-03T09:03:00.000Z","schema_version":"2026-10","data":{"order_id":"ORD-1003","status":"partially_shipped","total":{"amount":200,"currency":"USD"},"customer":{"id":"CUS-203"},"shipping":{"carrier":"DHL","tracking":"JD014600006281000000"},"fulfillment":{"location_id":"WH-LA-02"},"items":[{"sku":"TOTE-CANVAS","quantity":1,"unit_price":{"amount":200,"currency":"USD"}}]}}
+  ]
+}

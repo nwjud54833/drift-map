@@ -1,0 +1,51 @@
+# --- Environment / secrets ---
+backend/.env
+frontend/.env.local
+.env
+*.env
+!*.env.example
+
+# --- Cloned repository workspaces (never commit user-cloned repos) ---
+backend/workspace/*
+!backend/workspace/.gitkeep
+
+# --- Databases and generated data ---
+backend/local.db
+*.db
+*.sqlite3
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+
+# --- Node / Next.js ---
+node_modules/
+frontend/.next/
+frontend/out/
+frontend/next-env.d.ts
+*.tsbuildinfo
+next-env.d.ts
+test-results/
+playwright-report/
+
+# --- Coverage ---
+coverage/
+*.lcov
+
+# --- Editors / OS ---
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
