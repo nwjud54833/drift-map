@@ -1,0 +1,92 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg: #050609;
+    --surface: #090C12;
+    --raised: #0E1219;
+    --border: #1A202A;
+    --text-primary: #F5F7FA;
+    --text-muted: #8993A5;
+    --accent: #3B82F6;
+  }
+
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: #050609;
+    color: #F5F7FA;
+    overflow-x: hidden;
+    letter-spacing: -0.011em;
+  }
+
+  code, pre, .font-mono {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-feature-settings: "tnum" 1, "zero" 1;
+    letter-spacing: -0.02em;
+  }
+}
+
+/* Custom subtle scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: #050609;
+}
+::-webkit-scrollbar-thumb {
+  background: #1A202A;
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #28303F;
+}
+
+/* Precision subtle hairline grid */
+.bg-grid-subtle {
+  background-size: 40px 40px;
+  background-image:
+    linear-gradient(to right, rgba(26, 32, 42, 0.35) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(26, 32, 42, 0.35) 1px, transparent 1px);
+}
+
+/* Subtle drift line dash animation */
+@keyframes driftFlow {
+  from {
+    stroke-dashoffset: 24;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.animate-drift-flow {
+  stroke-dasharray: 4 4;
+  animation: driftFlow 1.8s linear infinite;
+}
+
+@keyframes pulseSubtle {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.animate-pulse-subtle {
+  animation: pulseSubtle 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+
+
+.driftmap-page { min-height:100vh; background:#050609; color:#F5F7FA; font-family:var(--font-inter),ui-sans-serif,system-ui,sans-serif; overflow-x:hidden; }
+.driftmap-page .driftmap-workbench-cta { padding:7rem 1rem; border-bottom:1px solid #1A202A; background:#07090E; }
+.driftmap-page .driftmap-workbench-cta > div { width:min(1120px,100%); margin:auto; padding:2.5rem; border:1px solid #1A202A; background:#090C12; }
+.driftmap-page .driftmap-kicker { color:#3B82F6; font:11px/1 var(--font-jetbrains),monospace; letter-spacing:.14em; text-transform:uppercase; }
+.driftmap-page .driftmap-workbench-cta h2 { margin:1rem 0 1rem; color:#F5F7FA; font-size:clamp(2.5rem,6vw,5rem); font-weight:900; letter-spacing:-.05em; line-height:.95; }
+.driftmap-page .driftmap-workbench-cta h2 span { color:#8993A5; }
+.driftmap-page .driftmap-workbench-cta p { max-width:500px; color:#8993A5; line-height:1.7; }
+.driftmap-page .driftmap-primary-link { display:inline-flex; margin-top:1.5rem; padding:.8rem 1.1rem; border:1px solid #3B82F6; border-radius:4px; background:#3B82F6; color:#fff; font:12px var(--font-jetbrains),monospace; }
+.driftmap-page button:focus-visible,.driftmap-page a:focus-visible { outline:2px solid #60a5fa; outline-offset:3px; }
+@media (max-width:640px) { .driftmap-page .driftmap-workbench-cta { padding:4rem .75rem; }.driftmap-page .driftmap-workbench-cta > div { padding:1.25rem; } }

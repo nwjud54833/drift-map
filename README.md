@@ -1,45 +1,16 @@
 # Contract Atlas
 
-A **local-first visual workbench** that turns real JSON payload samples into an inferred
-contract and highlights semantic API, webhook, and structured-output drift as
-**breaking / warning / safe / info** — instead of a noisy line-by-line text diff.
+Contract Atlas is a local-first Next.js application for comparing real JSON payload samples, inferring a structural contract, and classifying semantic drift as breaking, warning, safe, or info.
 
-```
-REAL JSON SAMPLES → INFERRED CONTRACT → SEMANTIC COMPARISON → COMPATIBILITY ANALYSIS → ACTIONABLE DRIFT
-```
+## Routes
 
-## Overview
-
-An upstream API, webhook, or structured output changed. You have a few old payload
-samples and a few new ones, but no formal schema. Contract Atlas answers:
-
-> "What structurally changed, and what is likely to break?"
-
-Paste or import two payload versions; the deterministic engine infers normalized paths,
-kinds, and requiredness from every sample, compares the two inferred contracts, and
-classifies every change with direction-aware compatibility rules.
-
-## Features
-
-- **Local-first** — everything lives in your browser (IndexedDB via Dexie); nothing is uploaded
-- **Sample-based contract inference** — normalized JSON-pointer paths (`/data/items/*/sku`),
-  kind unions (`string | null`), requiredness from sample presence
-- **Semantic drift rail** — field added/removed, type changed, became required/optional
-- **Direction-aware compatibility** — response / request / event severity policies
-- **JSON import** — paste or `.json` file, single object or array of samples, 2 MB cap, friendly errors
-- **Workspaces** — multiple comparisons, rename, swap baseline/candidate, snapshot labels, demo fixture
-- **Search & filters** — severity chips, text search, unchanged-path view
-- **Exports** — Markdown drift report (no raw payloads) and full workspace JSON backup
-- **Keyboard-first** — `Ctrl/⌘ K` command palette, `Ctrl/⌘ O` import, `Ctrl/⌘ E` export, `Esc` closes
-- **Deterministic core** — pure TypeScript engine, no LLM, no network, fully unit-tested
-
-## Tech stack
-
-TypeScript (strict) · Next.js App Router · React 19 · Tailwind-free custom CSS design system ·
-Zustand (transient UI state) · Dexie (IndexedDB persistence) · Zod (import validation) ·
-Lucide icons · Vitest
+- `/` — DriftMap-inspired product overview and interactive explanation
+- `/workbench` — functional local-first Contract Atlas workbench
+- `/contract-atlas` — legacy redirect to `/workbench`
 
 ## Development
+
+Requirements: Node.js 20+ (Next.js supports Node 18.18+; Node 20 LTS or newer is recommended) and npm.
 
 ```bash
 cd frontend
@@ -47,54 +18,46 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3000 — the workbench is the root page. On first run a demo
-workspace (**Order Webhook Migration**, an `order.shipped` webhook money-object migration)
-is seeded locally and immediately shows meaningful drift.
+Open <http://localhost:3000>.
 
-## Quality
+## Quality checks
 
-From `frontend/`:
+Run from `frontend/`:
 
 ```bash
-npm run lint        # ESLint
-npm run typecheck   # tsc --noEmit
-npm test            # Vitest, pure-core suite
-npm run build       # production build
+npm run lint
+npm run typecheck
+npm test
+npm run build
 ```
+
+The production deployment uses standard Next.js/Vercel behavior. No custom server, Docker setup, API routes, database, or authentication is required for this step.
 
 ## Privacy
 
-Contract Atlas processes payloads locally in the browser.
-The MVP does not upload imported JSON to a server.
-
-There is no backend, no API routes, no authentication, no telemetry, and no external
-network calls anywhere in the application. Imports never leave the tab; exports are
-produced with local `Blob` downloads only.
+JSON payloads are parsed and compared locally in the browser. Contract Atlas does not upload imported payloads, use telemetry, or require an API key. Workspaces are stored in browser IndexedDB.
 
 ## Architecture
 
-```
-UI (React client components)
+```text
+Next.js App Router
   ↓
-Zustand (transient UI state only)
+React workbench UI + Zustand transient UI state
   ↓
-pure contract engine (lib/contract — no React, no Dexie, no browser globals)
+pure TypeScript contract engine
   ↓
-Dexie adapter (lib/db — IndexedDB persistence, demo seeding)
+Dexie IndexedDB adapter
 ```
 
-Pure engine modules: `parse`, `normalize` (kinds, pointer escaping), `infer`
-(contracts + fingerprints), `compare` (diff + suppression + unchanged), `compatibility`
-(central severity policy), `export` (Markdown report + workspace backup).
+The domain engine covers JSON parsing, normalized JSON-pointer paths, array wildcard normalization, type inference, requiredness evidence, stable contract fingerprints, semantic comparison, compatibility classification, and Markdown/workspace exports.
 
 ## Known limitations
 
-- Sample inference is evidence, not formal schema validation — it cannot prove that a
-  producer's schema matches the samples
-- Field renames appear as removal + addition; there is no fuzzy rename detection
-- v1 supports JSON only (no OpenAPI, YAML, XML, CSV, GraphQL)
-- Imported payloads are capped at 2 MB
-- No cloud sync, no team collaboration, no CI integration
+- Sample inference is evidence, not formal schema validation.
+- Field renames appear as removal plus addition; fuzzy rename detection is not implemented.
+- JSON is the only supported import format.
+- Imported payloads are capped at 2 MB.
+- There is no cloud sync, collaboration, CI integration, backend, or account system.
 
 ## License
 

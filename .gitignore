@@ -1,6 +1,7 @@
 # --- Environment / secrets ---
 .env
 .env.local
+.env.*.local
 *.env
 !*.env.example
 
@@ -12,9 +13,19 @@ next-env.d.ts
 *.tsbuildinfo
 test-results/
 
+# --- Logs / package manager output ---
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
 # --- Coverage ---
 coverage/
 *.lcov
+
+# --- Local tooling metadata ---
+.freebuff/
 
 # --- Editors / OS ---
 .vscode/

@@ -2,14 +2,11 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Contract Atlas — local-first contract drift workbench",
-  description:
-    "Turn real JSON payload samples into an inferred contract and highlight semantic API, webhook, and structured output drift. Fully local: nothing leaves your browser.",
+  title: "Contract Atlas — Catch contract drift before it breaks your integration",
+  description: "Compare real JSON payloads, infer their structure, and see semantic API, webhook, and structured-output drift locally.",
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{ children: React.ReactNode }>) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
       <body>{children}</body>

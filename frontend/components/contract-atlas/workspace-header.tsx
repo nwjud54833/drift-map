@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import type { ContractDirection, Workspace } from "@/lib/contract/types";
 import { ArrowLeftRight, Download, FileText, MoreHorizontal, Pencil, Plus, Trash2, Upload } from "lucide-react";
 
@@ -39,7 +40,7 @@ export function WorkspaceHeader({ workspaces, active, onSelect, onImport, onNew,
 
   return (
     <header className="ca-header">
-      <span className="ca-brand"><span className="ca-brand-mark">CA</span><strong>Contract Atlas</strong></span>
+      <Link href="/" className="ca-brand" aria-label="Contract Atlas home"><span className="ca-brand-mark">CA</span><strong>Contract Atlas</strong></Link>
       <span className="ca-header-sep" />
       <select aria-label="Active workspace" value={active?.id ?? ""} onChange={(event) => onSelect(event.target.value)}>
         {workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}
