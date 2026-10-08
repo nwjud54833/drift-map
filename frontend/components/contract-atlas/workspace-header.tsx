@@ -4,10 +4,15 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { ContractDirection, Workspace } from "@/lib/contract/types";
 import { ArrowLeftRight, Download, FileText, MoreHorizontal, Pencil, Plus, Trash2, Upload } from "lucide-react";
+import { AuthControl } from "./auth-control";
+import { useSession } from "next-auth/react";
 
 interface WorkspaceHeaderProps {
   workspaces: Workspace[];
   active: Workspace | null;
+  mode: "local" | "cloud";
+  cloudAvailable: boolean;
+  onModeChange: (mode: "local" | "cloud") => void;
   onSelect: (id: string) => void;
   onImport: (side: "before" | "after") => void;
   onNew: () => void;
@@ -20,8 +25,9 @@ interface WorkspaceHeaderProps {
   onPalette: () => void;
 }
 
-export function WorkspaceHeader({ workspaces, active, onSelect, onImport, onNew, onRename, onDelete, onSwap, onDirection, onExport, onRaw, onPalette }: WorkspaceHeaderProps) {
+export function WorkspaceHeader({ workspaces, active, mode, cloudAvailable, onModeChange, onSelect, onImport, onNew, onRename, onDelete, onSwap, onDirection, onExport, onRaw, onPalette }: WorkspaceHeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const { data: session } = useSession();
   const menuButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -42,6 +48,10 @@ export function WorkspaceHeader({ workspaces, active, onSelect, onImport, onNew,
     <header className="ca-header">
       <Link href="/" className="ca-brand" aria-label="Contract Atlas home"><span className="ca-brand-mark">CA</span><strong>Contract Atlas</strong></Link>
       <span className="ca-header-sep" />
+      <select aria-label="Storage mode" value={mode} onChange={(event) => onModeChange(event.target.value as "local" | "cloud")}>
+        <option value="local">Local</option>
+        <option value="cloud" disabled={!cloudAvailable}>Cloud{cloudAvailable ? "" : " · sign in"}</option>
+      </select>
       <select aria-label="Active workspace" value={active?.id ?? ""} onChange={(event) => onSelect(event.target.value)}>
         {workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}
       </select>
@@ -82,6 +92,7 @@ export function WorkspaceHeader({ workspaces, active, onSelect, onImport, onNew,
         </div>
       </div>
       <button className="ca-palette-button" onClick={onPalette} aria-label="Open command palette (Ctrl or Cmd plus K)"><kbd>Ctrl K</kbd></button>
+      <AuthControl user={session?.user ?? null} />
     </header>
   );
 }

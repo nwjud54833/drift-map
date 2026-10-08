@@ -6,9 +6,12 @@ import type { Command } from "./command-palette";
 import { CommandPalette } from "./command-palette";
 import type { ContractDirection, ContractSnapshot, PayloadSample, Workspace } from "@/lib/contract/types";
 import { collectUnchangedNodes, buildDiff, compareContracts } from "@/lib/contract/compare";
+import { inferContract } from "@/lib/contract/infer";
 import { buildMarkdownReport, buildWorkspaceExport } from "@/lib/contract/export";
+import { createCloudSnapshot, createCloudWorkspace, loadCloudWorkbench } from "@/lib/db/cloud-api";
 import { createSnapshot, createWorkspace, deleteWorkspace, importDemoFixture, loadWorkbench, renameSnapshot, saveWorkspace } from "@/lib/db/contract-atlas-db";
 import { useWorkspaceUIStore } from "@/stores/workspace-ui-store";
+import { useSession } from "next-auth/react";
 import { ChangeInspector, ChangeRail, EmptyWorkbench, RawJsonDrawer, SnapshotTree } from "./panels";
 import { ImportSheet } from "./import-sheet";
 import { WorkspaceHeader } from "./workspace-header";
@@ -31,6 +34,8 @@ export default function ContractAtlasClient() {
   const [notice, setNotice] = useState("");
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [importSide, setImportSide] = useState<"before" | "after">("before");
+  const [mode, setMode] = useState<"local" | "cloud">("local");
+  const { data: session } = useSession();
 
   const activeId = useWorkspaceUIStore((state) => state.activeWorkspaceId);
   const setActiveWorkspace = useWorkspaceUIStore((state) => state.setActiveWorkspace);
@@ -55,7 +60,7 @@ export default function ContractAtlasClient() {
     try {
       setLoading(true);
       setError(null);
-      const result = await loadWorkbench();
+      const result = mode === "cloud" ? await loadCloudWorkbench() : await loadWorkbench();
       setWorkspaces(result.workspaces);
       setSnapshots(result.snapshots);
       const current = useWorkspaceUIStore.getState().activeWorkspaceId;
@@ -65,7 +70,7 @@ export default function ContractAtlasClient() {
     } finally {
       setLoading(false);
     }
-  }, [setActiveWorkspace]);
+  }, [mode, setActiveWorkspace]);
 
   useEffect(() => { void refresh(); }, [refresh]);
 
@@ -101,14 +106,14 @@ export default function ContractAtlasClient() {
     try {
       let workspace = active;
       if (!workspace) {
-        workspace = createWorkspace("Untitled Contract");
-        await saveWorkspace(workspace);
+        workspace = mode === "cloud" ? await createCloudWorkspace("Untitled Contract", "response") : createWorkspace("Untitled Contract");
+        if (mode === "local") await saveWorkspace(workspace);
         setWorkspaces((current) => [workspace!, ...current]);
         setActiveWorkspace(workspace.id);
       }
-      const snapshot = await createSnapshot(workspace.id, samples, label, fileName);
+      const snapshot = mode === "cloud" ? (await createCloudSnapshot(workspace.id, label, samples, fileName), { id: `cloud-${Date.now()}`, workspaceId: workspace.id, versionLabel: label, notes: "", sourceFileName: fileName, samples, contract: inferContract(samples), createdAt: new Date().toISOString() }) : await createSnapshot(workspace.id, samples, label, fileName);
       const updated: Workspace = { ...workspace, [side === "before" ? "baselineSnapshotId" : "candidateSnapshotId"]: snapshot.id, updatedAt: new Date().toISOString() };
-      await saveWorkspace(updated);
+      if (mode === "local") await saveWorkspace(updated);
       setSnapshots((current) => [...current, snapshot]);
       setWorkspaces((current) => current.map((item) => (item.id === updated.id ? updated : item)));
       selectChange(null, null);
@@ -119,26 +124,26 @@ export default function ContractAtlasClient() {
     } finally {
       setPendingAction(null);
     }
-  }, [active, flash, selectChange, setActiveWorkspace, setImportOpen]);
+  }, [active, flash, mode, selectChange, setActiveWorkspace, setImportOpen]);
 
   async function newWorkspace() {
     const name = window.prompt("Workspace name", "New contract workspace");
     if (!name?.trim() || pendingAction) return;
     setPendingAction("workspace");
     try {
-      const workspace = createWorkspace(name.trim());
-      await saveWorkspace(workspace);
+      const workspace = mode === "cloud" ? await createCloudWorkspace(name.trim(), "response") : createWorkspace(name.trim());
+      if (mode === "local") await saveWorkspace(workspace);
       setWorkspaces((current) => [workspace, ...current]);
       setActiveWorkspace(workspace.id);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Unable to create the local workspace.");
+      setError(reason instanceof Error ? reason.message : `Unable to create the ${mode} workspace.`);
     } finally {
       setPendingAction(null);
     }
   }
 
   async function renameWorkspace() {
-    if (!active) return;
+    if (!active || mode === "cloud") return;
     const name = window.prompt("Rename workspace", active.name);
     if (!name?.trim() || name.trim() === active.name) return;
     const updated = { ...active, name: name.trim(), updatedAt: new Date().toISOString() };
@@ -147,7 +152,7 @@ export default function ContractAtlasClient() {
   }
 
   async function removeWorkspace() {
-    if (!active) return;
+    if (!active || mode === "cloud") return;
     if (workspaces.length < 2) { setError("Keep at least one workspace open. Create another workspace before deleting this one."); return; }
     if (!window.confirm(`Delete “${active.name}” and its local snapshots?`)) return;
     await deleteWorkspace(active.id);
@@ -158,7 +163,7 @@ export default function ContractAtlasClient() {
   }
 
   async function swapSnapshots() {
-    if (!active || pendingAction) return;
+    if (!active || pendingAction || mode === "cloud") return;
     setPendingAction("swap");
     try {
       const updated = { ...active, baselineSnapshotId: active.candidateSnapshotId, candidateSnapshotId: active.baselineSnapshotId, updatedAt: new Date().toISOString() };
@@ -174,7 +179,7 @@ export default function ContractAtlasClient() {
   }
 
   async function changeDirection(direction: ContractDirection) {
-    if (!active) return;
+    if (!active || mode === "cloud") return;
     const updated = { ...active, direction, updatedAt: new Date().toISOString() };
     await saveWorkspace(updated);
     setWorkspaces((current) => current.map((item) => (item.id === updated.id ? updated : item)));
@@ -203,14 +208,19 @@ export default function ContractAtlasClient() {
 
   function exportFile(kind: "workspace" | "report") {
     if (!active || pendingAction) return;
-    if (kind === "workspace") {
-      download("contract-atlas-workspace.json", buildWorkspaceExport(active, baseline, candidate), "application/json");
-      flash("Workspace backup downloaded");
-    } else if (baseline && candidate && diff) {
-      download("contract-atlas-report.md", buildMarkdownReport(active, baseline, candidate, diff), "text/markdown;charset=utf-8");
-      flash("Report downloaded");
-    } else {
-      setError("This workspace does not have both snapshots yet.");
+    setPendingAction("export");
+    try {
+      if (kind === "workspace") {
+        download("contract-atlas-workspace.json", buildWorkspaceExport(active, baseline, candidate), "application/json");
+        flash("Workspace backup downloaded");
+      } else if (baseline && candidate && diff) {
+        download("contract-atlas-report.md", buildMarkdownReport(active, baseline, candidate, diff), "text/markdown;charset=utf-8");
+        flash("Report downloaded");
+      } else {
+        setError("This workspace does not have both snapshots yet.");
+      }
+    } finally {
+      setPendingAction(null);
     }
   }
 
@@ -258,6 +268,9 @@ export default function ContractAtlasClient() {
       <WorkspaceHeader
         workspaces={workspaces}
         active={active}
+        mode={mode}
+        cloudAvailable={!!session}
+        onModeChange={setMode}
         onSelect={setActiveWorkspace}
         onImport={openImport}
         onNew={() => void newWorkspace()}
@@ -306,7 +319,7 @@ export default function ContractAtlasClient() {
         <span className="ca-shortcut-hint">Ctrl/⌘ K commands · Ctrl/⌘ O import · Ctrl/⌘ E export</span>
       </footer>
       {rawOpen && <RawJsonDrawer baseline={baseline} candidate={candidate} onClose={() => setRawOpen(false)} />}
-      {importOpen && <ImportSheet onImport={handleImport} side={importSide} />}
+      {importOpen && <ImportSheet onImport={handleImport} side={importSide} saving={pendingAction === "import"} />}
       {paletteOpen && <CommandPalette commands={commands} onClose={() => setPaletteOpen(false)} />}
       {notice && <div className="ca-toast" role="status">{notice}</div>}
     </main>
