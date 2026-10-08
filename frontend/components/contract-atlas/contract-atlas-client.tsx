@@ -29,6 +29,7 @@ export default function ContractAtlasClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [importSide, setImportSide] = useState<"before" | "after">("before");
 
   const activeId = useWorkspaceUIStore((state) => state.activeWorkspaceId);
@@ -96,30 +97,44 @@ export default function ContractAtlasClient() {
   }, [flash]);
 
   const handleImport = useCallback(async (samples: PayloadSample[], label: string, fileName: string | null, side: "before" | "after") => {
-    let workspace = active;
-    if (!workspace) {
-      workspace = createWorkspace("Untitled Contract");
-      await saveWorkspace(workspace);
-      setWorkspaces((current) => [workspace!, ...current]);
-      setActiveWorkspace(workspace.id);
+    setPendingAction("import");
+    try {
+      let workspace = active;
+      if (!workspace) {
+        workspace = createWorkspace("Untitled Contract");
+        await saveWorkspace(workspace);
+        setWorkspaces((current) => [workspace!, ...current]);
+        setActiveWorkspace(workspace.id);
+      }
+      const snapshot = await createSnapshot(workspace.id, samples, label, fileName);
+      const updated: Workspace = { ...workspace, [side === "before" ? "baselineSnapshotId" : "candidateSnapshotId"]: snapshot.id, updatedAt: new Date().toISOString() };
+      await saveWorkspace(updated);
+      setSnapshots((current) => [...current, snapshot]);
+      setWorkspaces((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      selectChange(null, null);
+      setImportOpen(false);
+      flash(`${side === "before" ? "Baseline" : "Candidate"} imported`);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Unable to import this snapshot locally.");
+    } finally {
+      setPendingAction(null);
     }
-    const snapshot = await createSnapshot(workspace.id, samples, label, fileName);
-    const updated: Workspace = { ...workspace, [side === "before" ? "baselineSnapshotId" : "candidateSnapshotId"]: snapshot.id, updatedAt: new Date().toISOString() };
-    await saveWorkspace(updated);
-    setSnapshots((current) => [...current, snapshot]);
-    setWorkspaces((current) => current.map((item) => (item.id === updated.id ? updated : item)));
-    selectChange(null, null);
-    setImportOpen(false);
-    flash(`${side === "before" ? "Baseline" : "Candidate"} imported`);
   }, [active, flash, selectChange, setActiveWorkspace, setImportOpen]);
 
   async function newWorkspace() {
     const name = window.prompt("Workspace name", "New contract workspace");
-    if (!name?.trim()) return;
-    const workspace = createWorkspace(name.trim());
-    await saveWorkspace(workspace);
-    setWorkspaces((current) => [workspace, ...current]);
-    setActiveWorkspace(workspace.id);
+    if (!name?.trim() || pendingAction) return;
+    setPendingAction("workspace");
+    try {
+      const workspace = createWorkspace(name.trim());
+      await saveWorkspace(workspace);
+      setWorkspaces((current) => [workspace, ...current]);
+      setActiveWorkspace(workspace.id);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Unable to create the local workspace.");
+    } finally {
+      setPendingAction(null);
+    }
   }
 
   async function renameWorkspace() {
@@ -143,12 +158,19 @@ export default function ContractAtlasClient() {
   }
 
   async function swapSnapshots() {
-    if (!active) return;
-    const updated = { ...active, baselineSnapshotId: active.candidateSnapshotId, candidateSnapshotId: active.baselineSnapshotId, updatedAt: new Date().toISOString() };
-    await saveWorkspace(updated);
-    setWorkspaces((current) => current.map((item) => (item.id === updated.id ? updated : item)));
-    selectChange(null, null);
-    flash("Sides swapped");
+    if (!active || pendingAction) return;
+    setPendingAction("swap");
+    try {
+      const updated = { ...active, baselineSnapshotId: active.candidateSnapshotId, candidateSnapshotId: active.baselineSnapshotId, updatedAt: new Date().toISOString() };
+      await saveWorkspace(updated);
+      setWorkspaces((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      selectChange(null, null);
+      flash("Sides swapped");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Unable to swap snapshots locally.");
+    } finally {
+      setPendingAction(null);
+    }
   }
 
   async function changeDirection(direction: ContractDirection) {
@@ -165,15 +187,22 @@ export default function ContractAtlasClient() {
 
   const loadDemo = useCallback(async () => {
     if (!active) return;
-    const result = await importDemoFixture(active);
-    setSnapshots((current) => [...current.filter((snapshot) => ![result.baseline.id, result.candidate.id].includes(snapshot.id)), result.baseline, result.candidate]);
-    setWorkspaces((current) => current.map((item) => (item.id === result.workspace.id ? result.workspace : item)));
-    selectChange(null, null);
-    flash("Demo payloads loaded");
+    setPendingAction("demo");
+    try {
+      const result = await importDemoFixture(active);
+      setSnapshots((current) => [...current.filter((snapshot) => ![result.baseline.id, result.candidate.id].includes(snapshot.id)), result.baseline, result.candidate]);
+      setWorkspaces((current) => current.map((item) => (item.id === result.workspace.id ? result.workspace : item)));
+      selectChange(null, null);
+      flash("Demo payloads loaded");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Unable to load the demo payloads.");
+    } finally {
+      setPendingAction(null);
+    }
   }, [active, flash, selectChange]);
 
   function exportFile(kind: "workspace" | "report") {
-    if (!active) return;
+    if (!active || pendingAction) return;
     if (kind === "workspace") {
       download("contract-atlas-workspace.json", buildWorkspaceExport(active, baseline, candidate), "application/json");
       flash("Workspace backup downloaded");
@@ -222,7 +251,7 @@ export default function ContractAtlasClient() {
     return () => window.removeEventListener("keydown", onKeyDown);
   });
 
-  if (loading) return <main className="ca-app"><div className="ca-loading">Loading local workspace…</div></main>;
+  if (loading) return <main className="ca-app" aria-busy="true"><div className="ca-boot" role="status" aria-live="polite"><div className="ca-boot-mark">Δ</div><div className="ca-boot-title">DRIFTMAP</div><div className="ca-boot-step is-active"><span className="ca-boot-dot"/>Opening local workspace</div><div className="ca-boot-step"><span className="ca-boot-dot"/>Loading contract graph</div><div className="ca-boot-note">Local-only analysis · no upload</div></div></main>;
 
   return (
     <main className="ca-app">
@@ -259,7 +288,7 @@ export default function ContractAtlasClient() {
               <span>{baseline.samples.length} baseline samples</span>
               <ArrowDownUp size={14} aria-hidden="true" />
               <span>{candidate.samples.length} candidate samples</span>
-              <button onClick={() => void swapSnapshots()}>Swap sides</button>
+              <button disabled={pendingAction !== null} onClick={() => void swapSnapshots()}>{pendingAction === "swap" ? "Swapping…" : "Swap sides"}</button>
             </div>
           </div>
           <div className="ca-three-pane">
@@ -272,8 +301,8 @@ export default function ContractAtlasClient() {
       )}
       <footer className="ca-footer">
         <span>Local-only · JSON payloads never leave this browser</span>
-        <button onClick={() => setRawOpen(!rawOpen)}><FileJson size={14} aria-hidden="true" />{rawOpen ? "Hide raw JSON" : "View raw JSON"}</button>
-        <button onClick={() => exportFile("workspace")}><Download size={14} aria-hidden="true" />Backup workspace</button>
+        <button disabled={pendingAction !== null} onClick={() => setRawOpen(!rawOpen)}><FileJson size={14} aria-hidden="true" />{rawOpen ? "Hide raw JSON" : "View raw JSON"}</button>
+        <button disabled={pendingAction !== null} onClick={() => exportFile("workspace")}><Download size={14} aria-hidden="true" />{pendingAction === "export" ? "Preparing…" : "Backup workspace"}</button>
         <span className="ca-shortcut-hint">Ctrl/⌘ K commands · Ctrl/⌘ O import · Ctrl/⌘ E export</span>
       </footer>
       {rawOpen && <RawJsonDrawer baseline={baseline} candidate={candidate} onClose={() => setRawOpen(false)} />}

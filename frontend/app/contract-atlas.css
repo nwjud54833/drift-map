@@ -1,5 +1,5 @@
 /* Contract Atlas workbench — dark instrument surfaces */
-.ca-app { --ca-ink:#e5e9f0; --ca-muted:#a1aaba; --ca-line:#29303c; --ca-panel:#0d1118; --ca-green:#5bc49d; --ca-red:#ef7c7d; --ca-amber:#e9b15f; --ca-blue:#8aa5c8; min-height:100svh; background:#090c11; color:var(--ca-ink); font:13px/1.45 var(--font-inter),Inter,"Segoe UI",system-ui,sans-serif; display:flex; flex-direction:column; }
+.ca-app { color-scheme:dark; --ca-ink:#e5e9f0; --ca-muted:#a1aaba; --ca-line:#29303c; --ca-panel:#0d1118; --ca-green:#5bc49d; --ca-red:#ef7c7d; --ca-amber:#e9b15f; --ca-blue:#8aa5c8; min-height:100svh; background:#090c11; color:var(--ca-ink); font:13px/1.45 var(--font-inter),Inter,"Segoe UI",system-ui,sans-serif; display:flex; flex-direction:column; }
 .ca-app * { box-sizing:border-box; }
 .ca-app button,.ca-app input,.ca-app select,.ca-app textarea { font:inherit; }
 .ca-app button { cursor:pointer; color:inherit; }
@@ -42,3 +42,72 @@
 @media(max-width:1100px) { .ca-header { height:auto;min-height:58px;flex-wrap:wrap;padding:10px 15px; }.ca-header-actions { margin-left:auto; }.ca-palette-button kbd { display:none; }.ca-three-pane { grid-template-columns:minmax(0,1fr);max-height:none; }.ca-tree-pane,.ca-change-pane { min-height:240px;max-height:38svh; }.ca-tree-pane + .ca-change-pane,.ca-change-pane + .ca-tree-pane { border-left:0;border-top:1px solid #2a313d; }.ca-inspector-grid { grid-template-columns:1fr 1fr; }.ca-inspector-grid > div:last-child { grid-column:1/-1; } }
 @media(max-width:650px) { .ca-header { gap:7px;padding:9px 10px; }.ca-brand strong { display:none; }.ca-header-sep { display:none; }.ca-header select { max-width:145px;min-width:0; }.ca-header select:nth-of-type(2) { min-width:92px; }.ca-header-actions { width:100%;order:4;justify-content:space-between;margin:0; }.ca-header-actions button { flex:1;justify-content:center;padding:0 4px;font-size:10px; }.ca-action-label { display:none; }.ca-palette-button { margin-left:auto; }.ca-workspace-title { align-items:flex-start;flex-direction:column;padding:15px 12px 10px; }.ca-workspace-title h1 { font-size:18px; }.ca-compare-meta { flex-wrap:wrap; }.ca-three-pane { margin:0 8px; }.ca-tree-pane,.ca-change-pane { max-height:42svh; }.ca-tree-row { gap:5px;padding-left:10px!important; }.ca-required { display:none; }.ca-kind { font-size:8px; }.ca-inspector { margin:9px 8px;padding:11px; }.ca-inspector-grid { grid-template-columns:1fr;gap:11px; }.ca-inspector-grid > div:last-child { grid-column:auto; }.ca-footer { flex-wrap:wrap;gap:8px;padding:10px; }.ca-footer > span:first-child { width:100%; }.ca-shortcut-hint { display:none; }.ca-empty-state { padding:21px;margin:5vh auto; }.ca-empty-actions > button { flex:1 1 40%; }.ca-modal-backdrop { padding:8px; }.ca-import-modal { max-height:96svh; }.ca-form-label { margin-right:13px;margin-left:13px; }.ca-import-modal > header,.ca-import-modal footer { padding-right:13px;padding-left:13px; }.ca-import-source { margin-left:13px; }.ca-menu { right:-60px; }.ca-file-chip { max-width:150px; } }
 @media(prefers-reduced-motion:reduce) { .ca-app *, .ca-app *::before, .ca-app *::after { scroll-behavior:auto!important;transition:none!important; } }
+
+/* Interaction polish: motion stays subordinate to state. */
+.ca-app {
+  --ca-ease: cubic-bezier(.2,.75,.25,1);
+  --ca-speed: 150ms;
+}
+.ca-header-actions button,
+.ca-palette-button,
+.ca-footer button,
+.ca-small-button,
+.ca-secondary,
+.ca-primary,
+.ca-count,
+.ca-change-row,
+.ca-tree-row,
+.ca-menu button,
+.ca-command-item {
+  transition: background-color var(--ca-speed) var(--ca-ease), border-color var(--ca-speed) var(--ca-ease), color var(--ca-speed) var(--ca-ease), box-shadow var(--ca-speed) var(--ca-ease), opacity var(--ca-speed) var(--ca-ease);
+}
+.ca-header-actions button:active,
+.ca-palette-button:active,
+.ca-footer button:active,
+.ca-small-button:active,
+.ca-secondary:active,
+.ca-primary:active { transform: translateY(1px); }
+.ca-header-actions button:disabled,
+.ca-palette-button:disabled,
+.ca-footer button:disabled,
+.ca-small-button:disabled,
+.ca-secondary:disabled,
+.ca-primary:disabled { cursor: wait; opacity: .55; }
+.ca-boot { width:min(100% - 32px,390px); margin:auto; padding:26px 24px; border:1px solid #293544; border-radius:8px; background:#0e1219; box-shadow:0 18px 55px #0007; font-family:var(--font-jetbrains),monospace; }
+.ca-boot-mark { width:30px; height:30px; display:grid; place-items:center; margin-bottom:17px; border:1px solid #4b5e8b; border-radius:6px; background:#171f30; color:#a5b7f4; font-size:16px; }
+.ca-boot-title { color:#e6eaf1; font-size:13px; font-weight:700; letter-spacing:.16em; }
+.ca-boot-step { display:flex; align-items:center; gap:9px; margin-top:13px; color:#6e7c90; font-size:10px; }
+.ca-boot-step.is-active { color:#c3cedd; }
+.ca-boot-dot { width:6px; height:6px; border-radius:50%; background:#536175; }
+.ca-boot-step.is-active .ca-boot-dot { background:#8ca2e7; box-shadow:0 0 0 4px #8ca2e71a; }
+.ca-boot-note { margin-top:23px; padding-top:12px; border-top:1px solid #252e3a; color:#6d7b8e; font-size:9px; }
+.ca-toast { animation: ca-toast-in 180ms var(--ca-ease) both; }
+@keyframes ca-toast-in { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:none; } }
+.ca-tree-row:focus-visible,
+.ca-change-row:focus-visible,
+.ca-count:focus-visible,
+.ca-menu button:focus-visible { position:relative; z-index:1; outline:2px solid #8ca2e7; outline-offset:-2px; }
+.ca-inspector { transition:border-color 180ms var(--ca-ease), background-color 180ms var(--ca-ease); }
+.ca-import-modal,
+.ca-command-modal,
+.ca-raw-drawer { animation: ca-panel-in 170ms var(--ca-ease) both; }
+@keyframes ca-panel-in { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+@media (max-width:650px) {
+  .ca-header-actions button,
+  .ca-palette-button,
+  .ca-footer button { min-height:34px; }
+  .ca-change-row { min-height:58px; }
+  .ca-boot { padding:22px 18px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ca-toast,
+  .ca-import-modal,
+  .ca-command-modal,
+  .ca-raw-drawer { animation:none; }
+  .ca-header-actions button:active,
+  .ca-palette-button:active,
+  .ca-footer button:active,
+  .ca-small-button:active,
+  .ca-secondary:active,
+  .ca-primary:active { transform:none; }
+}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useDialogFocus } from "./use-dialog-focus";
 import type { LucideIcon } from "lucide-react";
 import { X } from "lucide-react";
 
@@ -16,6 +17,8 @@ export function CommandPalette({ commands, onClose }: { commands: Command[]; onC
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLElement>(null);
+  useDialogFocus(dialogRef, true, onClose);
 
   const filtered = useMemo(
     () => commands.filter((command) => `${command.label} ${command.hint ?? ""}`.toLowerCase().includes(query.trim().toLowerCase())),
@@ -44,7 +47,7 @@ export function CommandPalette({ commands, onClose }: { commands: Command[]; onC
 
   return (
     <div className="ca-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section className="ca-command-modal" role="dialog" aria-modal="true" aria-label="Command palette" onKeyDown={onKeyDown}>
+      <section ref={dialogRef} tabIndex={-1} className="ca-command-modal" role="dialog" aria-modal="true" aria-label="Command palette" onKeyDown={onKeyDown}>
         <header>
           <strong>Command palette</strong>
           <button className="ca-small-button" aria-label="Close command palette" onClick={onClose}><X size={14} /></button>

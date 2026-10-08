@@ -1,27 +1,29 @@
 @import "tailwindcss";
 
 :root {
-  color-scheme: light;
-  --background: #f4f6f4;
-  --surface: #ffffff;
-  --surface-subtle: #f8faf8;
-  --surface-hover: #f1f5f2;
-  --border: #dfe6e1;
-  --border-strong: #cbd6ce;
-  --text: #17221c;
-  --text-muted: #66736b;
-  --text-soft: #89948d;
-  --accent: #226b50;
-  --accent-hover: #18563f;
-  --accent-soft: #eaf3ed;
-  --success: #26734d;
-  --warning: #9a6519;
-  --warning-soft: #fbf5e9;
-  --danger: #a44038;
-  --danger-soft: #fbefee;
-  --radius-control: 7px;
-  --radius-panel: 10px;
-  --shadow-panel: 0 1px 2px rgb(20 35 26 / 4%), 0 8px 24px rgb(20 35 26 / 3%);
+  color-scheme: dark;
+  --font-inter: Inter, "Segoe UI", system-ui, sans-serif;
+  --font-jetbrains: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+  --background: #080a0e;
+  --surface: #10141b;
+  --surface-subtle: #0d1118;
+  --surface-hover: #171e29;
+  --border: #29303c;
+  --border-strong: #3a4658;
+  --text: #e5e9f0;
+  --text-muted: #a1aaba;
+  --text-soft: #7e8a9c;
+  --accent: #8ca2e7;
+  --accent-hover: #a6b8f5;
+  --accent-soft: #1a2433;
+  --success: #5bc49d;
+  --warning: #e9b15f;
+  --warning-soft: #2c2215;
+  --danger: #ef7c7d;
+  --danger-soft: #2a181d;
+  --radius-control: 5px;
+  --radius-panel: 8px;
+  --shadow-panel: 0 10px 30px rgb(0 0 0 / 24%);
 }
 
 * { box-sizing: border-box; }
