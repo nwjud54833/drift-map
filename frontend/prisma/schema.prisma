@@ -1,0 +1,122 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum ContractDirection {
+  response
+  request
+  event
+}
+
+enum SnapshotSource {
+  paste
+  file
+  fixture
+  workspace_import
+}
+
+enum ChangeKind {
+  field_added
+  field_removed
+  type_changed
+  became_required
+  became_optional
+}
+
+enum ChangeSeverity {
+  breaking
+  warning
+  safe
+  info
+}
+
+model Workspace {
+  id                   String             @id @default(uuid()) @db.Uuid
+  name                 String
+  direction            ContractDirection
+  baselineSnapshotId   String?            @db.Uuid
+  candidateSnapshotId  String?            @db.Uuid
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  snapshots            ContractSnapshot[] @relation("WorkspaceSnapshots")
+  baselineSnapshot     ContractSnapshot?  @relation("WorkspaceBaseline", fields: [baselineSnapshotId], references: [id])
+  candidateSnapshot    ContractSnapshot?  @relation("WorkspaceCandidate", fields: [candidateSnapshotId], references: [id])
+  diffs                ContractDiff[]
+
+  @@index([updatedAt])
+  @@index([createdAt])
+}
+
+model ContractSnapshot {
+  id                 String             @id @default(uuid()) @db.Uuid
+  workspaceId        String             @db.Uuid
+  versionLabel       String
+  notes              String             @default("")
+  sourceFileName     String?
+  contract           Json
+  createdAt          DateTime           @default(now())
+
+  workspace           Workspace          @relation("WorkspaceSnapshots", fields: [workspaceId], references: [id], onDelete: Cascade)
+  baselineFor         Workspace[]        @relation("WorkspaceBaseline")
+  candidateFor        Workspace[]        @relation("WorkspaceCandidate")
+  samples             PayloadSample[]
+  baselineDiffs       ContractDiff[]     @relation("DiffBaseline")
+  candidateDiffs      ContractDiff[]     @relation("DiffCandidate")
+
+  @@index([workspaceId, createdAt])
+  @@index([versionLabel])
+}
+
+model PayloadSample {
+  id          String          @id @default(uuid()) @db.Uuid
+  snapshotId  String          @db.Uuid
+  label       String
+  source      SnapshotSource
+  capturedAt  DateTime
+  value       Json
+
+  snapshot    ContractSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  @@index([snapshotId, capturedAt])
+}
+
+model ContractDiff {
+  id                   String             @id @default(uuid()) @db.Uuid
+  workspaceId          String             @db.Uuid
+  baselineSnapshotId   String             @db.Uuid
+  candidateSnapshotId  String             @db.Uuid
+  direction            ContractDirection
+  summary              Json
+  generatedAt          DateTime           @default(now())
+
+  workspace             Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  baselineSnapshot      ContractSnapshot   @relation("DiffBaseline", fields: [baselineSnapshotId], references: [id], onDelete: Cascade)
+  candidateSnapshot     ContractSnapshot   @relation("DiffCandidate", fields: [candidateSnapshotId], references: [id], onDelete: Cascade)
+  changes               ContractChange[]
+
+  @@unique([baselineSnapshotId, candidateSnapshotId, direction])
+  @@index([workspaceId, generatedAt])
+}
+
+model ContractChange {
+  id           String          @id
+  diffId       String          @db.Uuid
+  pointer      String
+  kind         ChangeKind
+  severity     ChangeSeverity
+  title        String
+  explanation  String
+  beforeNode   Json?
+  afterNode    Json?
+
+  diff         ContractDiff     @relation(fields: [diffId], references: [id], onDelete: Cascade)
+
+  @@index([diffId, severity])
+  @@index([pointer])
+}
