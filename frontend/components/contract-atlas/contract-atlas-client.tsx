@@ -12,6 +12,7 @@ import { createCloudSnapshot, createCloudWorkspace, loadCloudWorkbench } from "@
 import { createSnapshot, createWorkspace, deleteWorkspace, importDemoFixture, loadWorkbench, renameSnapshot, saveWorkspace } from "@/lib/db/contract-atlas-db";
 import { useWorkspaceUIStore } from "@/stores/workspace-ui-store";
 import { useSession } from "next-auth/react";
+import { CloudAccessPrompt } from "./cloud-access-prompt";
 import { ChangeInspector, ChangeRail, EmptyWorkbench, RawJsonDrawer, SnapshotTree } from "./panels";
 import { ImportSheet } from "./import-sheet";
 import { WorkspaceHeader } from "./workspace-header";
@@ -35,7 +36,8 @@ export default function ContractAtlasClient() {
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [importSide, setImportSide] = useState<"before" | "after">("before");
   const [mode, setMode] = useState<"local" | "cloud">("local");
-  const { data: session } = useSession();
+  const [cloudPromptOpen, setCloudPromptOpen] = useState(false);
+  const { data: session, status: sessionStatus } = useSession();
 
   const activeId = useWorkspaceUIStore((state) => state.activeWorkspaceId);
   const setActiveWorkspace = useWorkspaceUIStore((state) => state.setActiveWorkspace);
@@ -50,11 +52,22 @@ export default function ContractAtlasClient() {
   const setPaletteOpen = useWorkspaceUIStore((state) => state.setPaletteOpen);
 
   const openImport = useCallback((side: "before" | "after") => { setImportSide(side); setImportOpen(true); }, [setImportOpen]);
-
   const flash = useCallback((message: string, milliseconds = 1800) => {
     setNotice(message);
     window.setTimeout(() => setNotice(""), milliseconds);
   }, []);
+  const chooseMode = useCallback((nextMode: "local" | "cloud") => {
+    if (nextMode === "cloud" && sessionStatus === "loading") {
+      flash("Checking sign-in status…", 1400);
+      return;
+    }
+    if (nextMode === "cloud" && sessionStatus !== "authenticated") {
+      setCloudPromptOpen(true);
+      return;
+    }
+    setCloudPromptOpen(false);
+    setMode(nextMode);
+  }, [flash, sessionStatus]);
 
   const refresh = useCallback(async () => {
     try {
@@ -270,7 +283,8 @@ export default function ContractAtlasClient() {
         active={active}
         mode={mode}
         cloudAvailable={!!session}
-        onModeChange={setMode}
+        sessionStatus={sessionStatus}
+        onModeChange={chooseMode}
         onSelect={setActiveWorkspace}
         onImport={openImport}
         onNew={() => void newWorkspace()}
@@ -319,6 +333,7 @@ export default function ContractAtlasClient() {
         <span className="ca-shortcut-hint">Ctrl/⌘ K commands · Ctrl/⌘ O import · Ctrl/⌘ E export</span>
       </footer>
       {rawOpen && <RawJsonDrawer baseline={baseline} candidate={candidate} onClose={() => setRawOpen(false)} />}
+      {cloudPromptOpen && <CloudAccessPrompt onStayLocal={() => { setCloudPromptOpen(false); setMode("local"); }} />}
       {importOpen && <ImportSheet onImport={handleImport} side={importSide} saving={pendingAction === "import"} />}
       {paletteOpen && <CommandPalette commands={commands} onClose={() => setPaletteOpen(false)} />}
       {notice && <div className="ca-toast" role="status">{notice}</div>}

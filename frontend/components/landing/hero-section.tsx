@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { HeroSignatureFlow } from './hero-signature-flow';
+import { KineticText } from './kinetic-text';
 
 interface HeroSectionProps {
   onOpenWorkbench: () => void;
@@ -134,13 +135,13 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenWorkbench }) => 
 
               {/* Massive Tight Editorial Headline */}
               <h1 className="text-[56px] sm:text-[72px] lg:text-[78px] font-black tracking-[-0.045em] leading-[0.91] text-[#F5F7FA]">
-                <span>YOUR API</span>
+                <KineticText text="YOUR API" />
                 <br />
-                <span className="text-[#8993A5]">CHANGED.</span>
+                <span className="text-[#8993A5]"><KineticText text="CHANGED." /></span>
                 <br />
-                <span className="text-[#3B82F6]">DRIFTMAP</span>
+                <span className="text-[#3B82F6]"><KineticText text="DRIFTMAP" accent /></span>
                 <br />
-                <span className="text-white">SAW IT FIRST.</span>
+                <span className="text-white"><KineticText text="SAW IT FIRST." /></span>
               </h1>
 
               {/* Supporting copy */}

@@ -12,6 +12,7 @@ interface WorkspaceHeaderProps {
   active: Workspace | null;
   mode: "local" | "cloud";
   cloudAvailable: boolean;
+  sessionStatus: "loading" | "authenticated" | "unauthenticated";
   onModeChange: (mode: "local" | "cloud") => void;
   onSelect: (id: string) => void;
   onImport: (side: "before" | "after") => void;
@@ -25,7 +26,7 @@ interface WorkspaceHeaderProps {
   onPalette: () => void;
 }
 
-export function WorkspaceHeader({ workspaces, active, mode, cloudAvailable, onModeChange, onSelect, onImport, onNew, onRename, onDelete, onSwap, onDirection, onExport, onRaw, onPalette }: WorkspaceHeaderProps) {
+export function WorkspaceHeader({ workspaces, active, mode, cloudAvailable, sessionStatus, onModeChange, onSelect, onImport, onNew, onRename, onDelete, onSwap, onDirection, onExport, onRaw, onPalette }: WorkspaceHeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const { data: session } = useSession();
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -50,7 +51,7 @@ export function WorkspaceHeader({ workspaces, active, mode, cloudAvailable, onMo
       <span className="ca-header-sep" />
       <select aria-label="Storage mode" value={mode} onChange={(event) => onModeChange(event.target.value as "local" | "cloud")}>
         <option value="local">Local</option>
-        <option value="cloud" disabled={!cloudAvailable}>Cloud{cloudAvailable ? "" : " · sign in"}</option>
+        <option value="cloud">Cloud{sessionStatus === "loading" ? " · checking" : cloudAvailable ? "" : " · sign in"}</option>
       </select>
       <select aria-label="Active workspace" value={active?.id ?? ""} onChange={(event) => onSelect(event.target.value)}>
         {workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}
