@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { DriftBackgroundSystem } from "@/components/landing/drift-background-system";
 import { Navbar } from "@/components/landing/navbar";
 import { HeroSection } from "@/components/landing/hero-section";
@@ -15,6 +16,7 @@ import { Footer } from "@/components/landing/footer";
 import { ScrollSequence } from "@/components/landing/scroll-sequence";
 
 export default function DriftmapLanding() {
-  const openWorkbench = () => { window.location.href = "/workbench"; };
-  return <div className="driftmap-page"><DriftBackgroundSystem/><Navbar onOpenWorkbench={openWorkbench}/><main className="relative z-10"><HeroSection onOpenWorkbench={openWorkbench}/><ProblemSection/><ScrollSequence/><SemanticDriftSection/><ClassificationSection/><section id="workbench" className="driftmap-workbench-cta"><div><span className="driftmap-kicker">THE REAL WORKBENCH</span><h2>Inspect your payloads<br/><span>with the same signal.</span></h2><p>Open the local Contract Atlas workbench to import samples, compare snapshots, and export a report.</p><Link href="/workbench" className="driftmap-primary-link">Open Contract Atlas →</Link></div></section><WorkflowSection/><LocalFirstSection/><UseCasesSection/><CallToAction onOpenWorkbench={openWorkbench}/></main><Footer onOpenWorkbench={openWorkbench}/></div>;
+  const router = useRouter();
+  const openWorkbench = () => { router.push("/workbench"); };
+  return <div className="driftmap-page"><DriftBackgroundSystem/><Navbar onOpenWorkbench={openWorkbench}/><main className="relative z-10"><HeroSection onOpenWorkbench={openWorkbench}/><ProblemSection/><ScrollSequence/><SemanticDriftSection/><ClassificationSection/><section id="workbench" className="driftmap-workbench-cta"><div><span className="driftmap-kicker">THE REAL WORKBENCH</span><h2>Inspect your payloads<br/><span>with the same signal.</span></h2><p>Open the local DriftMap workbench to import samples, compare snapshots, and export a report.</p><Link href="/workbench" className="driftmap-primary-link">Open DriftMap →</Link></div></section><WorkflowSection/><LocalFirstSection/><UseCasesSection/><CallToAction onOpenWorkbench={openWorkbench}/></main><Footer onOpenWorkbench={openWorkbench}/></div>;
 }

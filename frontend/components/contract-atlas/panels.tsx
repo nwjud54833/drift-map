@@ -290,7 +290,7 @@ export function EmptyWorkbench({ onImport, onDemo }: { onImport: (side: "before"
   return (
     <div className="ca-empty-state">
       <div className="ca-empty-symbol"><CircleHelp size={22} aria-hidden="true" /></div>
-      <span className="ca-overline">Contract Atlas</span>
+      <span className="ca-overline">DriftMap</span>
       <h1>Compare a contract</h1>
       <p>Import real JSON samples, infer their shapes, then review semantic drift instead of a noisy text diff.</p>
       <div className="ca-steps">

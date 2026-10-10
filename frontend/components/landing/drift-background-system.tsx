@@ -76,6 +76,35 @@ export const DriftBackgroundSystem: React.FC = () => {
     let animationFrameId: number;
     let width = (canvas.width = window.innerWidth);
     let height = (canvas.height = window.innerHeight);
+    // Pause the loop while the page is hidden or the canvas is scrolled far off-screen.
+    let canvasOnScreen = true;
+    let running = false;
+
+    const startLoop = () => {
+      if (running || prefersReducedMotion) return;
+      running = true;
+      animationFrameId = requestAnimationFrame(render);
+    };
+
+    const stopLoop = () => {
+      if (!running) return;
+      running = false;
+      cancelAnimationFrame(animationFrameId);
+    };
+
+    const evaluateLoopState = () => {
+      const hidden = document.visibilityState === 'hidden';
+      if (hidden || !canvasOnScreen) stopLoop();
+      else startLoop();
+    };
+
+    const handleVisibilityChange = () => { evaluateLoopState(); };
+
+    const handleScrollPaused = () => {
+      const rect = canvas.getBoundingClientRect();
+      canvasOnScreen = rect.bottom > 0 && rect.top < window.innerHeight;
+      evaluateLoopState();
+    };
 
     const handleResize = () => {
       if (!canvas) return;
@@ -94,12 +123,12 @@ export const DriftBackgroundSystem: React.FC = () => {
 
     const handleScroll = () => {
       scrollRef.current = window.scrollY;
+      handleScrollPaused();
     };
 
     window.addEventListener('resize', handleResize);
     window.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseleave', handleMouseLeave);
-    window.addEventListener('scroll', handleScroll, { passive: true });
 
     // State collections
     let nodes: Point[] = [];
@@ -416,17 +445,22 @@ export const DriftBackgroundSystem: React.FC = () => {
         }
       }
 
-      animationFrameId = requestAnimationFrame(render);
+      if (running) animationFrameId = requestAnimationFrame(render);
     };
 
-    render();
+    // Everything above is now defined; attach the remaining listeners and kick off.
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    handleScrollPaused();
+    startLoop();
 
     return () => {
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseleave', handleMouseLeave);
       window.removeEventListener('scroll', handleScroll);
-      cancelAnimationFrame(animationFrameId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      stopLoop();
     };
   }, [prefersReducedMotion]);
 

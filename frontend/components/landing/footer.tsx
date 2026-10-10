@@ -37,7 +37,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenWorkbench }) => {
               Documentation
             </a>
             <a
-              href="https://github.com"
+              href="https://github.com/nwjud54833/drift-map"
               target="_blank"
               rel="noopener noreferrer"
               className="hover:text-white transition-colors flex items-center gap-1"

@@ -1,5 +1,4 @@
-@import "tailwindcss";
-
+/* Landing design tokens — shared accent/focus language with globals.css */
 @layer base {
   :root {
     --bg: #050609;
@@ -12,7 +11,7 @@
   }
 
   body {
-    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: var(--font-jakarta), system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     background-color: #050609;
     color: #F5F7FA;
     overflow-x: hidden;
@@ -20,7 +19,7 @@
   }
 
   code, pre, .font-mono {
-    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     font-feature-settings: "tnum" 1, "zero" 1;
     letter-spacing: -0.02em;
   }

@@ -48,7 +48,7 @@ export function WorkspaceHeader({ workspaces, active, mode, cloudAvailable, sess
 
   return (
     <header className="ca-header">
-      <Link href="/" className="ca-brand" aria-label="Contract Atlas home"><span className="ca-brand-mark">CA</span><strong>Contract Atlas</strong></Link>
+      <Link href="/" className="ca-brand" aria-label="DriftMap home"><span className="ca-brand-mark">Δ</span><strong>DriftMap</strong></Link>
       <span className="ca-header-sep" />
       <select aria-label="Storage mode" value={mode} onChange={(event) => onModeChange(event.target.value as "local" | "cloud")}>
         <option value="local">Local</option>

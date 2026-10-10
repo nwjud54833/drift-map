@@ -160,7 +160,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenWorkbench }) => 
                 </button>
 
                 <a
-                  href="https://github.com"
+                  href="https://github.com/nwjud54833/drift-map"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 px-5 py-3.5 text-xs font-mono font-medium uppercase tracking-wider text-[#F5F7FA] hover:text-white bg-[#090C12] hover:bg-[#0E1219] border border-[#1A202A] hover:border-[#28303F] rounded-[4px] transition-colors"

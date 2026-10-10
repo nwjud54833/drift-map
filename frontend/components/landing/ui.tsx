@@ -1,13 +1,13 @@
 import type { ReactNode } from "react";
 import { Boxes } from "lucide-react";
 
-export const GITHUB_URL = "https://github.com";
+export const GITHUB_URL = "https://github.com/nwjud54833/drift-map";
 
 export function Logo({ compact = false }: { compact?: boolean }) {
   return (
     <span className="landing-logo">
       <span className="landing-logo-mark" aria-hidden="true"><Boxes size={15} strokeWidth={1.8} /></span>
-      {!compact && <span>Contract Atlas</span>}
+      {!compact && <span>DriftMap</span>}
     </span>
   );
 }
