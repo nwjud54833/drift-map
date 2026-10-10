@@ -3,8 +3,8 @@ import ContractAtlasClient from "@/components/contract-atlas/contract-atlas-clie
 import "../contract-atlas.css";
 
 export const metadata: Metadata = {
-  title: "Workbench · Contract Atlas",
-  description: "Compare real JSON payloads and inspect semantic contract drift locally.",
+  title: "Workbench · DriftMap",
+  description: "Compare real JSON payloads, infer their contracts, and inspect semantic drift with a clear summary of breaking changes.",
 };
 
 export default function WorkbenchPage() {

@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowDownUp, Download, FileJson, FilePlus2, FileText, FolderPlus, Pencil, Repeat, Search } from "lucide-react";
+import Link from "next/link";
+import { ArrowDownUp, Download, FileJson, FilePlus2, FileText, FolderPlus, Pencil, Repeat, Search, Upload } from "lucide-react";
+import { DriftMapLogo } from "@/components/driftmap/logo";
 import type { Command } from "./command-palette";
 import { CommandPalette } from "./command-palette";
 import type { ContractDirection, ContractSnapshot, PayloadSample, Workspace } from "@/lib/contract/types";
@@ -25,6 +27,8 @@ function download(filename: string, content: string, type: string) {
   anchor.click();
   URL.revokeObjectURL(url);
 }
+
+
 
 export default function ContractAtlasClient() {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
@@ -51,6 +55,12 @@ export default function ContractAtlasClient() {
   const setPaletteOpen = useWorkspaceUIStore((state) => state.setPaletteOpen);
 
   const openImport = useCallback((side: "before" | "after") => { setImportSide(side); setImportOpen(true); }, [setImportOpen]);
+  const filterToSeverity = useCallback((severity: "breaking" | "warning" | "safe" | "info") => {
+    const { filters, toggleSeverity } = useWorkspaceUIStore.getState();
+    if (filters.severities.length === 1 && filters.severities[0] === severity) useWorkspaceUIStore.getState().resetFilters();
+    else { useWorkspaceUIStore.setState({ filters: { ...filters, severities: [severity] } }); }
+    void toggleSeverity;
+  }, []);
   const flash = useCallback((message: string, milliseconds = 1800) => {
     setNotice(message);
     window.setTimeout(() => setNotice(""), milliseconds);
@@ -345,7 +355,12 @@ export default function ContractAtlasClient() {
     return () => window.removeEventListener("keydown", onKeyDown);
   });
 
-  if (loading) return <main className="ca-app" aria-busy="true"><div className="ca-boot" role="status" aria-live="polite"><div className="ca-boot-mark">Δ</div><div className="ca-boot-title">DRIFTMAP</div><div className="ca-boot-step is-active"><span className="ca-boot-dot"/>Opening local workspace</div><div className="ca-boot-step"><span className="ca-boot-dot"/>Loading contract graph</div><div className="ca-boot-note">Local-only analysis · no upload</div></div></main>;
+  if (loading) return <main className="ca-app" aria-busy="true">
+    <div className="ca-main">        <div className="dm-skeleton" role="status" aria-live="polite" style={{ margin: "auto", width: "min(100%, 390px)" }}>
+        <div className="ca-boot"><div className="ca-boot-mark"><DriftMapLogo size={26} /></div><div className="ca-boot-title">DRIFTMAP</div><div className="ca-boot-step is-active"><span className="ca-boot-dot"/>Opening workspace</div><div className="ca-boot-step"><span className="ca-boot-dot"/>Loading contract graph</div><div className="ca-boot-note">Local-only analysis · no upload</div></div>
+      </div>
+    </div>
+  </main>;
 
   return (
     <main className="ca-app">
@@ -368,42 +383,65 @@ export default function ContractAtlasClient() {
         onRaw={() => setRawOpen(!rawOpen)}
         onPalette={() => setPaletteOpen(true)}
       />
-      {error && (
-        <div className="ca-error" role="alert">
-          {error}
-          <button onClick={() => setError(null)}>Dismiss</button>
-        </div>
-      )}
-      {!baseline || !candidate ? (
-        <EmptyWorkbench onImport={openImport} onDemo={() => void loadDemo()} />
-      ) : (
-        <>
-          <div className="ca-workspace-title">
-            <div>
-              <span className="ca-overline">Local workspace</span>
-              <h1>{active?.name}</h1>
-            </div>
-            <div className="ca-compare-meta">
-              <span>{baseline.samples.length} baseline samples</span>
-              <ArrowDownUp size={14} aria-hidden="true" />
-              <span>{candidate.samples.length} candidate samples</span>
-              <button disabled={pendingAction !== null} onClick={() => void swapSnapshots()}>{pendingAction === "swap" ? "Swapping…" : "Swap sides"}</button>
-            </div>
+      <div className="ca-main">
+        {error && (
+          <div className="ca-error" role="alert">
+            {error}
+            <button onClick={() => setError(null)}>Dismiss</button>
           </div>
-          <div className="ca-three-pane">
-            <SnapshotTree title="Baseline" snapshot={baseline} opposite={candidate} changes={changes} side="before" onRenameLabel={(snapshot, label) => void renameLabel(snapshot, label)} onDeleteSnapshot={() => void deleteSide("before")} />
-            <ChangeRail changes={changes} counts={counts} direction={active?.direction ?? "event"} unchanged={unchanged} onSelect={(change) => selectChange(change.id, change.pointer)} />
-            <SnapshotTree title="Candidate" snapshot={candidate} opposite={baseline} changes={changes} side="after" onRenameLabel={(snapshot, label) => void renameLabel(snapshot, label)} onDeleteSnapshot={() => void deleteSide("after")} />
-          </div>
-          <ChangeInspector change={selected} direction={active?.direction ?? "event"} onCopy={(text) => void copy(text)} />
-        </>
-      )}
-      <footer className="ca-footer">
-        <span>Local-only · JSON payloads never leave this browser</span>
-        <button disabled={pendingAction !== null} onClick={() => setRawOpen(!rawOpen)}><FileJson size={14} aria-hidden="true" />{rawOpen ? "Hide raw JSON" : "View raw JSON"}</button>
-        <button disabled={pendingAction !== null} onClick={() => exportFile("workspace")}><Download size={14} aria-hidden="true" />{pendingAction === "export" ? "Preparing…" : "Backup workspace"}</button>
-        <span className="ca-shortcut-hint">Ctrl/⌘ K commands · Ctrl/⌘ O import · Ctrl/⌘ E export</span>
-      </footer>
+        )}
+        {!baseline || !candidate ? (
+          <EmptyWorkbench onImport={openImport} onDemo={() => void loadDemo()} />
+        ) : (
+          <>
+            <div className="ca-toolbar">
+              <nav className="dm-breadcrumb" aria-label="Workspace breadcrumb">
+                <Link href="/">DriftMap</Link>
+                <span aria-hidden="true">/</span>
+                <span className="ca-overline">Workspaces</span>
+                <span aria-hidden="true">/</span>
+                <strong aria-current="page" style={{ color: "var(--dm-ink, #F8FAFC)", fontSize: 12 }}>{active?.name}</strong>
+              </nav>
+              <div className="dm-toolbar-actions">
+                <button className="dm-btn" disabled={pendingAction !== null} onClick={() => openImport("before")}><Upload size={14} aria-hidden="true" /><span>Import baseline</span></button>
+                <button className="dm-btn" disabled={pendingAction !== null} onClick={() => openImport("after")}><Upload size={14} aria-hidden="true" /><span>Import candidate</span></button>
+                <button className="dm-btn is-primary" disabled={pendingAction !== null} onClick={() => exportFile("report")}><FileText size={14} aria-hidden="true" /><span>Export report</span></button>
+              </div>
+            </div>
+            <div className="ca-workspace-title">
+              <div>
+                <span className="ca-overline">{mode === "cloud" ? "Cloud workspace" : "Local workspace"}</span>
+                <h1>{active?.name ?? "Untitled workspace"}</h1>
+              </div>
+              <div className="ca-compare-meta">
+                <span className="dm-version-pill is-baseline"><ArrowDownUp size={11} aria-hidden="true" />{baseline.versionLabel} · {baseline.samples.length} samples</span>
+                <span className="dm-version-pill is-candidate"><ArrowDownUp size={11} aria-hidden="true" />{candidate.versionLabel} · {candidate.samples.length} samples</span>
+              </div>
+            </div>
+            <div className="dm-summary" aria-label="Change summary">
+              <button className="dm-summary-card is-breaking" aria-pressed={useWorkspaceUIStore.getState().filters.severities.length === 1 && useWorkspaceUIStore.getState().filters.severities[0] === "breaking"}
+                onClick={() => filterToSeverity("breaking")}>
+                <b>{counts.breaking}</b><span>Breaking</span>
+              </button>
+              <button className="dm-summary-card is-warning" onClick={() => filterToSeverity("warning")}><b>{counts.warning}</b><span>Warnings</span></button>
+              <button className="dm-summary-card is-safe" onClick={() => filterToSeverity("safe")}><b>{counts.safe}</b><span>Safe</span></button>
+              <button className="dm-summary-card is-info" onClick={() => filterToSeverity("info")}><b>{counts.info}</b><span>Info</span></button>
+            </div>
+            <div className="ca-three-pane">
+              <SnapshotTree title="Baseline" snapshot={baseline} opposite={candidate} changes={changes} side="before" onRenameLabel={(snapshot, label) => void renameLabel(snapshot, label)} onDeleteSnapshot={() => void deleteSide("before")} />
+              <ChangeRail changes={changes} counts={counts} direction={active?.direction ?? "event"} unchanged={unchanged} onSelect={(change) => selectChange(change.id, change.pointer)} />
+              <SnapshotTree title="Candidate" snapshot={candidate} opposite={baseline} changes={changes} side="after" onRenameLabel={(snapshot, label) => void renameLabel(snapshot, label)} onDeleteSnapshot={() => void deleteSide("after")} />
+            </div>
+            <ChangeInspector change={selected} direction={active?.direction ?? "event"} onCopy={(text) => void copy(text)} />
+          </>
+        )}
+        <footer className="ca-footer">
+          <span>{mode === "cloud" ? "Cloud-synced · payloads saved to your private workspace" : "Local-only · JSON payloads never leave this browser"}</span>
+          <button disabled={pendingAction !== null} onClick={() => setRawOpen(!rawOpen)}><FileJson size={14} aria-hidden="true" />{rawOpen ? "Hide raw JSON" : "View raw JSON"}</button>
+          <button disabled={pendingAction !== null} onClick={() => exportFile("workspace")}><Download size={14} aria-hidden="true" />{pendingAction === "export" ? "Preparing…" : "Backup workspace"}</button>
+          <span className="ca-shortcut-hint">Ctrl/⌘ K commands · Ctrl/⌘ O import · Ctrl/⌘ E export</span>
+        </footer>
+      </div>
       {rawOpen && <RawJsonDrawer baseline={baseline} candidate={candidate} onClose={() => setRawOpen(false)} />}
       {cloudPromptOpen && <CloudAccessPrompt onStayLocal={() => { setCloudPromptOpen(false); setMode("local"); }} />}
       {importOpen && <ImportSheet onImport={handleImport} side={importSide} saving={pendingAction === "import"} />}

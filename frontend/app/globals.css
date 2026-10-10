@@ -4,26 +4,42 @@
   color-scheme: dark;
   --font-inter: Inter, "Segoe UI", system-ui, sans-serif;
   --font-jetbrains: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
-  --background: #080a0e;
-  --surface: #10141b;
-  --surface-subtle: #0d1118;
-  --surface-hover: #171e29;
-  --border: #29303c;
-  --border-strong: #3a4658;
-  --text: #e5e9f0;
-  --text-muted: #a1aaba;
+
+  /* DriftMap brand tokens */
+  --dm-navy: #0B1020;
+  --dm-surface: #111827;
+  --dm-elevated: #151F30;
+  --dm-cyan: #36D6F5;
+  --dm-indigo: #818CF8;
+
+  /* DriftMap spacing scale */
+  --dm-space-1: 4px;
+  --dm-space-2: 8px;
+  --dm-space-3: 12px;
+  --dm-space-4: 16px;
+  --dm-space-5: 20px;
+  --dm-space-6: 24px;
+
+  --background: #0B1020;
+  --surface: #111827;
+  --surface-subtle: #101623;
+  --surface-hover: #1a2332;
+  --border: #232c3d;
+  --border-strong: #34405a;
+  --text: #F8FAFC;
+  --text-muted: #94A3B8;
   --text-soft: #7e8a9c;
-  --accent: #8ca2e7;
-  --accent-hover: #a6b8f5;
-  --accent-soft: #1a2433;
-  --success: #5bc49d;
-  --warning: #e9b15f;
-  --warning-soft: #2c2215;
-  --danger: #ef7c7d;
-  --danger-soft: #2a181d;
-  --radius-control: 5px;
-  --radius-panel: 8px;
-  --shadow-panel: 0 10px 30px rgb(0 0 0 / 24%);
+  --accent: #818CF8;
+  --accent-hover: #9aa2fa;
+  --accent-soft: #1a2036;
+  --success: #34D399;
+  --warning: #FBBF24;
+  --warning-soft: #2c2312;
+  --danger: #FB7185;
+  --danger-soft: #2a1720;
+  --radius-control: 6px;
+  --radius-panel: 10px;
+  --shadow-panel: 0 14px 40px rgb(3 6 14 / 40%);
 }
 
 * { box-sizing: border-box; }
@@ -34,6 +50,19 @@ body {
   margin: 0;
   background: var(--background);
   color: var(--text);
+}
+
+/* Brand utility used by shell + auth */
+.dm-brand-glow {
+  position: relative;
+}
+.dm-brand-glow::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 18px rgb(129 140 248 / 18%);
+  pointer-events: none;
 }
 
 body {

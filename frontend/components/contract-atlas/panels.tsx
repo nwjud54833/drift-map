@@ -94,7 +94,7 @@ export function SnapshotTree({ title, snapshot, opposite, changes, side, onRenam
           {snapshot && (
             <button className="ca-small-button" onClick={() => { const label = window.prompt("Snapshot label", snapshot.versionLabel); if (label?.trim() && label.trim() !== snapshot.versionLabel) onRenameLabel(snapshot, label.trim()); }}>Rename</button>
           )}
-          {snapshot && onDeleteSnapshot && <button className="ca-small-button is-danger" onClick={() => onDeleteSnapshot(side)}>Delete</button>}
+          {snapshot && onDeleteSnapshot && <button className="ca-small-button is-danger" onClick={() => { if (window.confirm(`Delete the ${side === "before" ? "baseline" : "candidate"} snapshot “${snapshot.versionLabel}”? This cannot be undone.`)) onDeleteSnapshot(side); }}>Delete</button>}
           <button className="ca-small-button" onClick={() => useWorkspaceUIStore.getState().setImportOpen(true)}>{snapshot ? "Replace" : "Import"}</button>
         </div>
       </header>
@@ -220,7 +220,13 @@ export function ChangeInspector({ change, direction, onCopy }: { change: Contrac
     return (
       <section className="ca-inspector" aria-label="Change inspector">
         <div className="ca-inspector-title"><span className="ca-overline">Inspector</span></div>
-        <p className="ca-muted" style={{ paddingTop: 9 }}>Select a change to inspect its evidence and compatibility rule.</p>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, paddingTop: 13 }}>
+          <span className="ca-empty-symbol" style={{ width: 30, height: 30, margin: 0 }} aria-hidden="true"><CircleHelp size={16} /></span>
+          <div>
+            <strong style={{ display: "block", fontSize: 12.5 }}>No change selected</strong>
+            <p className="ca-muted" style={{ margin: "3px 0 0" }}>Select a row in the change list or either contract tree to inspect evidence and the compatibility rule.</p>
+          </div>
+        </div>
       </section>
     );
   }
@@ -290,7 +296,7 @@ export function EmptyWorkbench({ onImport, onDemo }: { onImport: (side: "before"
   return (
     <div className="ca-empty-state">
       <div className="ca-empty-symbol"><CircleHelp size={22} aria-hidden="true" /></div>
-      <span className="ca-overline">Contract Atlas</span>
+      <span className="ca-overline">DriftMap</span>
       <h1>Compare a contract</h1>
       <p>Import real JSON samples, infer their shapes, then review semantic drift instead of a noisy text diff.</p>
       <div className="ca-steps">

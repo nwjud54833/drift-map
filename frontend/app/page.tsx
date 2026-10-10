@@ -3,7 +3,7 @@ import DriftmapLanding from "@/components/landing/driftmap-landing";
 import "./landing.css";
 
 export const metadata: Metadata = {
-  title: "Contract Atlas — Catch structural drift early",
+  title: "DriftMap — Catch API contract drift early",
   description: "A local-first workbench for comparing JSON payload contracts.",
 };
 

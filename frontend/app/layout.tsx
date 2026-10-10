@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "./providers";
+import { driftMapFaviconHref } from "@/components/driftmap/logo";
 
 export const metadata: Metadata = {
-  title: "Contract Atlas — Catch contract drift before it breaks your integration",
-  description: "Compare real JSON payloads, infer their structure, and see semantic API, webhook, and structured-output drift locally.",
+  title: "DriftMap — API contract intelligence",
+  description: "Compare real JSON payloads, infer their structure, and catch breaking API, webhook, and structured-output drift before it ships.",
+  icons: { icon: driftMapFaviconHref },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
