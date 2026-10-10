@@ -345,7 +345,7 @@ export default function ContractAtlasClient() {
     return () => window.removeEventListener("keydown", onKeyDown);
   });
 
-  if (loading) return <main className="ca-app" aria-busy="true"><div className="ca-boot" role="status" aria-live="polite"><div className="ca-boot-mark">Δ</div><div className="ca-boot-title">DRIFTMAP</div><div className="ca-boot-step is-active"><span className="ca-boot-dot"/>Opening local workspace</div><div className="ca-boot-step"><span className="ca-boot-dot"/>Loading contract graph</div><div className="ca-boot-note">Local-only analysis · no upload</div></div></main>;
+  if (loading) return <main className="ca-app" aria-busy="true"><div className="ca-boot" role="status" aria-live="polite"><div className="ca-boot-mark" style={{ backgroundImage: "url('/logo-icon-180.png')", backgroundSize: 'contain', backgroundPosition: 'center', backgroundRepeat: 'no-repeat', color: 'transparent' }} aria-hidden="true">Δ</div><div className="ca-boot-title">DRIFTMAP</div><div className="ca-boot-step is-active"><span className="ca-boot-dot"/>Opening local workspace</div><div className="ca-boot-step"><span className="ca-boot-dot"/>Loading contract graph</div><div className="ca-boot-note">Local-only analysis · no upload</div></div></main>;
 
   return (
     <main className="ca-app">

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import type { ContractDirection, Workspace } from "@/lib/contract/types";
 import { ArrowLeftRight, Download, FileText, MoreHorizontal, Pencil, Plus, Trash2, Upload } from "lucide-react";
 import { AuthControl } from "./auth-control";
@@ -48,7 +49,7 @@ export function WorkspaceHeader({ workspaces, active, mode, cloudAvailable, sess
 
   return (
     <header className="ca-header">
-      <Link href="/" className="ca-brand" aria-label="DriftMap home"><span className="ca-brand-mark">Δ</span><strong>DriftMap</strong></Link>
+      <Link href="/" className="ca-brand" aria-label="DriftMap home"><span className="ca-brand-mark"><Image src="/logo-icon-180.png" alt="" width={22} height={22} className="object-contain" /></span><strong>DriftMap</strong></Link>
       <span className="ca-header-sep" />
       <select aria-label="Storage mode" value={mode} onChange={(event) => onModeChange(event.target.value as "local" | "cloud")}>
         <option value="local">Local</option>

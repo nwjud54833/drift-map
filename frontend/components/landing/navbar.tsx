@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import Image from "next/image";
 import React, { useEffect, useRef, useState } from "react";
 import { LogOut, UserRound, Cloud } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
@@ -26,7 +27,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenWorkbench }) => {
     <header className="sticky top-0 z-50 w-full border-b border-[#1A202A] bg-[#050609]/85 backdrop-blur-md transition-all duration-200">
       <div className="mx-auto flex h-13 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link href="/" className="group flex items-center gap-2 text-sm font-semibold tracking-wide text-[#F5F7FA]" aria-label="DriftMap home">
-          <span className="flex h-5 w-5 items-center justify-center rounded-[3px] bg-[#3B82F6] text-[11px] font-bold text-white shadow-[0_0_14px_rgba(59,130,246,0.45)]">Δ</span>
+          <span className="relative h-5 w-5 shrink-0"><Image src="/logo-icon-180.png" alt="" fill className="object-contain" sizes="20px" /></span>
           <span className="font-mono text-[14px] font-bold tracking-tight text-white group-hover:text-[#F5F7FA] transition-colors">DRIFTMAP</span>
         </Link>
         <nav className="hidden md:flex items-center gap-8 text-[13px] font-medium text-[#8993A5]" aria-label="Primary navigation">
