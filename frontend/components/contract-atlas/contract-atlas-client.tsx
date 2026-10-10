@@ -6,10 +6,9 @@ import type { Command } from "./command-palette";
 import { CommandPalette } from "./command-palette";
 import type { ContractDirection, ContractSnapshot, PayloadSample, Workspace } from "@/lib/contract/types";
 import { collectUnchangedNodes, buildDiff, compareContracts } from "@/lib/contract/compare";
-import { inferContract } from "@/lib/contract/infer";
 import { buildMarkdownReport, buildWorkspaceExport } from "@/lib/contract/export";
-import { createCloudSnapshot, createCloudWorkspace, loadCloudWorkbench } from "@/lib/db/cloud-api";
-import { createSnapshot, createWorkspace, deleteWorkspace, importDemoFixture, loadWorkbench, renameSnapshot, saveWorkspace } from "@/lib/db/contract-atlas-db";
+import { createCloudSnapshot, createCloudWorkspace, deleteCloudSnapshot, deleteCloudWorkspace, loadCloudWorkbench, renameCloudSnapshot, renameCloudWorkspace, updateCloudWorkspace } from "@/lib/db/cloud-api";
+import { createSnapshot, createWorkspace, deleteSnapshot, deleteWorkspace, importDemoFixture, loadWorkbench, renameSnapshot, saveWorkspace } from "@/lib/db/contract-atlas-db";
 import { useWorkspaceUIStore } from "@/stores/workspace-ui-store";
 import { useSession } from "next-auth/react";
 import { CloudAccessPrompt } from "./cloud-access-prompt";
@@ -124,10 +123,17 @@ export default function ContractAtlasClient() {
         setWorkspaces((current) => [workspace!, ...current]);
         setActiveWorkspace(workspace.id);
       }
-      const snapshot = mode === "cloud" ? (await createCloudSnapshot(workspace.id, label, samples, fileName), { id: `cloud-${Date.now()}`, workspaceId: workspace.id, versionLabel: label, notes: "", sourceFileName: fileName, samples, contract: inferContract(samples), createdAt: new Date().toISOString() }) : await createSnapshot(workspace.id, samples, label, fileName);
-      const updated: Workspace = { ...workspace, [side === "before" ? "baselineSnapshotId" : "candidateSnapshotId"]: snapshot.id, updatedAt: new Date().toISOString() };
+      const snapshotResult = mode === "cloud"
+        ? await createCloudSnapshot(workspace.id, label, samples, fileName, side === "before" ? "baseline" : "candidate")
+        : null;
+      const snapshot = snapshotResult?.snapshot ?? await createSnapshot(workspace.id, samples, label, fileName);
+      const updated: Workspace = {
+        ...workspace,
+        [side === "before" ? "baselineSnapshotId" : "candidateSnapshotId"]: snapshot.id,
+        updatedAt: snapshotResult?.workspace.updatedAt ?? new Date().toISOString(),
+      };
       if (mode === "local") await saveWorkspace(updated);
-      setSnapshots((current) => [...current, snapshot]);
+      setSnapshots((current) => mode === "cloud" ? [...current.filter((item) => item.id !== snapshot.id), snapshot] : [...current, snapshot]);
       setWorkspaces((current) => current.map((item) => (item.id === updated.id ? updated : item)));
       selectChange(null, null);
       setImportOpen(false);
@@ -156,52 +162,117 @@ export default function ContractAtlasClient() {
   }
 
   async function renameWorkspace() {
-    if (!active || mode === "cloud") return;
+    if (!active || pendingAction) return;
     const name = window.prompt("Rename workspace", active.name);
     if (!name?.trim() || name.trim() === active.name) return;
-    const updated = { ...active, name: name.trim(), updatedAt: new Date().toISOString() };
-    await saveWorkspace(updated);
-    setWorkspaces((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+    setPendingAction("workspace");
+    try {
+      const updated = mode === "cloud"
+        ? await renameCloudWorkspace(active.id, name.trim())
+        : { ...active, name: name.trim(), updatedAt: new Date().toISOString() };
+      const persisted: Workspace = mode === "cloud" ? { ...active, ...updated } : updated;
+      if (mode === "local") await saveWorkspace(persisted);
+      setWorkspaces((current) => current.map((item) => (item.id === persisted.id ? persisted : item)));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Unable to rename this workspace.");
+    } finally {
+      setPendingAction(null);
+    }
   }
 
   async function removeWorkspace() {
-    if (!active || mode === "cloud") return;
+    if (!active || pendingAction) return;
     if (workspaces.length < 2) { setError("Keep at least one workspace open. Create another workspace before deleting this one."); return; }
-    if (!window.confirm(`Delete “${active.name}” and its local snapshots?`)) return;
-    await deleteWorkspace(active.id);
-    setSnapshots((current) => current.filter((snapshot) => snapshot.workspaceId !== active.id));
-    const remaining = workspaces.filter((item) => item.id !== active.id);
-    setWorkspaces(remaining);
-    setActiveWorkspace(remaining[0]?.id ?? null);
+    if (!window.confirm(`Delete “${active.name}” and all of its snapshots?`)) return;
+    setPendingAction("workspace");
+    try {
+      if (mode === "cloud") await deleteCloudWorkspace(active.id);
+      else await deleteWorkspace(active.id);
+      setSnapshots((current) => current.filter((snapshot) => snapshot.workspaceId !== active.id));
+      const remaining = workspaces.filter((item) => item.id !== active.id);
+      setWorkspaces(remaining);
+      setActiveWorkspace(remaining[0]?.id ?? null);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Unable to delete this workspace.");
+    } finally {
+      setPendingAction(null);
+    }
   }
 
   async function swapSnapshots() {
-    if (!active || pendingAction || mode === "cloud") return;
+    if (!active || pendingAction) return;
     setPendingAction("swap");
     try {
       const updated = { ...active, baselineSnapshotId: active.candidateSnapshotId, candidateSnapshotId: active.baselineSnapshotId, updatedAt: new Date().toISOString() };
-      await saveWorkspace(updated);
+      if (mode === "cloud") {
+        const persisted = await updateCloudWorkspace(active.id, { baselineSnapshotId: updated.baselineSnapshotId, candidateSnapshotId: updated.candidateSnapshotId });
+        updated.updatedAt = persisted.updatedAt;
+      } else { await saveWorkspace(updated); }
       setWorkspaces((current) => current.map((item) => (item.id === updated.id ? updated : item)));
       selectChange(null, null);
       flash("Sides swapped");
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Unable to swap snapshots locally.");
+      setError(reason instanceof Error ? reason.message : "Unable to swap snapshots.");
     } finally {
       setPendingAction(null);
     }
   }
 
   async function changeDirection(direction: ContractDirection) {
-    if (!active || mode === "cloud") return;
-    const updated = { ...active, direction, updatedAt: new Date().toISOString() };
-    await saveWorkspace(updated);
-    setWorkspaces((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+    if (!active || pendingAction) return;
+    setPendingAction("direction");
+    try {
+      const updated = { ...active, direction, updatedAt: new Date().toISOString() };
+      if (mode === "cloud") {
+        const persisted = await updateCloudWorkspace(active.id, { direction });
+        updated.updatedAt = persisted.updatedAt;
+      } else { await saveWorkspace(updated); }
+      setWorkspaces((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Unable to change this contract direction.");
+    } finally {
+      setPendingAction(null);
+    }
   }
 
   const renameLabel = useCallback(async (snapshot: ContractSnapshot, versionLabel: string) => {
-    await renameSnapshot(snapshot.id, versionLabel);
-    setSnapshots((current) => current.map((item) => (item.id === snapshot.id ? { ...item, versionLabel } : item)));
-  }, []);
+    try {
+      if (mode === "cloud") await renameCloudSnapshot(snapshot.id, versionLabel);
+      else await renameSnapshot(snapshot.id, versionLabel);
+      setSnapshots((current) => current.map((item) => (item.id === snapshot.id ? { ...item, versionLabel } : item)));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Unable to rename this snapshot.");
+    }
+  }, [mode]);
+
+  const deleteSide = useCallback(async (side: "before" | "after") => {
+    if (!active || pendingAction) return;
+    const snapshot = side === "before" ? baseline : candidate;
+    if (!snapshot) return;
+    if (!window.confirm(`Delete the ${side === "before" ? "baseline" : "candidate"} snapshot “${snapshot.versionLabel}”?`)) return;
+    setPendingAction(`delete-${side}`);
+    try {
+      if (mode === "cloud") {
+        const persisted = await updateCloudWorkspace(active.id, side === "before" ? { baselineSnapshotId: null } : { candidateSnapshotId: null });
+        await deleteCloudSnapshot(snapshot.id);
+        const updated: Workspace = { ...active, updatedAt: persisted.updatedAt, [side === "before" ? "baselineSnapshotId" : "candidateSnapshotId"]: null };
+        setWorkspaces((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      } else {
+        const persisted = { ...active, updatedAt: new Date().toISOString(), [side === "before" ? "baselineSnapshotId" : "candidateSnapshotId"]: null };
+        await deleteSnapshot(snapshot.id);
+        await saveWorkspace(persisted);
+        setWorkspaces((current) => current.map((item) => (item.id === persisted.id ? persisted : item)));
+      }
+      setSnapshots((current) => current.filter((item) => item.id !== snapshot.id));
+      selectChange(null, null);
+      flash("Snapshot deleted");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Unable to delete this snapshot.");
+      await refresh();
+    } finally {
+      setPendingAction(null);
+    }
+  }, [active, baseline, candidate, flash, mode, pendingAction, refresh, selectChange]);
 
   const loadDemo = useCallback(async () => {
     if (!active) return;
@@ -291,6 +362,7 @@ export default function ContractAtlasClient() {
         onRename={() => void renameWorkspace()}
         onDelete={() => void removeWorkspace()}
         onSwap={() => void swapSnapshots()}
+        onDeleteSnapshot={(side) => void deleteSide(side)}
         onDirection={(direction) => void changeDirection(direction)}
         onExport={exportFile}
         onRaw={() => setRawOpen(!rawOpen)}
@@ -319,9 +391,9 @@ export default function ContractAtlasClient() {
             </div>
           </div>
           <div className="ca-three-pane">
-            <SnapshotTree title="Baseline" snapshot={baseline} opposite={candidate} changes={changes} side="before" onRenameLabel={(label) => void renameLabel(baseline, label)} />
+            <SnapshotTree title="Baseline" snapshot={baseline} opposite={candidate} changes={changes} side="before" onRenameLabel={(snapshot, label) => void renameLabel(snapshot, label)} onDeleteSnapshot={() => void deleteSide("before")} />
             <ChangeRail changes={changes} counts={counts} direction={active?.direction ?? "event"} unchanged={unchanged} onSelect={(change) => selectChange(change.id, change.pointer)} />
-            <SnapshotTree title="Candidate" snapshot={candidate} opposite={baseline} changes={changes} side="after" onRenameLabel={(label) => void renameLabel(candidate, label)} />
+            <SnapshotTree title="Candidate" snapshot={candidate} opposite={baseline} changes={changes} side="after" onRenameLabel={(snapshot, label) => void renameLabel(snapshot, label)} onDeleteSnapshot={() => void deleteSide("after")} />
           </div>
           <ChangeInspector change={selected} direction={active?.direction ?? "event"} onCopy={(text) => void copy(text)} />
         </>

@@ -33,10 +33,11 @@ interface SnapshotTreeProps {
   opposite: ContractSnapshot | null;
   changes: ContractChange[];
   side: "before" | "after";
-  onRenameLabel: (label: string) => void;
+  onRenameLabel: (snapshot: ContractSnapshot, label: string) => void;
+  onDeleteSnapshot?: (side: "before" | "after") => void;
 }
 
-export function SnapshotTree({ title, snapshot, opposite, changes, onRenameLabel }: SnapshotTreeProps) {
+export function SnapshotTree({ title, snapshot, opposite, changes, side, onRenameLabel, onDeleteSnapshot }: SnapshotTreeProps) {
   const activePointer = useWorkspaceUIStore((state) => state.activePointer);
   const selectChange = useWorkspaceUIStore((state) => state.selectChange);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -91,8 +92,9 @@ export function SnapshotTree({ title, snapshot, opposite, changes, onRenameLabel
         <div><span className="ca-overline">{title}</span><strong>{snapshot?.versionLabel ?? "No snapshot"}</strong></div>
         <div style={{ display: "flex", gap: 5 }}>
           {snapshot && (
-            <button className="ca-small-button" onClick={() => { const label = window.prompt("Snapshot label", snapshot.versionLabel); if (label?.trim() && label.trim() !== snapshot.versionLabel) onRenameLabel(label.trim()); }}>Rename</button>
+            <button className="ca-small-button" onClick={() => { const label = window.prompt("Snapshot label", snapshot.versionLabel); if (label?.trim() && label.trim() !== snapshot.versionLabel) onRenameLabel(snapshot, label.trim()); }}>Rename</button>
           )}
+          {snapshot && onDeleteSnapshot && <button className="ca-small-button is-danger" onClick={() => onDeleteSnapshot(side)}>Delete</button>}
           <button className="ca-small-button" onClick={() => useWorkspaceUIStore.getState().setImportOpen(true)}>{snapshot ? "Replace" : "Import"}</button>
         </div>
       </header>

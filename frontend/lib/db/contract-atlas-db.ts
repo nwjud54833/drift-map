@@ -64,6 +64,20 @@ export async function importDemoFixture(workspace: Workspace): Promise<{ workspa
 
 export async function saveWorkspace(workspace: Workspace): Promise<void> { await db.workspaces.put(workspace); }
 export async function saveSnapshot(snapshot: ContractSnapshot): Promise<void> { await db.snapshots.put(snapshot); }
+export async function deleteSnapshot(id: string): Promise<void> {
+  const snapshot = await db.snapshots.get(id);
+  if (!snapshot) return;
+  await db.transaction("rw", db.workspaces, db.snapshots, async () => {
+    await db.snapshots.delete(id);
+    const workspaces = await db.workspaces.toArray();
+    await Promise.all(workspaces.filter((workspace) => workspace.baselineSnapshotId === id || workspace.candidateSnapshotId === id).map((workspace) => db.workspaces.put({
+      ...workspace,
+      baselineSnapshotId: workspace.baselineSnapshotId === id ? null : workspace.baselineSnapshotId,
+      candidateSnapshotId: workspace.candidateSnapshotId === id ? null : workspace.candidateSnapshotId,
+      updatedAt: new Date().toISOString(),
+    })));
+  });
+}
 export async function deleteWorkspace(id: string): Promise<void> { await db.transaction("rw", db.workspaces, db.snapshots, async () => { await db.snapshots.where("workspaceId").equals(id).delete(); await db.workspaces.delete(id); }); }
 export async function getSnapshot(id: string | null): Promise<ContractSnapshot | null> { return id ? (await db.snapshots.get(id)) ?? null : null; }
 export function createWorkspace(name: string, direction: ContractDirection = "response"): Workspace {

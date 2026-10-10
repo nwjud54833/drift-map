@@ -38,11 +38,43 @@ export async function loadCloudWorkbench(): Promise<{ workspaces: Workspace[]; s
 
 export async function createCloudWorkspace(name: string, direction: Workspace["direction"]): Promise<Workspace> {
   const response = await fetch("/api/v1/workspaces", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name, direction }) });
-  if (!response.ok) throw new Error("Unable to create the cloud workspace.");
+  if (!response.ok) throw new Error(response.status === 401 ? "Sign in to create cloud workspaces." : "Unable to create the cloud workspace.");
   return (await response.json() as { workspace: Workspace }).workspace;
 }
 
-export async function createCloudSnapshot(workspaceId: string, versionLabel: string, samples: ContractSnapshot["samples"], sourceFileName: string | null): Promise<void> {
-  const response = await fetch(`/api/v1/workspaces/${workspaceId}/snapshots`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ versionLabel, sourceFileName, payloads: samples.map((sample) => sample.value) }) });
-  if (!response.ok) throw new Error("Unable to save the cloud snapshot.");
+async function patchWorkspace(workspaceId: string, data: Record<string, unknown>): Promise<Workspace> {
+  const response = await fetch(`/api/v1/workspaces/${workspaceId}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(data) });
+  if (!response.ok) throw new Error(response.status === 401 ? "Your session expired. Sign in again to use Cloud mode." : response.status === 404 ? "Cloud workspace not found." : "Unable to update the cloud workspace.");
+  return (await response.json() as { workspace: Workspace }).workspace;
 }
+
+export function renameCloudWorkspace(workspaceId: string, name: string): Promise<Workspace> {
+  return patchWorkspace(workspaceId, { name });
+}
+
+export function updateCloudWorkspace(workspaceId: string, data: Partial<Pick<Workspace, "direction" | "baselineSnapshotId" | "candidateSnapshotId">>): Promise<Workspace> {
+  return patchWorkspace(workspaceId, data);
+}
+
+export async function deleteCloudWorkspace(workspaceId: string): Promise<void> {
+  const response = await fetch(`/api/v1/workspaces/${workspaceId}`, { method: "DELETE" });
+  if (!response.ok) throw new Error(response.status === 401 ? "Your session expired. Sign in again to use Cloud mode." : response.status === 404 ? "Cloud workspace not found." : "Unable to delete the cloud workspace.");
+}
+
+export async function renameCloudSnapshot(snapshotId: string, versionLabel: string): Promise<ContractSnapshot> {
+  const response = await fetch(`/api/v1/snapshots/${snapshotId}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ versionLabel }) });
+  if (!response.ok) throw new Error(response.status === 401 ? "Your session expired. Sign in again to use Cloud mode." : response.status === 404 ? "Cloud snapshot not found." : "Unable to rename the cloud snapshot.");
+  return (await response.json() as { snapshot: ContractSnapshot }).snapshot;
+}
+
+export async function deleteCloudSnapshot(snapshotId: string): Promise<void> {
+  const response = await fetch(`/api/v1/snapshots/${snapshotId}`, { method: "DELETE" });
+  if (!response.ok) throw new Error(response.status === 401 ? "Your session expired. Sign in again to use Cloud mode." : response.status === 404 ? "Cloud snapshot not found." : "Unable to delete the cloud snapshot.");
+}
+
+export async function createCloudSnapshot(workspaceId: string, versionLabel: string, samples: ContractSnapshot["samples"], sourceFileName: string | null, side: "baseline" | "candidate"): Promise<{ snapshot: ContractSnapshot; workspace: Pick<Workspace, "id" | "baselineSnapshotId" | "candidateSnapshotId" | "updatedAt"> }> {
+  const response = await fetch(`/api/v1/workspaces/${workspaceId}/snapshots`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ versionLabel, sourceFileName, side, payloads: samples.map((sample) => sample.value) }) });
+  if (!response.ok) throw new Error(response.status === 401 ? "Your session expired. Sign in again to use Cloud mode." : response.status === 404 ? "Cloud workspace not found." : "Unable to save the cloud snapshot.");
+  return await response.json() as { snapshot: ContractSnapshot; workspace: Pick<Workspace, "id" | "baselineSnapshotId" | "candidateSnapshotId" | "updatedAt"> };
+}
+

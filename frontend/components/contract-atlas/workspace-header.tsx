@@ -20,13 +20,14 @@ interface WorkspaceHeaderProps {
   onRename: () => void;
   onDelete: () => void;
   onSwap: () => void;
+  onDeleteSnapshot: (side: "before" | "after") => void;
   onDirection: (direction: ContractDirection) => void;
   onExport: (kind: "workspace" | "report") => void;
   onRaw: () => void;
   onPalette: () => void;
 }
 
-export function WorkspaceHeader({ workspaces, active, mode, cloudAvailable, sessionStatus, onModeChange, onSelect, onImport, onNew, onRename, onDelete, onSwap, onDirection, onExport, onRaw, onPalette }: WorkspaceHeaderProps) {
+export function WorkspaceHeader({ workspaces, active, mode, cloudAvailable, sessionStatus, onModeChange, onSelect, onImport, onNew, onRename, onDelete, onSwap, onDeleteSnapshot, onDirection, onExport, onRaw, onPalette }: WorkspaceHeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const { data: session } = useSession();
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -85,6 +86,8 @@ export function WorkspaceHeader({ workspaces, active, mode, cloudAvailable, sess
                 <hr />
                 <button role="menuitem" disabled={!active} onClick={() => runMenuAction(() => onExport("workspace"))}><Download size={14} />Backup workspace</button>
                 <button role="menuitem" disabled={!active} onClick={() => runMenuAction(onRaw)}><FileText size={14} />Raw JSON drawer</button>
+                <button role="menuitem" className="is-danger" disabled={!active} onClick={() => runMenuAction(() => onDeleteSnapshot("before"))}><Trash2 size={14} />Delete baseline snapshot</button>
+                <button role="menuitem" className="is-danger" disabled={!active} onClick={() => runMenuAction(() => onDeleteSnapshot("after"))}><Trash2 size={14} />Delete candidate snapshot</button>
                 <hr />
                 <button role="menuitem" className="is-danger" disabled={!active} onClick={() => runMenuAction(onDelete)}><Trash2 size={14} />Delete workspace</button>
               </div>

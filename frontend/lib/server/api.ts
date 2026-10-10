@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 
 export const MAX_API_BODY_BYTES = 4 * 1024 * 1024;
+export const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function isUuid(value: string): boolean {
+  return UUID_PATTERN.test(value);
+}
 
 export async function authenticatedUserId(): Promise<string | null> {
   const session = await auth();
