@@ -18,7 +18,7 @@ function validateValue(value: unknown): JsonValue {
 }
 
 export function parsePayloadText(rawText: string, options: { source?: SnapshotSource; fileName?: string | null; now?: string } = {}): PayloadSample[] {
-  if (new TextEncoder().encode(rawText).byteLength > MAX_IMPORT_BYTES) throw new PayloadParseError("File too large. Contract Atlas supports JSON payloads up to 2 MB in the MVP.");
+  if (new TextEncoder().encode(rawText).byteLength > MAX_IMPORT_BYTES) throw new PayloadParseError("File too large. DriftMap supports JSON payloads up to 2 MB in the MVP.");
   let unknownValue: unknown;
   try { unknownValue = JSON.parse(rawText) as unknown; }
   catch { throw new PayloadParseError("Unable to parse JSON. Check the syntax and try again."); }
@@ -47,7 +47,7 @@ export function parsePayloadText(rawText: string, options: { source?: SnapshotSo
 }
 
 export async function parsePayloadFile(file: File): Promise<PayloadSample[]> {
-  if (file.size > MAX_IMPORT_BYTES) throw new PayloadParseError("File too large. Contract Atlas supports JSON payloads up to 2 MB in the MVP.");
+  if (file.size > MAX_IMPORT_BYTES) throw new PayloadParseError("File too large. DriftMap supports JSON payloads up to 2 MB in the MVP.");
   if (!file.name.toLowerCase().endsWith(".json") && file.type !== "application/json") throw new PayloadParseError("Choose a .json file to import.");
   return parsePayloadText(await file.text(), { source: "file", fileName: file.name });
 }

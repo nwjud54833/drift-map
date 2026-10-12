@@ -18,7 +18,7 @@ export function AuthPage({ mode }: { mode: "signin" | "signup" }) {
       <div className="auth-page-grid" aria-hidden="true" />
       <Link href="/" className="auth-back-link"><ArrowLeft size={14} aria-hidden="true" /> Back to DriftMap</Link>
       <section className="auth-panel" aria-labelledby="auth-page-title">
-        <div className="auth-brand"><Image src="/logos/driftmap-logo.svg" alt="DriftMap" width={132} height={35} priority className="h-auto w-[132px]" /></div>
+        <div className="auth-brand"><Image src="/logo-icon-180.png" alt="" width={26} height={26} className="object-contain" /><span>DRIFTMAP</span></div>
         <div className="auth-panel-heading">
           <span className="auth-kicker">{isSignUp ? "CLOUD ACCESS" : "WELCOME BACK"}</span>
           <h1 id="auth-page-title">{title}</h1>

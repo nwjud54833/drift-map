@@ -16,7 +16,7 @@ export function Integrations() {
 }
 
 export function ProductPrinciples() {
-  return <section id="why" className="principles-section"><div className="section-container"><Reveal><SectionHead overline="WHY CONTRACT ATLAS" title={<>Line diffs tell you what moved.<br/>Contract Atlas tells you what matters.</>}><span>Semantic signal from real payload evidence—without pretending samples are a formal schema.</span></SectionHead></Reveal><div className="principle-grid">{features.map(({ icon: Icon, title, text }, index) => <Reveal key={title} delay={index % 3}><article className="principle-card"><div className="principle-icon"><Icon size={17}/><span>0{index + 1}</span></div><h3>{title}</h3><p>{text}</p></article></Reveal>)}</div></div></section>;
+  return <section id="why" className="principles-section"><div className="section-container"><Reveal><SectionHead overline="WHY DRIFTMAP" title={<>Line diffs tell you what moved.<br/>DriftMap tells you what matters.</>}><span>Semantic signal from real payload evidence—without pretending samples are a formal schema.</span></SectionHead></Reveal><div className="principle-grid">{features.map(({ icon: Icon, title, text }, index) => <Reveal key={title} delay={index % 3}><article className="principle-card"><div className="principle-icon"><Icon size={17}/><span>0{index + 1}</span></div><h3>{title}</h3><p>{text}</p></article></Reveal>)}</div></div></section>;
 }
 
 export function LocalFirst() {
@@ -24,5 +24,5 @@ export function LocalFirst() {
 }
 
 export function Footer() {
-  return <footer className="site-footer"><div className="section-container"><div className="footer-main"><Link href="/" aria-label="Contract Atlas home"><Logo/></Link><p>Local-first contract intelligence for real-world payloads.</p><a className="footer-cta" href="/workbench">Open Workbench <ArrowRight size={14}/></a></div><div className="footer-bottom"><span>© 2026 Contract Atlas · Built for careful integrations</span><span>Runs locally in your browser. Your payloads stay on your device.</span></div></div></footer>;
+  return <footer className="site-footer"><div className="section-container"><div className="footer-main"><Link href="/" aria-label="DriftMap home"><Logo/></Link><p>Local-first contract intelligence for real-world payloads.</p><a className="footer-cta" href="/workbench">Open Workbench <ArrowRight size={14}/></a></div><div className="footer-bottom"><span>© 2026 DriftMap · Built for careful integrations</span><span>Runs locally in your browser. Your payloads stay on your device.</span></div></div></footer>;
 }

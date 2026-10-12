@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
-import React, { useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import React, { useEffect, useRef, useState } from "react";
 import { LogOut, UserRound, Cloud } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 
@@ -27,7 +27,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenWorkbench }) => {
     <header className="sticky top-0 z-50 w-full border-b border-[#1A202A] bg-[#050609]/85 backdrop-blur-md transition-all duration-200">
       <div className="mx-auto flex h-13 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link href="/" className="group flex items-center gap-2 text-sm font-semibold tracking-wide text-[#F5F7FA]" aria-label="DriftMap home">
-          <Image src="/logos/driftmap-logo.svg" alt="DriftMap" width={132} height={35} priority className="h-auto w-[132px] transition-opacity duration-150 group-hover:opacity-90" />
+          <span className="relative h-5 w-5 shrink-0"><Image src="/logo-icon-180.png" alt="" fill className="object-contain" sizes="20px" /></span>
+          <span className="font-mono text-[14px] font-bold tracking-tight text-white group-hover:text-[#F5F7FA] transition-colors">DRIFTMAP</span>
         </Link>
         <nav className="hidden md:flex items-center gap-8 text-[13px] font-medium text-[#8993A5]" aria-label="Primary navigation">
           <a href="#how-it-works" className="hover:text-[#F5F7FA] transition-colors duration-150">How it works</a>
