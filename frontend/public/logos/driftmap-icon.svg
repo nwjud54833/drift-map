@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" role="img" aria-label="DriftMap icon">
+  <title>DriftMap</title>
+  <rect width="64" height="64" rx="14" fill="#0B1020"/>
+  <g transform="translate(6 0)">
+    <path d="M4 34 H17 L29 24 H52" stroke="#6C7CF5" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M4 44 H17 L29 54 H52" stroke="#22D3EE" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M4 39 H20 C28 39 31 45 40 45 H48" stroke="#2B3B66" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M33 27 C38 33 38 51 33 57" stroke="#22D3EE" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </g>
+</svg>

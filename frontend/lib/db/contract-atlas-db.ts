@@ -1,25 +1,30 @@
 import Dexie, { type Table } from "dexie";
-import type { ContractSnapshot, ContractDirection, JsonObject, PayloadSample, Workspace } from "@/lib/contract/types";
+import type { ContractSnapshot, ContractDirection, JsonObject, OpenApiContract, PayloadSample, Workspace } from "@/lib/contract/types";
 import { inferContract } from "@/lib/contract/infer";
 import fixture from "@/fixtures/order-shipped.fixture.json";
 
 class ContractAtlasDatabase extends Dexie {
   workspaces!: Table<Workspace, string>;
   snapshots!: Table<ContractSnapshot, string>;
+  metadata!: Table<{ key: string; value: boolean }, string>;
   constructor() {
     super("contract-atlas");
     this.version(1).stores({ workspaces: "id, updatedAt, createdAt", snapshots: "id, workspaceId, createdAt, versionLabel" });
+    this.version(2).stores({ workspaces: "id, updatedAt, createdAt", snapshots: "id, workspaceId, createdAt, versionLabel", metadata: "key" });
   }
 }
 export const db = new ContractAtlasDatabase();
 const demoDate = "2026-10-07T09:00:00.000Z";
 
 export async function loadWorkbench(): Promise<{ workspaces: Workspace[]; snapshots: ContractSnapshot[] }> {
-  if (!(await db.workspaces.count())) await seedDemo();
+  if (!(await db.metadata.get("initial-demo-loaded"))?.value) {
+    if (!(await db.workspaces.count())) await seedDemo();
+    await db.metadata.put({ key: "initial-demo-loaded", value: true });
+  }
   const workspaces = await db.workspaces.orderBy("updatedAt").reverse().toArray();
   const snapshots = await db.snapshots.toArray();
   for (const snapshot of snapshots) {
-    if (snapshot.contract.inferenceVersion !== 1) {
+    if ("inferenceVersion" in snapshot.contract && snapshot.contract.inferenceVersion !== 1) {
       snapshot.contract = inferContract(snapshot.samples);
       await db.snapshots.put(snapshot);
     }
@@ -38,6 +43,10 @@ function fixtureSamples(values: readonly unknown[]): PayloadSample[] {
     const orderId = typeof data.order_id === "string" ? data.order_id : `Sample ${index + 1}`;
     return { id: `fixture_${index + 1}`, label: `order.shipped · ${orderId}`, value, source: "fixture", capturedAt: demoDate };
   });
+}
+
+export function getDemoSamples(): { baseline: PayloadSample[]; candidate: PayloadSample[] } {
+  return { baseline: fixtureSamples(fixture.baseline), candidate: fixtureSamples(fixture.candidate) };
 }
 
 export async function seedDemo(): Promise<void> {
@@ -86,6 +95,12 @@ export function createWorkspace(name: string, direction: ContractDirection = "re
 }
 export async function createSnapshot(workspaceId: string, samples: PayloadSample[], versionLabel: string, sourceFileName: string | null): Promise<ContractSnapshot> {
   const snapshot: ContractSnapshot = { id: crypto.randomUUID(), workspaceId, versionLabel, notes: "", sourceFileName, samples: samples.map((sample) => ({ ...sample, id: crypto.randomUUID() })), contract: inferContract(samples), createdAt: new Date().toISOString() };
+  await saveSnapshot(snapshot);
+  return snapshot;
+}
+
+export async function createOpenApiSnapshot(workspaceId: string, contract: OpenApiContract, versionLabel: string, sourceFileName: string | null): Promise<ContractSnapshot> {
+  const snapshot: ContractSnapshot = { id: crypto.randomUUID(), workspaceId, versionLabel, notes: "", sourceFileName, samples: [], contract, createdAt: new Date().toISOString() };
   await saveSnapshot(snapshot);
   return snapshot;
 }

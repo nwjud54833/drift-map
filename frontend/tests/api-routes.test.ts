@@ -6,15 +6,18 @@ const findManyMock = vi.hoisted(() => vi.fn());
 const createMock = vi.hoisted(() => vi.fn());
 const updateManyMock = vi.hoisted(() => vi.fn());
 const deleteManyMock = vi.hoisted(() => vi.fn());
+const diffFindManyMock = vi.hoisted(() => vi.fn());
+const diffFindFirstMock = vi.hoisted(() => vi.fn());
 vi.mock("@/auth", () => ({ auth: authMock }));
 vi.mock("@/lib/db/prisma", () => ({
   prisma: {
     workspace: { findFirst: findFirstMock, findMany: findManyMock, create: createMock, updateMany: updateManyMock, deleteMany: deleteManyMock },
     contractSnapshot: { findFirst: findFirstMock, updateMany: updateManyMock, deleteMany: deleteManyMock },
+    contractDiff: { findMany: diffFindManyMock, findFirst: diffFindFirstMock },
   },
 }));
 
-import { GET as getWorkspaces } from "@/app/api/v1/workspaces/route";
+import { GET as getWorkspaces, POST as postWorkspace } from "@/app/api/v1/workspaces/route";
 import { GET as getWorkspace } from "@/app/api/v1/workspaces/[workspaceId]/route";
 import { GET as getSnapshot, PATCH as patchSnapshot } from "@/app/api/v1/snapshots/[snapshotId]/route";
 
@@ -26,6 +29,26 @@ describe("authenticated resource boundaries", () => {
     const response = await getWorkspaces();
     expect(response.status).toBe(401);
     expect(findManyMock).not.toHaveBeenCalled();
+  });
+
+  it("returns JSON when session lookup fails", async () => {
+    authMock.mockRejectedValue(new Error("session store unavailable"));
+    const response = await getWorkspaces();
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ error: "Unable to verify your session." });
+    expect(findManyMock).not.toHaveBeenCalled();
+  });
+
+  it("reports workspace persistence failures as server errors", async () => {
+    authMock.mockResolvedValue({ user: { id: "user-a" } });
+    createMock.mockRejectedValue(new Error("database unavailable"));
+    const response = await postWorkspace(new Request("http://localhost/api/v1/workspaces", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "Orders API", direction: "response" }),
+    }));
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ error: "Unable to create the workspace." });
   });
 
   it("scopes workspace reads to the server session user", async () => {
@@ -71,7 +94,7 @@ describe("authenticated resource boundaries", () => {
 
 });
 
-import { POST as postDiff } from "@/app/api/v1/diffs/route";
+import { GET as getDiffs, POST as postDiff } from "@/app/api/v1/diffs/route";
 
 describe("diff endpoint boundaries", () => {
   it("rejects unauthenticated diff creation before parsing or persistence", async () => {
@@ -79,5 +102,59 @@ describe("diff endpoint boundaries", () => {
     const response = await postDiff(new Request("http://localhost/api/v1/diffs", { method: "POST", body: "not-json" }));
     expect(response.status).toBe(401);
     expect(createMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects unauthenticated diff reads before querying Prisma", async () => {
+    authMock.mockResolvedValue(null);
+    const response = await getDiffs(new Request("http://localhost/api/v1/diffs"));
+    expect(response.status).toBe(401);
+    expect(diffFindManyMock).not.toHaveBeenCalled();
+    expect(diffFindFirstMock).not.toHaveBeenCalled();
+  });
+
+  it("returns a consistent JSON error when session lookup fails", async () => {
+    authMock.mockRejectedValue(new Error("session lookup failed"));
+    const response = await getDiffs(new Request("http://localhost/api/v1/diffs"));
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ error: "Unable to verify your session." });
+    expect(diffFindManyMock).not.toHaveBeenCalled();
+    expect(diffFindFirstMock).not.toHaveBeenCalled();
+  });
+
+  it("scopes diff listings to the session user's workspaces", async () => {
+    authMock.mockResolvedValue({ user: { id: "user-a" } });
+    diffFindManyMock.mockResolvedValue([]);
+    const response = await getDiffs(new Request("http://localhost/api/v1/diffs"));
+    expect(response.status).toBe(200);
+    expect(diffFindManyMock).toHaveBeenCalledWith(expect.objectContaining({
+      where: { workspace: { userId: "user-a" } },
+    }));
+  });
+
+  it("scopes diff detail lookups to the session user and returns 404 for foreign diffs", async () => {
+    authMock.mockResolvedValue({ user: { id: "user-a" } });
+    diffFindFirstMock.mockResolvedValue(null);
+    const workspaceId = "6f9619ff-8b86-4d3a-a5a5-6d2a7e5b6c10";
+    const baselineId = "f47ac10b-58cc-4372-a567-0e02b2c3d479";
+    const candidateId = "7c9e6679-7425-40de-944b-e07fc1f90ae7";
+    const response = await getDiffs(new Request(`http://localhost/api/v1/diffs?workspaceId=${workspaceId}&baselineSnapshotId=${baselineId}&candidateSnapshotId=${candidateId}&direction=request`));
+    expect(response.status).toBe(404);
+    expect(diffFindFirstMock).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ workspace: { userId: "user-a" }, direction: "request" }),
+    }));
+  });
+
+  it("rejects malformed diff detail identifiers before querying Prisma", async () => {
+    authMock.mockResolvedValue({ user: { id: "user-a" } });
+    const response = await getDiffs(new Request("http://localhost/api/v1/diffs?workspaceId=not-a-uuid&baselineSnapshotId=not-a-uuid&candidateSnapshotId=not-a-uuid"));
+    expect(response.status).toBe(400);
+    expect(diffFindFirstMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects unsupported diff directions before querying Prisma", async () => {
+    authMock.mockResolvedValue({ user: { id: "user-a" } });
+    const response = await getDiffs(new Request("http://localhost/api/v1/diffs?workspaceId=6f9619ff-8b86-4d3a-a5a5-6d2a7e5b6c10&baselineSnapshotId=f47ac10b-58cc-4372-a567-0e02b2c3d479&candidateSnapshotId=7c9e6679-7425-40de-944b-e07fc1f90ae7&direction=invalid"));
+    expect(response.status).toBe(400);
+    expect(diffFindFirstMock).not.toHaveBeenCalled();
   });
 });

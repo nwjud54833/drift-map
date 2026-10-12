@@ -14,5 +14,7 @@ export function compatibilityRule(kind: ChangeKind, direction: ContractDirection
   if (kind === "field-added") return direction === "request" ? `${label} payload: newly required request fields are breaking; optional additions are safe.` : `${label} payload: newly required fields are warnings; optional additions are safe.`;
   if (kind === "type-changed") return `${label} payload: any change in inferred JSON kinds is breaking.`;
   if (kind === "became-required") return `${label} payload: a field that now appears in every sample is treated as breaking.`;
-  return `${label} payload: a field that is absent from some samples is informational.`;
+  if (kind === "became-optional") return `${label} payload: a field that is absent from some samples is informational.`;
+  if (kind === "contract-format-changed") return "The snapshots use different contract representations, so their contents cannot be compared directly.";
+  return `OpenAPI compatibility: ${direction === "request" ? "request" : "response"} changes are classified using declared operations, parameters, and schemas; review the rationale and specification context.`;
 }

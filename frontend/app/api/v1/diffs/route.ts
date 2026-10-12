@@ -1,33 +1,98 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { Prisma, type ChangeKind as PrismaChangeKind } from "@prisma/client";
 import { buildDiff, compareContracts } from "@/lib/contract/compare";
+import { OpenApiComparisonError } from "@/lib/contract/openapi";
 import { inferContract } from "@/lib/contract/infer";
 import { parsePayloadText } from "@/lib/contract/parse";
-import type { ContractDirection, SnapshotSource } from "@/lib/contract/types";
+import type { ChangeKind, ContractDirection, SnapshotSource, StoredContract } from "@/lib/contract/types";
 import { prisma } from "@/lib/db/prisma";
-import { apiError, authenticatedUserId, readJsonBody } from "@/lib/server/api";
+import { apiError, isUuid, readJsonBody, requireAuthenticatedUser } from "@/lib/server/api";
 
 const directions = ["response", "request", "event"] as const;
 const sideSchema = z.object({
   label: z.string().trim().min(1).max(120),
   payloads: z.array(z.unknown()).min(1).max(100),
 }).strict();
-const diffRequestSchema = z.object({
+const payloadDiffRequestSchema = z.object({
   workspaceId: z.string().uuid().optional(),
   workspaceName: z.string().trim().min(1).max(120).optional(),
   direction: z.enum(directions),
   baseline: sideSchema,
   candidate: sideSchema,
 }).strict();
+const snapshotDiffRequestSchema = z.object({
+  workspaceId: z.string().uuid(),
+  baselineSnapshotId: z.string().uuid(),
+  candidateSnapshotId: z.string().uuid(),
+}).strict();
+const diffRequestSchema = z.union([payloadDiffRequestSchema, snapshotDiffRequestSchema]);
 
 const sourceToDb: Record<SnapshotSource, "paste" | "file" | "fixture" | "workspace_import"> = {
   paste: "paste", file: "file", fixture: "fixture", "workspace-import": "workspace_import",
 };
-const kindToDb = (kind: string) => kind.replaceAll("-", "_") as "field_added" | "field_removed" | "type_changed" | "became_required" | "became_optional";
+const kindToDb = (kind: ChangeKind): PrismaChangeKind => kind.replaceAll("-", "_") as PrismaChangeKind;
+
+/**
+ * Lists persisted diffs for the session user. When `workspaceId` query
+ * parameters identify a pair of snapshots, returns the full diff including its
+ * persisted change details; otherwise returns summary rows for every diff the
+ * user can access.
+ */
+export async function GET(request: Request) {
+  try {
+    const authResult = await requireAuthenticatedUser();
+    if (!authResult.ok) return authResult.response;
+
+    const url = new URL(request.url);
+    const workspaceId = url.searchParams.get("workspaceId") ?? "";
+    const baselineSnapshotId = url.searchParams.get("baselineSnapshotId") ?? "";
+    const candidateSnapshotId = url.searchParams.get("candidateSnapshotId") ?? "";
+    const directionParam = url.searchParams.get("direction");
+    const wantsDetail = workspaceId !== "" || baselineSnapshotId !== "" || candidateSnapshotId !== "";
+
+    if (wantsDetail) {
+      if (!isUuid(workspaceId) || !isUuid(baselineSnapshotId) || !isUuid(candidateSnapshotId)) {
+        return apiError("Invalid diff identifiers.", 400);
+      }
+      if (directionParam !== null && !directions.includes(directionParam as ContractDirection)) return apiError("Invalid diff direction.", 400);
+      const diff = await prisma.contractDiff.findFirst({
+        where: {
+          workspaceId,
+          baselineSnapshotId,
+          candidateSnapshotId,
+          ...(directionParam ? { direction: directionParam as ContractDirection } : {}),
+          workspace: { userId: authResult.userId },
+        },
+        include: { changes: { orderBy: [{ severity: "asc" }, { pointer: "asc" }] } },
+      });
+      if (!diff) return apiError("Diff not found.", 404);
+      return NextResponse.json({ diff });
+    }
+
+    const diffs = await prisma.contractDiff.findMany({
+      where: { workspace: { userId: authResult.userId } },
+      orderBy: { generatedAt: "desc" },
+      select: {
+        id: true,
+        workspaceId: true,
+        baselineSnapshotId: true,
+        candidateSnapshotId: true,
+        direction: true,
+        summary: true,
+        generatedAt: true,
+      },
+    });
+    return NextResponse.json({ diffs });
+  } catch {
+    return apiError("Unable to load diffs.", 500);
+  }
+}
 
 export async function POST(request: Request) {
-  const userId = await authenticatedUserId();
-  if (!userId) return apiError("Sign in is required.", 401);
+  const authResult = await requireAuthenticatedUser();
+  if (!authResult.ok) return authResult.response;
+  const userId = authResult.userId;
 
   let body: z.infer<typeof diffRequestSchema>;
   try {
@@ -38,6 +103,8 @@ export async function POST(request: Request) {
     if (error instanceof RangeError) return apiError(error.message, 413);
     return apiError("Request body must be valid JSON.", 400);
   }
+
+  if ("baselineSnapshotId" in body) return saveSnapshotDiff(body, userId);
 
   let baselineSamples;
   let candidateSamples;
@@ -92,7 +159,8 @@ export async function POST(request: Request) {
             id: `${baseline.id}:${candidate.id}:${change.id}`,
             pointer: change.pointer, kind: kindToDb(change.kind), severity: change.severity,
             title: change.title, explanation: change.explanation,
-            beforeNode: change.before as never, afterNode: change.after as never,
+            beforeNode: change.before === null ? Prisma.DbNull : change.before as never,
+            afterNode: change.after === null ? Prisma.DbNull : change.after as never,
           })) },
         },
       });
@@ -103,7 +171,49 @@ export async function POST(request: Request) {
     });
     if (!result) return apiError("Workspace not found.", 404);
     return NextResponse.json(result, { status: 201 });
-  } catch {
+  } catch (error) {
+    if (error instanceof OpenApiComparisonError) return apiError(error.message, 422);
+    return apiError("Unable to save the diff.", 500);
+  }
+}
+
+async function saveSnapshotDiff(body: z.infer<typeof snapshotDiffRequestSchema>, userId: string) {
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const workspace = await tx.workspace.findFirst({ where: { id: body.workspaceId, userId } });
+      if (!workspace) return null;
+      const [baseline, candidate] = await Promise.all([
+        tx.contractSnapshot.findFirst({ where: { id: body.baselineSnapshotId, workspaceId: workspace.id } }),
+        tx.contractSnapshot.findFirst({ where: { id: body.candidateSnapshotId, workspaceId: workspace.id } }),
+      ]);
+      if (!baseline || !candidate) return null;
+      const direction = workspace.direction as ContractDirection;
+      const changes = compareContracts(baseline.contract as unknown as StoredContract, candidate.contract as unknown as StoredContract, direction);
+      const diff = buildDiff(baseline.id, candidate.id, direction, changes);
+      const unique = { baselineSnapshotId: baseline.id, candidateSnapshotId: candidate.id, direction };
+      const saved = await tx.contractDiff.upsert({
+        where: { baselineSnapshotId_candidateSnapshotId_direction: unique },
+        create: { workspaceId: workspace.id, ...unique, summary: diff.summary },
+        update: { workspaceId: workspace.id, summary: diff.summary },
+      });
+      await tx.contractChange.deleteMany({ where: { diffId: saved.id } });
+      if (changes.length) await tx.contractChange.createMany({ data: changes.map((change) => ({
+        id: `${saved.id}:${change.id}`,
+        diffId: saved.id,
+        pointer: change.pointer,
+        kind: kindToDb(change.kind),
+        severity: change.severity,
+        title: change.title,
+        explanation: change.explanation,
+        beforeNode: change.before === null ? Prisma.DbNull : change.before as never,
+        afterNode: change.after === null ? Prisma.DbNull : change.after as never,
+      })) });
+      return tx.contractDiff.findUnique({ where: { id: saved.id }, include: { changes: { orderBy: [{ severity: "asc" }, { pointer: "asc" }] } } });
+    });
+    if (!result) return apiError("Workspace or snapshot not found.", 404);
+    return NextResponse.json({ diff: result }, { status: 200 });
+  } catch (error) {
+    if (error instanceof OpenApiComparisonError) return apiError(error.message, 422);
     return apiError("Unable to save the diff.", 500);
   }
 }

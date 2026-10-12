@@ -1,22 +1,26 @@
 import { NextResponse } from "next/server";
-import { apiError, authenticatedUserId, isUuid, readJsonBody } from "@/lib/server/api";
+import { apiError, isUuid, readJsonBody, requireAuthenticatedUser } from "@/lib/server/api";
 import { prisma } from "@/lib/db/prisma";
 import { workspaceUpdateSchema } from "@/lib/server/contracts";
 type Context = { params: Promise<{ workspaceId: string }> };
 
 export async function GET(_request: Request, context: Context) {
-  const userId = await authenticatedUserId();
-  if (!userId) return apiError("Sign in is required.", 401);
+  const authResult = await requireAuthenticatedUser();
+  if (!authResult.ok) return authResult.response;
   const { workspaceId } = await context.params;
   if (!isUuid(workspaceId)) return apiError("Invalid workspace ID.", 400);
-  const workspace = await prisma.workspace.findFirst({ where: { id: workspaceId, userId }, include: { snapshots: { orderBy: { createdAt: "asc" }, include: { samples: true } } } });
-  if (!workspace) return apiError("Workspace not found.", 404);
-  return NextResponse.json({ workspace });
+  try {
+    const workspace = await prisma.workspace.findFirst({ where: { id: workspaceId, userId: authResult.userId }, include: { snapshots: { orderBy: { createdAt: "asc" }, include: { samples: true } } } });
+    if (!workspace) return apiError("Workspace not found.", 404);
+    return NextResponse.json({ workspace });
+  } catch {
+    return apiError("Unable to load the workspace.", 500);
+  }
 }
 
 export async function PATCH(request: Request, context: Context) {
-  const userId = await authenticatedUserId();
-  if (!userId) return apiError("Sign in is required.", 401);
+  const authResult = await requireAuthenticatedUser();
+  if (!authResult.ok) return authResult.response;
   const { workspaceId } = await context.params;
   if (!isUuid(workspaceId)) return apiError("Invalid workspace ID.", 400);
   try {
@@ -25,7 +29,7 @@ export async function PATCH(request: Request, context: Context) {
     const hasBaseline = Object.prototype.hasOwnProperty.call(parsed.data, "baselineSnapshotId");
     const hasCandidate = Object.prototype.hasOwnProperty.call(parsed.data, "candidateSnapshotId");
     const updated = await prisma.$transaction(async (tx) => {
-      const workspace = await tx.workspace.findFirst({ where: { id: workspaceId, userId }, select: { id: true } });
+      const workspace = await tx.workspace.findFirst({ where: { id: workspaceId, userId: authResult.userId }, select: { id: true } });
       if (!workspace) return null;
       const pointerIds = [parsed.data.baselineSnapshotId, parsed.data.candidateSnapshotId].filter((id): id is string => Boolean(id));
       if (pointerIds.length) {
@@ -62,11 +66,15 @@ export async function PATCH(request: Request, context: Context) {
 }
 
 export async function DELETE(_request: Request, context: Context) {
-  const userId = await authenticatedUserId();
-  if (!userId) return apiError("Sign in is required.", 401);
+  const authResult = await requireAuthenticatedUser();
+  if (!authResult.ok) return authResult.response;
   const { workspaceId } = await context.params;
   if (!isUuid(workspaceId)) return apiError("Invalid workspace ID.", 400);
-  const result = await prisma.workspace.deleteMany({ where: { id: workspaceId, userId } });
-  if (result.count !== 1) return apiError("Workspace not found.", 404);
-  return new NextResponse(null, { status: 204 });
+  try {
+    const result = await prisma.workspace.deleteMany({ where: { id: workspaceId, userId: authResult.userId } });
+    if (result.count !== 1) return apiError("Workspace not found.", 404);
+    return new NextResponse(null, { status: 204 });
+  } catch {
+    return apiError("Unable to delete the workspace.", 500);
+  }
 }

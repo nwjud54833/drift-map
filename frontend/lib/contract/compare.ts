@@ -1,12 +1,13 @@
-import type { ChangeKind, ContractChange, ContractDirection, ContractNode, InferredContract, JsonKind } from "./types";
+import type { ChangeKind, ContractChange, ContractDirection, ContractNode, JsonKind, JsonValue, OpenApiContract, StoredContract } from "./types";
 import { classifyChange } from "./compatibility";
-import { pointerDepth } from "./normalize";
+import { getJsonKind, pointerDepth, pointerLabel } from "./normalize";
 import { collectContractNodes } from "./infer";
+import { compareOpenApiContracts } from "./openapi";
 
 const severityRank = { breaking: 0, warning: 1, safe: 2, info: 3 } as const;
 function makeChange(pointer: string, kind: ChangeKind, before: ContractNode | null, after: ContractNode | null, direction: ContractDirection): ContractChange {
   const severity = classifyChange(kind, direction, before?.required ?? false, after?.required ?? false);
-  const names: Record<ChangeKind, string> = { "field-added": "Field added", "field-removed": "Field removed", "type-changed": "Type changed", "became-required": "Field became required", "became-optional": "Field became optional" };
+  const names: Partial<Record<ChangeKind, string>> = { "field-added": "Field added", "field-removed": "Field removed", "type-changed": "Type changed", "became-required": "Field became required", "became-optional": "Field became optional" };
   const left = before ? before.kinds.join(" | ") : "missing";
   const right = after ? after.kinds.join(" | ") : "missing";
   const explanation = kind === "field-removed"
@@ -18,10 +19,48 @@ function makeChange(pointer: string, kind: ChangeKind, before: ContractNode | nu
         : kind === "became-required"
           ? "The field is present in every candidate sample and appears required. Sample inference is evidence, not proof of the producer's formal schema."
           : "The field is missing from one or more candidate samples and appears optional. Sample inference is evidence, not proof of the producer's formal schema.";
-  return { id: `${pointer}:${kind}`, pointer, kind, severity, title: names[kind], explanation, before, after };
+  return { id: `${pointer}:${kind}`, pointer, kind, severity, title: names[kind] ?? "Contract changed", explanation, before, after };
 }
 
-export function compareContracts(baseline: InferredContract, candidate: InferredContract, direction: ContractDirection): ContractChange[] {
+function isOpenApiContract(contract: StoredContract): contract is OpenApiContract {
+  return "kind" in contract && contract.kind === "openapi";
+}
+
+function nodeFromSchema(pointer: string, value: JsonValue | null): ContractNode | null {
+  if (value === null) return null;
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    const example = Array.isArray(value) ? "[array]" : value as string | number | boolean | null;
+    return { pointer, label: pointerLabel(pointer), kinds: [getJsonKind(value)], presentInSamples: 0, totalSamples: 0, required: false, examples: [example] };
+  }
+  const schema = value as Record<string, JsonValue>;
+  const declaredType = schema.type;
+  const typeMap: Record<string, JsonKind> = { string: "string", number: "number", integer: "number", boolean: "boolean", object: "object", array: "array", null: "null" };
+  const rawTypes = Array.isArray(declaredType) ? declaredType : [declaredType];
+  const kinds = rawTypes.flatMap((item) => typeof item === "string" && typeMap[item] ? [typeMap[item]] : []);
+  if (schema.nullable === true && !kinds.includes("null")) kinds.push("null");
+  const actualKinds: JsonKind[] = [...new Set<JsonKind>(kinds.length ? kinds : ["object"])].sort();
+  const examples = schema.example === null || ["string", "number", "boolean"].includes(typeof schema.example)
+    ? [schema.example as string | number | boolean | null]
+    : [];
+  return { pointer, label: pointerLabel(pointer), kinds: actualKinds, presentInSamples: 0, totalSamples: 0, required: false, examples };
+}
+
+export function compareContracts(baseline: StoredContract, candidate: StoredContract, direction: ContractDirection): ContractChange[] {
+  if (isOpenApiContract(baseline) && isOpenApiContract(candidate)) {
+    return compareOpenApiContracts(baseline, candidate).map((change) => ({
+      ...change,
+      before: nodeFromSchema(change.pointer, change.before),
+      after: nodeFromSchema(change.pointer, change.after),
+    }));
+  }
+  if (isOpenApiContract(baseline) !== isOpenApiContract(candidate)) {
+    return [{
+      id: "contract-format-changed", pointer: "/", kind: "contract-format-changed", severity: "warning",
+      title: "Contract format changed", explanation: "One snapshot contains inferred payload samples and the other contains an OpenAPI document. The formats are not directly comparable.",
+      before: null, after: null,
+    }];
+  }
+  if (isOpenApiContract(baseline) || isOpenApiContract(candidate)) return [];
   const beforeNodes = collectContractNodes(baseline);
   const afterNodes = collectContractNodes(candidate);
   const changes: ContractChange[] = [];
@@ -53,7 +92,9 @@ export interface UnchangedNode {
 }
 
 /** Paths that exist on both sides with identical inferred kinds and requiredness. */
-export function collectUnchangedNodes(baseline: InferredContract, candidate: InferredContract): UnchangedNode[] {
+export function collectUnchangedNodes(baseline: StoredContract, candidate: StoredContract): UnchangedNode[] {
+  if (isOpenApiContract(baseline) !== isOpenApiContract(candidate)) return [];
+  if (isOpenApiContract(baseline) || isOpenApiContract(candidate)) return [];
   const beforeNodes = collectContractNodes(baseline);
   const afterNodes = collectContractNodes(candidate);
   const unchanged: UnchangedNode[] = [];

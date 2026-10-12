@@ -26,6 +26,24 @@ enum ChangeKind {
   type_changed
   became_required
   became_optional
+  endpoint_added
+  endpoint_removed
+  parameter_added
+  parameter_removed
+  parameter_changed
+  request_schema_changed
+  response_status_added
+  response_status_removed
+  response_schema_changed
+  property_added
+  property_removed
+  enum_changed
+  nullability_changed
+  format_changed
+  constraint_changed
+  requiredness_changed
+  additional_properties_changed
+  contract_format_changed
 }
 
 enum ChangeSeverity {
@@ -95,6 +113,8 @@ model Workspace {
   snapshots            ContractSnapshot[] @relation("WorkspaceSnapshots")
   baselineSnapshot     ContractSnapshot?  @relation("WorkspaceBaseline", fields: [baselineSnapshotId], references: [id])
   candidateSnapshot    ContractSnapshot?  @relation("WorkspaceCandidate", fields: [candidateSnapshotId], references: [id])
+  baselineSnapshotWorkspace ContractSnapshot? @relation("WorkspaceBaselineIntegrity", fields: [id, baselineSnapshotId], references: [workspaceId, id], onDelete: NoAction, onUpdate: NoAction)
+  candidateSnapshotWorkspace ContractSnapshot? @relation("WorkspaceCandidateIntegrity", fields: [id, candidateSnapshotId], references: [workspaceId, id], onDelete: NoAction, onUpdate: NoAction)
   diffs                ContractDiff[]
   user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -114,10 +134,13 @@ model ContractSnapshot {
   workspace           Workspace          @relation("WorkspaceSnapshots", fields: [workspaceId], references: [id], onDelete: Cascade)
   baselineFor         Workspace[]        @relation("WorkspaceBaseline")
   candidateFor        Workspace[]        @relation("WorkspaceCandidate")
+  baselineWorkspaceIntegrityFor Workspace[] @relation("WorkspaceBaselineIntegrity")
+  candidateWorkspaceIntegrityFor Workspace[] @relation("WorkspaceCandidateIntegrity")
   samples             PayloadSample[]
   baselineDiffs       ContractDiff[]     @relation("DiffBaseline")
   candidateDiffs      ContractDiff[]     @relation("DiffCandidate")
 
+  @@unique([workspaceId, id])
   @@index([workspaceId, createdAt])
   @@index([versionLabel])
 }
@@ -145,8 +168,8 @@ model ContractDiff {
   generatedAt          DateTime           @default(now())
 
   workspace             Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  baselineSnapshot      ContractSnapshot   @relation("DiffBaseline", fields: [baselineSnapshotId], references: [id], onDelete: Cascade)
-  candidateSnapshot     ContractSnapshot   @relation("DiffCandidate", fields: [candidateSnapshotId], references: [id], onDelete: Cascade)
+  baselineSnapshot      ContractSnapshot   @relation("DiffBaseline", fields: [workspaceId, baselineSnapshotId], references: [workspaceId, id], onDelete: Cascade)
+  candidateSnapshot     ContractSnapshot   @relation("DiffCandidate", fields: [workspaceId, candidateSnapshotId], references: [workspaceId, id], onDelete: Cascade)
   changes               ContractChange[]
 
   @@unique([baselineSnapshotId, candidateSnapshotId, direction])

@@ -1,0 +1,31 @@
+{
+  "openapi": "3.0.3",
+  "info": { "title": "Orders API", "version": "1.0.0" },
+  "paths": {
+    "/orders/{orderId}": {
+      "parameters": [{ "name": "orderId", "in": "path", "required": true, "schema": { "type": "string" } }],
+      "get": {
+        "operationId": "getOrder",
+        "responses": {
+          "200": { "description": "Order", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Order" } } } },
+          "404": { "description": "Not found" }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Order": {
+        "type": "object",
+        "required": ["id", "state"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "state": { "$ref": "#/components/schemas/State" },
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/Item" } }
+        }
+      },
+      "State": { "type": "string", "enum": ["open", "closed"] },
+      "Item": { "type": "object", "properties": { "sku": { "type": "string" } } }
+    }
+  }
+}

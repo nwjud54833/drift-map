@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { ContractDirection, Workspace } from "@/lib/contract/types";
@@ -7,7 +8,6 @@ import { ArrowLeftRight, Cloud, Download, FileText, GitCompareArrows, Menu, Penc
 import { useSession } from "next-auth/react";
 import { AuthControl } from "../contract-atlas/auth-control";
 import { SessionStatus } from "../contract-atlas/cloud-access-prompt";
-import { DriftMapLogo } from "./logo";
 
 interface WorkspaceHeaderProps {
   workspaces: Workspace[];
@@ -53,8 +53,7 @@ export function WorkspaceHeader(props: WorkspaceHeaderProps) {
   const nav = (
     <nav className="dm-nav" aria-label="Primary">
       <Link href="/" className="dm-brand" aria-label="DriftMap home">
-        <DriftMapLogo size={24} />
-        <span className="dm-brand-name">DriftMap</span>
+        <Image src="/logos/driftmap-logo.svg" alt="DriftMap" width={132} height={35} className="h-auto w-[132px]" />
       </Link>
 
       <label className="dm-mode" aria-label="Storage mode">
@@ -111,7 +110,7 @@ export function WorkspaceHeader(props: WorkspaceHeaderProps) {
     <>
       {/* Mobile top bar with drawer toggle */}
       <header className="dm-topbar">
-        <Link href="/" className="dm-brand" aria-label="DriftMap home"><DriftMapLogo size={20} /><span className="dm-brand-name">DriftMap</span></Link>
+        <Link href="/" className="dm-brand" aria-label="DriftMap home"><Image src="/logos/driftmap-logo.svg" alt="DriftMap" width={110} height={29} priority className="h-auto w-[110px]" /></Link>
         <span className={`dm-mode-chip ${mode === "cloud" ? "is-cloud" : ""}`}>{mode === "cloud" ? "Cloud" : "Local"}</span>
         <button className="dm-icon-btn dm-drawer-toggle" aria-expanded={drawerOpen} aria-controls="dm-drawer" aria-label="Toggle navigation" onClick={() => setDrawerOpen((open) => !open)}>
           {drawerOpen ? <X size={16} /> : <Menu size={16} />}

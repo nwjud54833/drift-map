@@ -4,7 +4,7 @@ import { LoaderCircle } from "lucide-react";
 import { signIn } from "next-auth/react";
 import { useState } from "react";
 
-export function GoogleAuthButton({ callbackUrl = "/workbench", compact = false }: { callbackUrl?: string; compact?: boolean }) {
+export function GoogleAuthButton({ callbackUrl = "/workbench", compact = false, beforeSignIn }: { callbackUrl?: string; compact?: boolean; beforeSignIn?: () => void }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState(false);
 
@@ -13,6 +13,7 @@ export function GoogleAuthButton({ callbackUrl = "/workbench", compact = false }
     setPending(true);
     setError(false);
     try {
+      beforeSignIn?.();
       const result = await signIn("google", { callbackUrl, redirect: false });
       if (result?.url) {
         window.location.assign(result.url);

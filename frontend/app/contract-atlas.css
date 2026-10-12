@@ -232,7 +232,7 @@
 /* Boot screen */
 .ca-boot { width: min(100% - 32px, 400px); margin: auto; padding: 28px 26px; border: 1px solid var(--dm-line); border-radius: 10px; background: var(--dm-panel); box-shadow: 0 20px 60px #0008; }
 .ca-boot-mark { margin-bottom: 16px; }
-.ca-boot-title { color: var(--dm-ink); font-size: 13px; font-weight: 700; letter-spacing: .16em; }
+.ca-boot-mark img { display: block; opacity: .95; }
 .ca-boot-step { display: flex; align-items: center; gap: 9px; margin-top: 13px; color: var(--dm-faint); font-size: 11px; }
 .ca-boot-step.is-active { color: #cdd6e4; }
 .ca-boot-dot { width: 6px; height: 6px; border-radius: 50%; background: #2e394e; }

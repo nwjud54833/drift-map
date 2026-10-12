@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 330 88" fill="none" role="img" aria-label="DriftMap">
+  <title>DriftMap</title>
+  <!-- Geometric symbol: converging/d diverging API contract paths (cyan + indigo), transparent background -->
+  <g>
+    <!-- top indigo lane: in, rise, run to right edge -->
+    <path d="M3 46 H26 L50 26 H104" stroke="#6C7CF5" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <!-- bottom cyan lane: in, dip, run to right edge -->
+    <path d="M3 58 H26 L50 78 H104" stroke="#22D3EE" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <!-- middle return lane: dark indigo tie-back through the fork -->
+    <path d="M3 52 H30 C42 52 46 60 60 60 H96" stroke="#2B3B66" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <!-- fork ligature connecting lanes -->
+    <path d="M56 34 C62 40 62 64 56 70" stroke="#22D3EE" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </g>
+  <!-- Wordmark: "DriftMap" in white, using the system geometric sans -->
+  <text x="126" y="60" fill="#FFFFFF" font-family="Inter, 'Segoe UI', system-ui, -apple-system, sans-serif" font-size="52" font-weight="700" letter-spacing="-1.5">DriftMap</text>
+</svg>

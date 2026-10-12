@@ -1,4 +1,5 @@
 import React from 'react';
+import Image from "next/image";
 
 interface FooterProps {
   onOpenWorkbench: () => void;
@@ -11,12 +12,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenWorkbench }) => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-8 pb-10 border-b border-[#1A202A]/80">
           <div>
             <div className="flex items-center gap-2 text-sm font-semibold tracking-wide text-[#F5F7FA]">
-              <span className="flex h-5 w-5 items-center justify-center rounded-[3px] bg-[#3B82F6] text-[11px] font-bold text-white shadow-[0_0_12px_rgba(59,130,246,0.45)]">
-                Δ
-              </span>
-              <span className="font-mono text-[14px] font-bold tracking-tight text-white">
-                DRIFTMAP
-              </span>
+              <Image src="/logos/driftmap-logo.svg" alt="DriftMap" width={126} height={33.5} className="h-auto w-[126px] opacity-90" />
             </div>
             <p className="mt-3 text-sm text-[#8993A5] max-w-md font-sans">
               Map the changes that could break your integration.

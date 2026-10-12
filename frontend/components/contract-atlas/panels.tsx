@@ -131,7 +131,7 @@ export function SnapshotTree({ title, snapshot, opposite, changes, side, onRenam
                 <span className="ca-path-label">{pointerLabel(path)}</span>
                 <span className="ca-kind">{missing ? "— missing" : typeText(node)}</span>
                 {change && <span className={`ca-dot ca-dot-${change.severity}`} aria-label={severityNames[change.severity]} />}
-                {node && <span className="ca-required">{node.required ? "required" : "optional"}</span>}
+          {node && <span className="ca-required">{node.required ? "required" : "optional"}</span>}
               </div>
             );
           })}
@@ -233,6 +233,7 @@ export function ChangeInspector({ change, direction, onCopy }: { change: Contrac
   const kinds = (node: ContractNode | null) => (node ? node.kinds.join(" | ") : "missing");
   const beforeExamples = examplesText(change.before);
   const afterExamples = examplesText(change.after);
+  const sampleBased = ["field-added", "field-removed", "type-changed", "became-required", "became-optional"].includes(change.kind);
   return (
     <section className="ca-inspector" aria-label="Change inspector">
       <div className="ca-inspector-title"><span className="ca-overline">Inspector</span><SeverityBadge severity={change.severity} /></div>
@@ -246,15 +247,15 @@ export function ChangeInspector({ change, direction, onCopy }: { change: Contrac
           <span className="ca-overline">Change</span>
           <strong>{change.title}</strong>
           <div className="ca-before-after">{kinds(change.before)} → {kinds(change.after)}</div>
-          {change.before && <span className="ca-sample-count">Before: {change.before.presentInSamples}/{change.before.totalSamples} samples · {change.before.required ? "required" : "optional"}</span>}
-          {change.after && <span className="ca-sample-count">After: {change.after.presentInSamples}/{change.after.totalSamples} samples · {change.after.required ? "required" : "optional"}</span>}
+          {change.before && change.before.totalSamples > 0 && <span className="ca-sample-count">Before: {change.before.presentInSamples}/{change.before.totalSamples} samples · {change.before.required ? "required" : "optional"}</span>}
+          {change.after && change.after.totalSamples > 0 && <span className="ca-sample-count">After: {change.after.presentInSamples}/{change.after.totalSamples} samples · {change.after.required ? "required" : "optional"}</span>}
           {beforeExamples && <p className="ca-examples">Before examples: {beforeExamples}</p>}
           {afterExamples && <p className="ca-examples">After examples: {afterExamples}</p>}
         </div>
         <div>
           <span className="ca-overline">Why</span>
           <p>{change.explanation}</p>
-          <p className="ca-muted">Sample inference is evidence, not proof of the producer&apos;s formal schema.</p>
+          <p className="ca-muted">{sampleBased ? "Sample inference is evidence, not proof of the producer's formal schema." : "This result follows the declared OpenAPI contract; it does not prove that the deployed implementation conforms."}</p>
           <div className="ca-inspector-rule"><strong>Compatibility rule.</strong> {compatibilityRule(change.kind, direction, change.before?.required ?? false)}</div>
           <button className="ca-small-button" style={{ marginTop: 7 }} onClick={() => onCopy(`${change.severity.toUpperCase()} ${change.pointer} — ${change.title}. ${change.explanation}`)}>Copy summary</button>
         </div>
@@ -267,18 +268,21 @@ export function RawJsonDrawer({ baseline, candidate, onClose }: { baseline: Cont
   const [side, setSide] = useState<"before" | "after">("before");
   const [sampleIndex, setSampleIndex] = useState(0);
   const snapshot = side === "before" ? baseline : candidate;
+  const openApiDocument = snapshot && "kind" in snapshot.contract && snapshot.contract.kind === "openapi" ? snapshot.contract.document : null;
   const activeSample = snapshot?.samples.length ? snapshot.samples[Math.min(sampleIndex, snapshot.samples.length - 1)] : null;
   return (
     <div className="ca-raw-drawer" role="dialog" aria-label="Raw JSON samples">
       <header>
-        <strong>Raw payload samples</strong>
+        <strong>Raw contract source</strong>
         <div className="ca-raw-actions">
           <button className="ca-small-button" aria-pressed={side === "before"} onClick={() => { setSide("before"); setSampleIndex(0); }}>Baseline</button>
           <button className="ca-small-button" aria-pressed={side === "after"} onClick={() => { setSide("after"); setSampleIndex(0); }}>Candidate</button>
           <button aria-label="Close raw JSON drawer" className="ca-small-button" onClick={onClose}>Close</button>
         </div>
       </header>
-      {snapshot?.samples.length ? (
+      {openApiDocument ? (
+        <pre>{JSON.stringify(openApiDocument, null, 2)}</pre>
+      ) : snapshot?.samples.length ? (
         <>
           <div className="ca-sample-tabs" role="tablist" aria-label="Samples">
             {snapshot.samples.map((item, index) => (
@@ -287,29 +291,29 @@ export function RawJsonDrawer({ baseline, candidate, onClose }: { baseline: Cont
           </div>
           <pre>{JSON.stringify(activeSample?.value ?? {}, null, 2)}</pre>
         </>
-      ) : <p className="ca-muted" style={{ padding: 12 }}>No sample available on this side.</p>}
+      ) : <p className="ca-muted" style={{ padding: 12 }}>No source document or payload sample is available on this side.</p>}
     </div>
   );
 }
 
-export function EmptyWorkbench({ onImport, onDemo }: { onImport: (side: "before" | "after") => void; onDemo: () => void }) {
+export function EmptyWorkbench({ mode, onImport, onDemo }: { mode: "local" | "cloud"; onImport: (side: "before" | "after") => void; onDemo: () => void }) {
   return (
     <div className="ca-empty-state">
       <div className="ca-empty-symbol"><CircleHelp size={22} aria-hidden="true" /></div>
       <span className="ca-overline">DriftMap</span>
       <h1>Compare a contract</h1>
-      <p>Import real JSON samples, infer their shapes, then review semantic drift instead of a noisy text diff.</p>
+      <p>Import JSON samples or an OpenAPI 3.0 contract, then review semantic drift instead of a noisy text diff.</p>
       <div className="ca-steps">
-        <span><b>01</b> Import a baseline JSON payload</span>
-        <span><b>02</b> Import a candidate JSON payload</span>
-        <span><b>03</b> Analyze structural drift</span>
+        <span><b>01</b> Import a baseline contract</span>
+        <span><b>02</b> Import a candidate contract</span>
+        <span><b>03</b> Review compatibility changes</span>
       </div>
       <div className="ca-empty-actions">
         <button className="ca-primary" onClick={() => onImport("before")}>Import baseline</button>
         <button className="ca-secondary" onClick={() => onImport("after")}>Import candidate</button>
         <button className="ca-secondary" onClick={onDemo}>Load demo</button>
       </div>
-      <small>Your payloads stay in this browser. Nothing is uploaded.</small>
+      <small>{mode === "cloud" ? "Imports are saved in your private cloud workspace." : "Your contracts stay in this browser. Nothing is uploaded."}</small>
     </div>
   );
 }
