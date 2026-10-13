@@ -432,7 +432,7 @@ export default function ContractAtlasClient() {
 
   if (loading) return <main className="ca-app" aria-busy="true">
     <div className="ca-main">        <div className="dm-skeleton" role="status" aria-live="polite" style={{ margin: "auto", width: "min(100%, 390px)" }}>
-        <div className="ca-boot"><div className="ca-boot-mark"><Image src="/logos/driftmap-logo.svg" alt="DriftMap" width={132} height={35} className="h-auto w-[132px]" /></div><div className="ca-boot-step is-active"><span className="ca-boot-dot"/>{mode === "cloud" ? "Loading cloud workspaces" : "Opening local workspace"}</div><div className="ca-boot-step"><span className="ca-boot-dot"/>Loading contract graph</div></div>
+        <div className="ca-boot"><div className="ca-boot-mark"><Link href="/" className="ca-boot-brand" aria-label="DriftMap home"><Image src="/logos/driftmap-icon.svg" alt="" width={30} height={30} /><span>DriftMap</span></Link></div><div className="ca-boot-step is-active"><span className="ca-boot-dot"/>{mode === "cloud" ? "Loading cloud workspaces" : "Opening local workspace"}</div><div className="ca-boot-step"><span className="ca-boot-dot"/>Loading contract graph</div></div>
       </div>
     </div>
   </main>;
@@ -447,15 +447,12 @@ export default function ContractAtlasClient() {
         sessionStatus={sessionStatus}
         onModeChange={chooseMode}
         onSelect={selectWorkspace}
-        onImport={openImport}
         onNew={() => void newWorkspace()}
         onRename={() => void renameWorkspace()}
         onDelete={() => void removeWorkspace()}
         onSwap={() => void swapSnapshots()}
         onDeleteSnapshot={(side) => void deleteSide(side)}
         onDirection={(direction) => void changeDirection(direction)}
-        onExport={exportFile}
-        onRaw={() => setRawOpen(!rawOpen)}
         onPalette={() => setPaletteOpen(true)}
       />
       <div className="ca-main">
@@ -475,8 +472,13 @@ export default function ContractAtlasClient() {
                 <span aria-hidden="true">/</span>
                 <span className="ca-overline">Workspaces</span>
                 <span aria-hidden="true">/</span>
-                <strong aria-current="page" style={{ color: "var(--dm-ink, #F8FAFC)", fontSize: 12 }}>{active?.name}</strong>
+                <strong aria-current="page" style={{ color: "var(--text-primary)", fontSize: 12 }}>{active?.name}</strong>
               </nav>
+              <span role="status" aria-live="polite" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--text-muted)", border: "1px solid var(--border)", background: mode === "cloud" ? "var(--severity-info-bg)" : "var(--severity-safe-bg)", padding: "4px 8px", borderRadius: 999 }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: mode === "cloud" ? "var(--severity-info)" : "var(--severity-safe)" }} aria-hidden="true" />
+                {mode === "cloud" ? (session?.user?.email ? `Cloud mode · signed in as ${session.user.email}` : "Cloud mode · signed in") : "Local mode: data stays in this browser"}
+              </span>
+              <span style={{ fontSize: 10, color: "var(--text-soft)" }}>{mode === "cloud" ? "" : "Not synced to cloud"}</span>
               <div className="dm-toolbar-actions">
                 <button className="dm-btn" disabled={pendingAction !== null} onClick={() => openImport("before")}><Upload size={14} aria-hidden="true" /><span>Import baseline</span></button>
                 <button className="dm-btn" disabled={pendingAction !== null} onClick={() => openImport("after")}><Upload size={14} aria-hidden="true" /><span>Import candidate</span></button>
@@ -495,12 +497,12 @@ export default function ContractAtlasClient() {
             </div>
             <div className="dm-summary" aria-label="Change summary">
               <button className="dm-summary-card is-breaking" aria-pressed={useWorkspaceUIStore.getState().filters.severities.length === 1 && useWorkspaceUIStore.getState().filters.severities[0] === "breaking"}
-                onClick={() => filterToSeverity("breaking")}>
+                onClick={() => filterToSeverity("breaking")} aria-label={`Filter breaking: ${counts.breaking}`}>
                 <b>{counts.breaking}</b><span>Breaking</span>
               </button>
-              <button className="dm-summary-card is-warning" onClick={() => filterToSeverity("warning")}><b>{counts.warning}</b><span>Warnings</span></button>
-              <button className="dm-summary-card is-safe" onClick={() => filterToSeverity("safe")}><b>{counts.safe}</b><span>Safe</span></button>
-              <button className="dm-summary-card is-info" onClick={() => filterToSeverity("info")}><b>{counts.info}</b><span>Info</span></button>
+              <button className="dm-summary-card is-warning" aria-pressed={useWorkspaceUIStore.getState().filters.severities.length === 1 && useWorkspaceUIStore.getState().filters.severities[0] === "warning"} onClick={() => filterToSeverity("warning")} aria-label={`Filter warnings: ${counts.warning}`}><b>{counts.warning}</b><span>Warnings</span></button>
+              <button className="dm-summary-card is-safe" aria-pressed={useWorkspaceUIStore.getState().filters.severities.length === 1 && useWorkspaceUIStore.getState().filters.severities[0] === "safe"} onClick={() => filterToSeverity("safe")} aria-label={`Filter safe: ${counts.safe}`}><b>{counts.safe}</b><span>Safe</span></button>
+              <button className="dm-summary-card is-info" aria-pressed={useWorkspaceUIStore.getState().filters.severities.length === 1 && useWorkspaceUIStore.getState().filters.severities[0] === "info"} onClick={() => filterToSeverity("info")} aria-label={`Filter info: ${counts.info}`}><b>{counts.info}</b><span>Info</span></button>
             </div>
             {mode === "cloud" && savedDiffStatus === "loading" && <p role="status" className="ca-muted">Loading saved comparison…</p>}
             <div className="ca-three-pane">

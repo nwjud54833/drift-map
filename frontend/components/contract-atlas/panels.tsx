@@ -13,7 +13,7 @@ const severityNames = { breaking: "Breaking", warning: "Warning", safe: "Safe", 
 
 export function SeverityBadge({ severity }: { severity: ContractChange["severity"] }) {
   const Icon = severityIcons[severity];
-  return <span className={`ca-severity ca-${severity}`}><Icon size={13} aria-hidden="true" />{severityNames[severity]}</span>;
+  return <span className={`ca-severity ca-${severity}`}><Icon size={12} aria-hidden="true" /><span className="sr-only">Severity: </span>{severityNames[severity]}</span>;
 }
 
 function typeText(node: ContractNode | undefined): string {
@@ -86,21 +86,36 @@ export function SnapshotTree({ title, snapshot, opposite, changes, side, onRenam
     });
   }
 
+  const [filter, setFilter] = useState("");
+  const filteredPointers = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    if (!q) return visiblePointers;
+    return visiblePointers.filter((p) => p.toLowerCase().includes(q));
+  }, [visiblePointers, filter]);
+
   return (
     <section className="ca-tree-pane" aria-label={`${title} contract tree`}>
       <header className="ca-pane-heading">
         <div><span className="ca-overline">{title}</span><strong>{snapshot?.versionLabel ?? "No snapshot"}</strong></div>
-        <div style={{ display: "flex", gap: 5 }}>
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
+          <button className="ca-small-button" onClick={() => setCollapsed(new Set())}>Expand all</button>
+          <button className="ca-small-button" onClick={() => setCollapsed(new Set(allPointers))}>Collapse all</button>
           {snapshot && (
             <button className="ca-small-button" onClick={() => { const label = window.prompt("Snapshot label", snapshot.versionLabel); if (label?.trim() && label.trim() !== snapshot.versionLabel) onRenameLabel(snapshot, label.trim()); }}>Rename</button>
           )}
           {snapshot && onDeleteSnapshot && <button className="ca-small-button is-danger" onClick={() => { if (window.confirm(`Delete the ${side === "before" ? "baseline" : "candidate"} snapshot “${snapshot.versionLabel}”? This cannot be undone.`)) onDeleteSnapshot(side); }}>Delete</button>}
           <button className="ca-small-button" onClick={() => useWorkspaceUIStore.getState().setImportOpen(true)}>{snapshot ? "Replace" : "Import"}</button>
         </div>
+        {snapshot && (
+          <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+            <input aria-label={`Filter ${title} paths`} value={filter} onChange={(e) => setFilter(e.target.value)} onKeyDown={(e) => { if (e.key === "Escape") setFilter(""); }} placeholder="Filter by path…" style={{ flex: 1, minHeight: 30, padding: "0 8px", border: "1px solid var(--border)", borderRadius: "var(--radius-control)", background: "var(--surface)", fontSize: 11 }} />
+            {filter && <span style={{ fontSize: 10, color: "var(--text-soft)", alignSelf: "center" }}>{filteredPointers.length} / {visiblePointers.length}</span>}
+          </div>
+        )}
       </header>
       {!snapshot ? <div className="ca-tree-empty">Import a JSON payload to infer this side.</div> : (
         <div className="ca-tree-scroll" role="tree" aria-label={`${title} contract paths`} ref={scrollRef}>
-          {visiblePointers.map((path) => {
+          {filteredPointers.map((path) => {
             const node = pathMap.get(path);
             const change = changeMap.get(path);
             const missing = !node;
@@ -159,10 +174,10 @@ export function ChangeRail({ changes, counts, direction, unchanged, onSelect }: 
   const resetFilters = useWorkspaceUIStore((state) => state.resetFilters);
   const setShowUnchanged = useWorkspaceUIStore((state) => state.setShowUnchanged);
   const query = filters.query.trim().toLowerCase();
-  const filtered = changes.filter((change) =>
+  const filtered = useMemo(() => changes.filter((change) =>
     filters.severities.includes(change.severity) &&
     (!query || `${change.pointer} ${change.title} ${change.explanation}`.toLowerCase().includes(query)),
-  );
+  ), [changes, filters.severities, query]);
 
   return (
     <section className="ca-change-pane" aria-label="Semantic drift">
@@ -174,21 +189,23 @@ export function ChangeRail({ changes, counts, direction, unchanged, onSelect }: 
             className={`ca-count ca-${severity} ${filters.severities.includes(severity) ? "active" : ""}`}
             aria-pressed={filters.severities.includes(severity)}
             onClick={() => toggleSeverity(severity)}
+            aria-label={`${severityNames[severity]}: ${counts[severity]}`}
           ><b>{counts[severity]}</b>{severityNames[severity]}</button>
         ))}
       </div>
       <div className="ca-filter-row">
-        <input aria-label="Search changes" value={filters.query} onChange={(event) => setQuery(event.target.value)} placeholder="Search paths or changes…" />
+        <input aria-label="Search changes" value={filters.query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(e) => { if (e.key === "Escape") setQuery(""); }} placeholder="Search paths or changes…" />
         <button className="ca-unchanged-toggle" aria-pressed={filters.showUnchanged} title="Show or hide unchanged paths" onClick={() => setShowUnchanged(!filters.showUnchanged)}>Unchanged</button>
         <button onClick={resetFilters} title="Reset filters">Reset</button>
       </div>
+      <div style={{ padding: "0 10px 4px", fontSize: 11, color: "var(--text-soft)" }} aria-live="polite">Showing {filtered.length} of {changes.length} findings</div>
       <div className="ca-change-list">
         {filtered.map((change) => (
-          <button key={change.id} className={`ca-change-row ${focusedChangeId === change.id ? "is-selected" : ""}`} onClick={() => onSelect(change)}>
+          <button key={change.id} className={`ca-change-row ${focusedChangeId === change.id ? "is-selected" : ""}`} onClick={() => onSelect(change)} title={change.pointer}>
             <SeverityBadge severity={change.severity} />
-            <code>{change.pointer}</code>
+            <code style={{ overflowWrap: "anywhere", whiteSpace: "normal", wordBreak: "break-all" }}>{change.pointer}</code>
             <strong>{change.title}</strong>
-            <span className="ca-before-after">{typeText(change.before ?? undefined)} <span>→</span> {typeText(change.after ?? undefined)}</span>
+            <span className="ca-before-after" style={{ display: "flex", flexWrap: "wrap", gap: 4 }}><span>{typeText(change.before ?? undefined)}</span> <span aria-hidden="true">→</span> <span>{typeText(change.after ?? undefined)}</span></span>
           </button>
         ))}
         {filtered.length === 0 && <p className="ca-muted" style={{ padding: 12 }}>No changes match these filters.</p>}
@@ -224,7 +241,7 @@ export function ChangeInspector({ change, direction, onCopy }: { change: Contrac
           <span className="ca-empty-symbol" style={{ width: 30, height: 30, margin: 0 }} aria-hidden="true"><CircleHelp size={16} /></span>
           <div>
             <strong style={{ display: "block", fontSize: 12.5 }}>No change selected</strong>
-            <p className="ca-muted" style={{ margin: "3px 0 0" }}>Select a row in the change list or either contract tree to inspect evidence and the compatibility rule.</p>
+            <p className="ca-muted" style={{ margin: "3px 0 0" }}>Select a finding from the drift list, or a path from either contract tree, to see its evidence and compatibility rule.</p>
           </div>
         </div>
       </section>
@@ -302,7 +319,7 @@ export function EmptyWorkbench({ mode, onImport, onDemo }: { mode: "local" | "cl
       <div className="ca-empty-symbol"><CircleHelp size={22} aria-hidden="true" /></div>
       <span className="ca-overline">DriftMap</span>
       <h1>Compare a contract</h1>
-      <p>Import JSON samples or an OpenAPI 3.0 contract, then review semantic drift instead of a noisy text diff.</p>
+      <p>Import JSON samples or an OpenAPI 3.0 contract, then review semantic drift instead of a noisy text diff. Try the demo to see a breaking change, a warning, and a safe addition.</p>
       <div className="ca-steps">
         <span><b>01</b> Import a baseline contract</span>
         <span><b>02</b> Import a candidate contract</span>
@@ -311,9 +328,9 @@ export function EmptyWorkbench({ mode, onImport, onDemo }: { mode: "local" | "cl
       <div className="ca-empty-actions">
         <button className="ca-primary" onClick={() => onImport("before")}>Import baseline</button>
         <button className="ca-secondary" onClick={() => onImport("after")}>Import candidate</button>
-        <button className="ca-secondary" onClick={onDemo}>Load demo</button>
+        <button className="ca-secondary" onClick={onDemo}>Load demo payloads</button>
       </div>
-      <small>{mode === "cloud" ? "Imports are saved in your private cloud workspace." : "Your contracts stay in this browser. Nothing is uploaded."}</small>
+      <small>{mode === "cloud" ? "Imports are saved in your private cloud workspace. Local browser data is not automatically synced to cloud." : "Local mode: your contracts stay in this browser. Nothing is uploaded. Switching to cloud does not migrate local data."}</small>
     </div>
   );
 }

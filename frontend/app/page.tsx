@@ -3,8 +3,8 @@ import DriftmapLanding from "@/components/landing/driftmap-landing";
 import "./landing.css";
 
 export const metadata: Metadata = {
-  title: "DriftMap — Catch API contract drift early",
-  description: "A local-first workbench for comparing JSON payload contracts.",
+  title: "DriftMap — Catch breaking API changes before production",
+  description: "Compare OpenAPI contracts and JSON payloads to understand structural API changes and compatibility risks.",
 };
 
 export default function HomePage() { return <DriftmapLanding />; }
