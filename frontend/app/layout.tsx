@@ -1,19 +1,45 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./tokens.css";
 import "./globals.css";
+import "./primitives.css";
 import "./landing.css";
+import "./workbench.css";
 import { Providers } from "./providers";
 import { ThemeProvider } from "@/components/theme/theme-provider";
+import { ObsidianShell } from "@/components/driftmap/obsidian-shell";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
-const jetbrains = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains", display: "swap" });
-const jakarta = Plus_Jakarta_Sans({ subsets: ["latin"], variable: "--font-jakarta", display: "swap" });
+// next/font self-hosts these files at build time: no external request, no
+// font-swap layout shift, and no change to the CSP font-src directive.
+const inter = Inter({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
+  variable: "--font-inter",
+  display: "swap",
+});
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  style: ["normal", "italic"],
+  variable: "--font-jetbrains-mono",
+  display: "swap",
+});
 
-const themeInitScript = `(function(){try{var k="driftmap.theme";var v=localStorage.getItem(k);if(v==="light"||v==="dark")document.documentElement.setAttribute("data-theme",v);}catch(e){}})();`;
+/**
+ * Pre-paint theme resolution. Runs in the document head before the first paint
+ * so an explicitly chosen theme never flashes the wrong colours. It only adds
+ * the attribute; the CSS default (system) applies when nothing is stored. Every
+ * step is guarded because localStorage throws in some privacy modes.
+ *
+ * `class="dark"` stays on <html> unconditionally — the Obsidian surface is the
+ * product's visual identity, and it is what makes `dark:` variants and the
+ * `.dark` Tailwind strategy resolve. `data-theme` still selects which *token
+ * set* the legacy light/dark stylesheets use.
+ */
+const themeInitScript = `(function(){try{var k="driftmap.theme";var v=localStorage.getItem(k);if(v==="light"||v==="dark"){document.documentElement.setAttribute("data-theme",v);}else if(v==="system"){document.documentElement.removeAttribute("data-theme");}}catch(e){}})();`;
 
 export const metadata: Metadata = {
-  title: "DriftMap — Catch contract drift before it breaks your integration",
+  title: "DriftMap — API Contract Review & Semantic Drift Engine",
   description: "Import OpenAPI contracts and compare API changes to catch breaking drift before it reaches production.",
   icons: {
     icon: [
@@ -31,13 +57,15 @@ export const dynamic = "force-dynamic";
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className="dark scroll-smooth" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
-      <body className={`${inter.variable} ${jetbrains.variable} ${jakarta.variable}`}>
+      <body className={`${inter.variable} ${jetbrainsMono.variable} obsidian-surface min-h-screen flex flex-col selection:bg-white/20 selection:text-white`}>
         <ThemeProvider>
-          <Providers>{children}</Providers>
+          <Providers>
+            <ObsidianShell>{children}</ObsidianShell>
+          </Providers>
         </ThemeProvider>
       </body>
     </html>

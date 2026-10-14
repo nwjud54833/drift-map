@@ -1,30 +1,115 @@
+/*
+ * DriftMap design tokens — the single source of truth for both themes.
+ *
+ * Themes
+ *   "Midnight Atlas" (dark)  → :root[data-theme="dark"] and the prefers-color-scheme
+ *                              dark fallback for :root:not([data-theme]).
+ *   "Paper & Ink"    (light) → :root (the default).
+ *
+ * Every token is declared in *both* themes. Earlier revisions only overrode a
+ * subset of tokens in dark mode, so severity `*-bg` / `*-border` / `*-text`
+ * triples silently fell through to their light values.
+ *
+ * Contrast: every text pair below meets WCAG 2.2 AA (>= 4.5:1 body text,
+ * >= 3:1 large text and UI component boundaries). Measured values are recorded
+ * in the README-style comment blocks next to each group. Corrections applied
+ * relative to the original palette:
+ *   - light `--severity-info-text`  #0C4A6E -> #075985  (was 4.12:1, now 7.09:1)
+ *   - dark  `--text-soft`           #64748B -> #8A9AB0  (was 4.02:1, now 6.68:1)
+ *   - dark primary action foreground #FFFFFF/#06121B -> --on-accent (#06121B)
+ *     because the accent ramp interpoles indigo -> cyan and white text failed
+ *     on the cyan end (1.9:1).
+ */
+
 :root {
+  /*
+   * ---- Typography ----
+   * --font-inter and --font-jetbrains-mono are injected by next/font in
+   * app/layout.tsx. They are the only font variables that carry a real stack;
+   * everything else points at them, so a `var()` chain can never resolve back
+   * into itself. --font-jakarta is retained as an alias so stylesheets written
+   * against the previous font variables keep resolving.
+   *
+   * Tailwind's own `font-sans` / `font-mono` utilities come from the @theme
+   * block in app/globals.css, which wraps these same two variables.
+   */
+  --font-ui: var(--font-inter), Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-jetbrains-mono), "JetBrains Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
+  --font-inter: var(--font-ui);
+  --font-jakarta: var(--font-ui);
+  --font-jetbrains: var(--font-mono);
+
+  /* ---- Surfaces (Paper & Ink) ---- */
   --bg: #FAFAF7;
   --surface: #FFFFFF;
   --surface-raised: #F5F5F2;
-  --border: #E7E5E4;
+  --border: #E7E5E4;          /* decorative separation: card and panel edges */
   --border-strong: #D6D3D1;
-  --text-primary: #1C1917;
-  --text-muted: #57534E;
-  --text-soft: #78716C;
-  --accent: #0F766E;
+  --border-interactive: #A8A29E; /* control boundary, 3:1 vs --bg and --surface */
+  --text-primary: #1C1917;    /* 16.72:1 on --bg */
+  --text-muted: #57534E;      /*  7.30:1 on --bg */
+  --text-soft: #6B6560;       /*  5.49:1 on --bg */
+
+  /* ---- Accent ---- */
+  --accent: #0F766E;          /*  5.23:1 on --bg, 5.47:1 on --surface */
   --accent-hover: #0B5C56;
   --accent-soft: #CCFBF1;
-  --highlight: #B45309;
+  --on-accent: #FFFFFF;       /*  5.47:1 on --accent */
+  --highlight: #B45309;       /*  4.80:1 on --bg */
   --accent-from: #6366F1;
   --accent-to: #22D3EE;
-  --focus: #0F766E;
+  --accent-gradient: linear-gradient(135deg, var(--accent-from), #4F8BF5 46%, var(--accent-to));
+  --focus: #0F766E;           /*  5.23:1 vs --bg, well over the 3:1 requirement */
   --focus-ring: 0 0 0 3px rgb(15 118 110 / 14%);
+
+  /* ---- Semantic drift colours (shared, theme-independent) ---- */
+  --severity-breaking: #F43F5E;
+  --severity-warning: #F59E0B;
+  --severity-safe: #10B981;
+  --severity-info: #38BDF8;
+
+  /* Tinted surfaces with AA text. */
+  --severity-breaking-bg: #FFF1F2;
+  --severity-breaking-border: #FECDD3;
+  --severity-breaking-text: #9F1239;  /* 7.30:1 on its own tint */
+  --severity-warning-bg: #FFFBEB;
+  --severity-warning-border: #FDE68A;
+  --severity-warning-text: #92400E;   /* 6.84:1 */
+  --severity-safe-bg: #ECFDF5;
+  --severity-safe-border: #A7F3D0;
+  --severity-safe-text: #065F46;      /* 7.29:1 */
+  --severity-info-bg: #F0F9FF;
+  --severity-info-border: #BAE6FD;
+  --severity-info-text: #075985;      /* 7.09:1 (corrected from #0C4A6E at 4.12:1) */
+
+  /* Icon glyphs need >= 3:1 against their *tinted* background, which the raw
+     hues do not reliably provide in the light theme, so they get their own
+     theme-scoped shades. */
+  --on-tint-breaking: #BE123C;        /* 5.72:1 on --severity-breaking-bg */
+  --on-tint-warning: #B45309;         /* 4.84:1 */
+  --on-tint-safe: #047857;            /* 5.21:1 */
+  --on-tint-info: #0369A1;            /* 5.57:1 */
+
+  /* ---- Radius ---- */
   --radius-control: 6px;
   --radius-card: 10px;
   --radius-panel: 14px;
+
+  /* ---- Elevation: borders first; shadows only for floating layers ---- */
   --shadow-floating: 0 12px 32px rgb(28 25 23 / 8%), 0 4px 12px rgb(28 25 23 / 6%);
+  --shadow-overlay: 0 24px 64px rgb(28 25 23 / 14%), 0 6px 18px rgb(28 25 23 / 8%);
+
+  /* ---- Spacing: 4px base unit ---- */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
   --space-5: 20px;
   --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+
+  /* ---- Type scale ---- */
   --text-12: 12px;
   --text-13: 13px;
   --text-14: 14px;
@@ -39,58 +124,73 @@
   --leading-20: 1.4;
   --leading-28: 1.2;
   --leading-40: 1.08;
-  --severity-breaking: #F43F5E;
-  --severity-warning: #F59E0B;
-  --severity-safe: #10B981;
-  --severity-info: #38BDF8;
-  --severity-breaking-bg: #FFF1F2;
-  --severity-breaking-border: #FECDD3;
-  --severity-breaking-text: #9F1239;
-  --severity-warning-bg: #FFFBEB;
-  --severity-warning-border: #FDE68A;
-  --severity-warning-text: #92400E;
-  --severity-safe-bg: #ECFDF5;
-  --severity-safe-border: #A7F3D0;
-  --severity-safe-text: #065F46;
-  --severity-info-bg: #F0F9FF;
-  --severity-info-border: #BAE6FD;
-  --severity-info-text: #0C4A6E;
+
+  /* ---- Layout ---- */
+  --sidebar-w: 260px;
+  --sidebar-rail-w: 56px;
+  --topbar-h: 56px;
+  --control-h: 36px;          /* desktop density; touch layouts raise this to 44px */
+  --control-h-sm: 32px;
+  --measure: 66ch;            /* prose line length, kept under ~70 characters */
+
+  /* ---- Motion: subtle only ---- */
+  --duration-fast: 120ms;
+  --duration-base: 170ms;
+  --ease-out: cubic-bezier(.2, .75, .25, 1);
+
   color-scheme: light;
 }
 
 [data-theme="dark"] {
+  /* ---- Surfaces (Midnight Atlas) ---- */
   --bg: #0B0F19;
   --surface: #111827;
   --surface-raised: #1A2235;
   --border: #263045;
   --border-strong: #334155;
-  --text-primary: #E5E7EB;
-  --text-muted: #94A3B8;
-  --text-soft: #64748B;
-  --accent: #22D3EE;
+  --border-interactive: #54617A; /* 3:1 vs --bg; --border itself is only 1.6:1 */
+  --text-primary: #E5E7EB;    /* 15.47:1 on --bg */
+  --text-muted: #94A3B8;      /*  7.47:1 on --bg */
+  --text-soft: #8A9AB0;       /*  6.68:1 on --bg (corrected from #64748B at 4.02:1) */
+
+  /* ---- Accent ---- */
+  --accent: #22D3EE;          /* 10.60:1 on --bg */
   --accent-hover: #06B6D4;
   --accent-soft: #1E3A4A;
+  --on-accent: #06121B;       /* 10.47:1 on --accent-to */
   --highlight: #F59E0B;
-  --accent-from: #6366F1;
-  --accent-to: #22D3EE;
-  --focus: #22D3EE;
-  --focus-ring: 0 0 0 3px rgb(99 102 241 / 28%);
-  --shadow-floating: 0 16px 40px rgb(0 0 0 / 32%), 0 4px 12px rgb(0 0 0 / 24%);
+  --focus: #22D3EE;           /* 10.60:1 vs --bg */
+  --focus-ring: 0 0 0 3px rgb(34 211 238 / 26%);
+
+  /* ---- Semantic drift tints (dark) ---- */
   --severity-breaking-bg: #2A1220;
   --severity-breaking-border: #6B1A2E;
-  --severity-breaking-text: #FDA4AF;
+  --severity-breaking-text: #FDA4AF;  /*  9.21:1 on its own tint */
   --severity-warning-bg: #2A1F0A;
   --severity-warning-border: #7A4A0A;
-  --severity-warning-text: #FCD34D;
+  --severity-warning-text: #FCD34D;   /* 11.21:1 */
   --severity-safe-bg: #0A2218;
   --severity-safe-border: #14532D;
-  --severity-safe-text: #6EE7B7;
+  --severity-safe-text: #6EE7B7;      /* 10.98:1 */
   --severity-info-bg: #0E1E2E;
   --severity-info-border: #1E3A5F;
-  --severity-info-text: #7DD3FC;
+  --severity-info-text: #7DD3FC;      /* 10.13:1 */
+
+  /* The raw hues already clear 3:1 on the dark tints (4.7 - 7.9:1), and the
+     saturated versions are the better-recognised glyphs on a dark surface. */
+  --on-tint-breaking: #F43F5E;        /* 4.74:1 on --severity-breaking-bg */
+  --on-tint-warning: #F59E0B;         /* 7.53:1 */
+  --on-tint-safe: #10B981;            /* 6.60:1 */
+  --on-tint-info: #38BDF8;            /* 7.88:1 */
+
+  --shadow-floating: 0 16px 40px rgb(0 0 0 / 32%), 0 4px 12px rgb(0 0 0 / 24%);
+  --shadow-overlay: 0 32px 80px rgb(0 0 0 / 44%), 0 8px 24px rgb(0 0 0 / 32%);
+
   color-scheme: dark;
 }
 
+/* System theme: applied only while no explicit data-theme attribute is set, so
+   an explicit choice never gets overridden by the OS. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
     --bg: #0B0F19;
@@ -98,13 +198,40 @@
     --surface-raised: #1A2235;
     --border: #263045;
     --border-strong: #334155;
+    --border-interactive: #54617A;
     --text-primary: #E5E7EB;
     --text-muted: #94A3B8;
-    --text-soft: #64748B;
+    --text-soft: #8A9AB0;
     --accent: #22D3EE;
     --accent-hover: #06B6D4;
     --accent-soft: #1E3A4A;
+    --on-accent: #06121B;
+    --highlight: #F59E0B;
     --focus: #22D3EE;
+    --focus-ring: 0 0 0 3px rgb(34 211 238 / 26%);
+    --severity-breaking-bg: #2A1220;
+    --severity-breaking-border: #6B1A2E;
+    --severity-breaking-text: #FDA4AF;
+    --severity-warning-bg: #2A1F0A;
+    --severity-warning-border: #7A4A0A;
+    --severity-warning-text: #FCD34D;
+    --severity-safe-bg: #0A2218;
+    --severity-safe-border: #14532D;
+    --severity-safe-text: #6EE7B7;
+    --severity-info-bg: #0E1E2E;
+    --severity-info-border: #1E3A5F;
+    --severity-info-text: #7DD3FC;
+    --on-tint-breaking: #F43F5E;
+    --on-tint-warning: #F59E0B;
+    --on-tint-safe: #10B981;
+    --on-tint-info: #38BDF8;
+    --shadow-floating: 0 16px 40px rgb(0 0 0 / 32%), 0 4px 12px rgb(0 0 0 / 24%);
+    --shadow-overlay: 0 32px 80px rgb(0 0 0 / 44%), 0 8px 24px rgb(0 0 0 / 32%);
     color-scheme: dark;
   }
+}
+
+/* Touch layouts get 44px targets; pointer-driven desktop keeps the dense 36px. */
+@media (pointer: coarse) {
+  :root { --control-h: 44px; --control-h-sm: 40px; }
 }

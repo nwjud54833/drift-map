@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
-import DriftmapLanding from "@/components/landing/driftmap-landing";
-import "./landing.css";
+import { LandingPage } from "@/components/driftmap/landing-page";
 
 export const metadata: Metadata = {
-  title: "DriftMap — Catch breaking API changes before production",
+  title: "DriftMap — API Contract Review & Semantic Drift Engine",
   description: "Compare OpenAPI contracts and JSON payloads to understand structural API changes and compatibility risks.",
 };
 
-export default function HomePage() { return <DriftmapLanding />; }
+export default function HomePage() {
+  return <LandingPage />;
+}

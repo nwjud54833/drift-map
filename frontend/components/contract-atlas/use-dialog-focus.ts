@@ -1,19 +1,34 @@
 "use client";
 
-import { useEffect, type RefObject } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 
+/**
+ * Modal focus management.
+ *
+ * On open: remembers the previously focused element, then moves focus into the
+ * dialog. While open: Tab and Shift+Tab cycle within the dialog, so focus cannot
+ * escape behind it. On close: Escape invokes `onClose`, and focus returns to
+ * whatever was focused before the dialog opened.
+ *
+ * The captured element is held in a ref so that re-renders of the parent cannot
+ * replace it with a node that is already inside the dialog.
+ */
 export function useDialogFocus<T extends HTMLElement>(ref: RefObject<T | null>, open: boolean, onClose: () => void) {
+  const previouslyFocused = useRef<HTMLElement | null>(null);
+
   useEffect(() => {
     if (!open) return;
     const dialogElement = ref.current;
     if (!dialogElement) return;
     const dialog = dialogElement as T;
-    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+    previouslyFocused.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
     const focusable = () => Array.from(dialog.querySelectorAll<HTMLElement>(
       'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])',
     )).filter((element) => !element.hasAttribute("hidden") && element.getAttribute("aria-hidden") !== "true");
-    const first = focusable()[0];
-    first?.focus();
+
+    focusable()[0]?.focus();
 
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
@@ -32,10 +47,13 @@ export function useDialogFocus<T extends HTMLElement>(ref: RefObject<T | null>, 
         event.preventDefault(); firstItem.focus();
       }
     }
+
     document.addEventListener("keydown", onKeyDown);
     return () => {
       document.removeEventListener("keydown", onKeyDown);
-      if (previous?.isConnected) previous.focus();
+      const target = previouslyFocused.current;
+      if (target?.isConnected) target.focus();
+      previouslyFocused.current = null;
     };
   }, [open, onClose, ref]);
 }

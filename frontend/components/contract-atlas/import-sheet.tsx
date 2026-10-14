@@ -1,64 +1,181 @@
 "use client";
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { useDialogFocus } from "./use-dialog-focus";
-import { MAX_IMPORT_BYTES, parsePayloadText } from "@/lib/contract/parse";
-import { parseOpenApiText } from "@/lib/contract/openapi";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
+import type { ImportArtifact, OpenApiContract, PayloadSample } from "@/lib/contract/types";
 import { inferContract } from "@/lib/contract/infer";
-import type { ImportArtifact, PayloadSample } from "@/lib/contract/types";
+import { MAX_IMPORT_BYTES } from "@/lib/contract/parse";
+import { parseImportArtifact } from "@/lib/workbench/import-artifact";
 import { useWorkspaceUIStore } from "@/stores/workspace-ui-store";
+import { useDialogFocus } from "./use-dialog-focus";
+import { Button } from "@/components/ui/button";
+import { TextField } from "@/components/ui/field";
+import { JsonInputEditorSkeleton } from "@/components/workbench/json-input-editor";
 
-function looksLikeOpenApi(text: string): boolean {
-  const trimmed = text.trimStart();
-  if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
-    try { const value = JSON.parse(text) as Record<string, unknown>; return typeof value === "object" && value !== null && ("openapi" in value || "swagger" in value || "asyncapi" in value); }
-    catch { return false; }
-  }
-  return /^\s*(?:openapi|swagger|asyncapi)\s*:/m.test(text);
+const JsonInputEditor = dynamic(() => import("@/components/workbench/json-input-editor"), {
+  ssr: false,
+  loading: () => <JsonInputEditorSkeleton rows={11} />,
+});
+
+export interface ImportSheetProps {
+  side: "before" | "after";
+  saving?: boolean;
+  onImport: (artifact: ImportArtifact, label: string, fileName: string | null, side: "before" | "after", rawText: string) => Promise<void>;
 }
 
-function parseImport(text: string, yamlFile = false): ImportArtifact {
-  if (yamlFile || looksLikeOpenApi(text)) return { format: "openapi", contract: parseOpenApiText(text) };
-  return { format: "samples", samples: parsePayloadText(text) };
-}
-
-export function ImportSheet({ onImport, side, saving = false }: { onImport: (artifact: ImportArtifact, label: string, fileName: string | null, side: "before" | "after", rawText: string) => Promise<void>; side: "before" | "after"; saving?: boolean }) {
+/**
+ * Import dialog. Reuses the same editor component as the workbench input pane,
+ * so line numbers, highlighting, drag-and-drop and the 2 MB pre-check behave
+ * identically in both places.
+ */
+export function ImportSheet({ onImport, side, saving = false }: ImportSheetProps) {
   const draft = useWorkspaceUIStore((state) => state.importDraft);
   const setDraft = useWorkspaceUIStore((state) => state.setImportDraft);
   const close = useWorkspaceUIStore((state) => state.setImportOpen);
-  const [samples, setSamples] = useState<PayloadSample[]>([]);
-  const [openApi, setOpenApi] = useState<import("@/lib/contract/types").OpenApiContract | null>(null);
-  const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const modalRef = useRef<HTMLElement>(null);
   const closeDialog = useCallback(() => close(false), [close]);
   useDialogFocus(modalRef, true, closeDialog);
-  const preview = useMemo(() => {
-    if (openApi) return { pointers: openApi.operations.slice(0, 8).map((operation) => `${operation.method.toUpperCase()} ${operation.path}`), total: openApi.operations.length, label: "OpenAPI operations" };
-    if (!samples.length) return null;
-    const contract = inferContract(samples, "preview");
-    return { pointers: contract.nodes.slice(0, 8).map((node) => node.pointer), total: contract.nodes.length, label: "Inferred paths" };
-  }, [openApi, samples]);
+
+  const parsed = useMemo(() => parseImportArtifact(draft.rawText), [draft.rawText]);
+
+  /** Cardinality of the parsed document, for the shared workspace draft. */
+  const parsedCount = useMemo(() => {
+    if (!parsed.ok) return 0;
+    if (parsed.artifact.format === "openapi") return parsed.artifact.contract.operations.length;
+    return parsed.artifact.samples.length;
+  }, [parsed]);
+
+  // Mirror the parse result into the shared draft so the rest of the workbench
+  // can see the sample count while the dialog is open.
   useEffect(() => {
-    try {
-      const result = parseImport(draft.rawText);
-      if (result.format === "openapi") { setOpenApi(result.contract); setSamples([]); setDraft({ parseError: null, previewSampleCount: result.contract.operations.length }); }
-      else { setOpenApi(null); setSamples(result.samples); setDraft({ parseError: null, previewSampleCount: result.samples.length }); }
-    } catch (error) { setOpenApi(null); setSamples([]); setDraft({ parseError: draft.rawText.trim() ? error instanceof Error ? error.message : "Unable to validate import." : null, previewSampleCount: 0 }); }
-  }, [draft.rawText, draft.source, setDraft]);
+    if (parsed.ok) {
+      setDraft({ parseError: null, previewSampleCount: parsedCount });
+      return;
+    }
+    setDraft({ parseError: draft.rawText.trim() ? parsed.message : null, previewSampleCount: 0 });
+  }, [parsed, parsedCount, draft.rawText, setDraft]);
+
+  const preview = useMemo(() => {
+    if (!parsed.ok) return null;
+    if (parsed.format === "openapi" && parsed.artifact.format === "openapi") {
+      const contract: OpenApiContract = parsed.artifact.contract;
+      return { pointers: contract.operations.slice(0, 8).map((operation) => `${operation.method.toUpperCase()} ${operation.path}`), total: contract.operations.length, label: `${contract.operations.length} OpenAPI operations`, title: contract.title };
+    }
+    if (parsed.artifact.format === "samples") {
+      const samples: PayloadSample[] = parsed.artifact.samples;
+      const contract = inferContract(samples, "preview");
+      return { pointers: contract.nodes.slice(0, 8).map((node) => node.pointer), total: contract.nodes.length, label: `${samples.length} valid JSON sample${samples.length === 1 ? "" : "s"} · ${contract.nodes.length} inferred paths`, title: contract.fingerprint };
+    }
+    return null;
+  }, [parsed]);
+
   async function chooseFile(file: File | undefined) {
     if (!file) return;
-    setBusy(true);
+    setActionError(null);
+    if (file.size > MAX_IMPORT_BYTES) {
+      setActionError(`“${file.name}” is ${(file.size / 1024 / 1024).toFixed(2)} MB. Imports are capped at 2 MB.`);
+      return;
+    }
+    try {
+      const text = await file.text();
+      setDraft({ rawText: text, source: "file", fileName: file.name, versionLabel: file.name.replace(/\.(json|ya?ml)$/i, "") });
+    } catch {
+      setActionError(`Unable to read “${file.name}”.`);
+    }
+  }
+
+  async function confirm() {
+    if (!parsed.ok) return;
     setActionError(null);
     try {
-      if (file.size > MAX_IMPORT_BYTES) throw new Error("File too large. Imports are limited to 2 MB.");
-      const text = await file.text();
-      const artifact = parseImport(text, /\.ya?ml$/i.test(file.name));
-      if (artifact.format === "openapi") { setOpenApi(artifact.contract); setSamples([]); setDraft({ rawText: text, source: "file", fileName: file.name, parseError: null, previewSampleCount: artifact.contract.operations.length, versionLabel: file.name.replace(/\.(json|ya?ml)$/i, "") }); }
-      else { setOpenApi(null); setSamples(artifact.samples); setDraft({ rawText: text, source: "file", fileName: file.name, parseError: null, previewSampleCount: artifact.samples.length, versionLabel: file.name.replace(/\.json$/i, "") }); }
+      await onImport(parsed.artifact, draft.versionLabel || (parsed.format === "openapi" ? "OpenAPI contract" : "JSON samples"), draft.fileName, side, draft.rawText);
+    } catch (reason) {
+      setActionError(reason instanceof Error ? reason.message : "Unable to save this snapshot.");
     }
-    catch (error) { setDraft({ parseError: error instanceof Error ? error.message : "Unable to read file." }); setOpenApi(null); setSamples([]); }
-    finally { setBusy(false); }
   }
-  const artifact: ImportArtifact | null = openApi ? { format: "openapi", contract: openApi } : samples.length ? { format: "samples", samples } : null;
-  return <div className="ca-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) close(false); }}><section ref={modalRef} tabIndex={-1} className="ca-import-modal" role="dialog" aria-modal="true" aria-labelledby="ca-import-title" aria-describedby={draft.parseError ? "ca-import-error" : actionError ? "ca-import-action-error" : "ca-import-guidance"}><header><div><span className="ca-overline">{side === "before" ? "Baseline" : "Candidate"} snapshot</span><h2 id="ca-import-title">Import contract</h2></div><button className="ca-small-button" onClick={() => close(false)}>Close</button></header><label className="ca-form-label">Version label<input value={draft.versionLabel} onChange={(event) => setDraft({ versionLabel: event.target.value })} placeholder="e.g. 2026-10 candidate · optional" /></label><div className="ca-import-source"><label className="ca-file-button">Choose JSON, YAML, or YML<input type="file" accept=".json,.yaml,.yml,application/json,application/yaml,text/yaml" onChange={(event) => void chooseFile(event.target.files?.[0])} /></label><span>or paste payloads / OpenAPI</span></div><label className="ca-form-label">JSON/YAML<textarea value={draft.rawText} onChange={(event) => { setActionError(null); setDraft({ rawText: event.target.value, source: "paste", fileName: null }); }} placeholder={'Paste JSON samples or an OpenAPI 3.0 JSON/YAML document…'} rows={11} /></label>{draft.parseError && <p id="ca-import-error" className="ca-import-error" role="alert">{draft.parseError}</p>}{actionError && <p id="ca-import-action-error" className="ca-import-error" role="alert">{actionError}</p>}{draft.source === "file" && draft.fileName && <p className="ca-import-status"><span className="ca-file-chip">{draft.fileName}</span></p>}<p id="ca-import-guidance" className="ca-import-status">{busy ? "Reading file…" : openApi ? `${openApi.operations.length} OpenAPI operations parsed` : samples.length ? `${samples.length} valid JSON sample${samples.length === 1 ? "" : "s"} parsed` : "JSON samples and OpenAPI 3.0 · 2 MB maximum"}</p>{preview && <div className="ca-import-preview"><span className="ca-overline">{preview.label} preview</span><p className="ca-import-paths" style={{ whiteSpace: "pre-line" }}>{preview.pointers.join("\n")}{preview.total > preview.pointers.length ? `\n… ${preview.total - preview.pointers.length} more` : ""}</p></div>}<footer><button className="ca-secondary" onClick={() => close(false)}>Cancel</button><button className="ca-primary" disabled={!artifact || busy || saving} aria-busy={busy || saving} onClick={async () => { const fallbackLabel = `${side === "before" ? "Baseline" : "Candidate"} ${new Date().toISOString().slice(0, 10)}`; if (!artifact) return; setActionError(null); try { await onImport(artifact, draft.versionLabel.trim() || fallbackLabel, draft.fileName, side, draft.rawText); } catch (error) { setActionError(error instanceof Error ? error.message : "Unable to save this import."); } }}>{saving ? "Saving…" : busy ? "Reading…" : "Analyze and import"}</button></footer></section></div>;
+
+  return (
+    <div className="ca-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) close(false); }}>
+      <section
+        ref={modalRef}
+        tabIndex={-1}
+        className="ca-import-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="ca-import-title"
+        aria-describedby={actionError ? "ca-import-action-error" : "ca-import-status"}
+      >
+        <header>
+          <div>
+            <span className="ca-overline">{side === "before" ? "Baseline" : "Candidate"} snapshot</span>
+            <h2 id="ca-import-title">Import a contract</h2>
+          </div>
+          <Button size="sm" variant="quiet" onClick={() => close(false)}>Close</Button>
+        </header>
+
+        <div className="ca-form-label">
+          <TextField
+            label="Version label"
+            hint="Shown in the workbench and in exported reports. Defaults to the file name."
+            value={draft.versionLabel}
+            placeholder="e.g. 2026-10 candidate"
+            onChange={(event) => setDraft({ versionLabel: event.target.value })}
+          />
+        </div>
+
+        <div className="ca-import-source">
+          <label className="ca-file-button">
+            Choose JSON, YAML, or YML
+            <input
+              type="file"
+              accept=".json,.yaml,.yml,application/json,application/yaml,text/yaml"
+              onChange={(event) => { void chooseFile(event.target.files?.[0]); event.target.value = ""; }}
+            />
+          </label>
+          <span>or paste a payload or OpenAPI document below</span>
+        </div>
+
+        <div className="ca-import-editor">
+          <JsonInputEditor
+            id="ca-import-source-text"
+            label="Source document"
+            hint="JSON payload samples (an object, or an array of objects) or an OpenAPI 3.0 document in JSON or YAML. External $ref URLs are rejected."
+            value={draft.rawText}
+            onChange={(value) => { setActionError(null); setDraft({ rawText: value, source: "paste", fileName: null }); }}
+            onFile={(file) => void chooseFile(file)}
+            minRows={11}
+          />
+        </div>
+
+        {actionError && <p id="ca-import-action-error" className="ca-import-error" role="alert">{actionError}</p>}
+
+        {draft.source === "file" && draft.fileName && (
+          <p className="ca-import-status"><span className="ca-file-chip">{draft.fileName}</span></p>
+        )}
+
+        {preview && (
+          <div className="ca-import-preview">
+            <span className="ca-overline">{preview.label}</span>
+            <p className="ca-import-paths">{preview.pointers.join("\n")}</p>
+          </div>
+        )}
+
+        <p id="ca-import-status" className="ca-import-status" aria-live="polite">
+          {saving
+            ? "Saving snapshot…"
+            : !parsed.ok
+              ? draft.rawText.trim() ? parsed.message : "Paste or choose a document to continue."
+              : "Ready to save. Only the structure is used — values are kept as evidence examples."}
+        </p>
+
+        <footer>
+          <Button variant="quiet" onClick={() => close(false)}>Cancel</Button>
+          <Button variant="primary" disabled={!parsed.ok || saving} onClick={() => void confirm()}>
+            {saving ? "Saving…" : `Set as ${side === "before" ? "baseline" : "candidate"}`}
+          </Button>
+        </footer>
+      </section>
+    </div>
+  );
 }
