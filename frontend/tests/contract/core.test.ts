@@ -3,7 +3,7 @@ import fixture from "@/fixtures/order-shipped.fixture.json";
 import { parsePayloadText, PayloadParseError, MAX_IMPORT_BYTES } from "@/lib/contract/parse";
 import { inferContract } from "@/lib/contract/infer";
 import { collectUnchangedNodes, compareContracts } from "@/lib/contract/compare";
-import { classifyChange, compatibilityRule } from "@/lib/contract/compatibility";
+import { classifyChange, classifyNullabilityChange, compatibilityRule } from "@/lib/contract/compatibility";
 import { escapePointerSegment, getJsonKind } from "@/lib/contract/normalize";
 import { buildMarkdownReport } from "@/lib/contract/export";
 import type { ContractDirection, PayloadSample } from "@/lib/contract/types";
@@ -94,6 +94,15 @@ describe("compatibility policy", () => {
     expect(classifyChange("type-changed", "request")).toBe("breaking");
     expect(classifyChange("became-required", "event")).toBe("breaking");
   });
+  it("classifies nullability changes using the existing severity model", () => {
+    expect(classifyNullabilityChange("null-introduced", "response")).toBe("breaking");
+    expect(classifyNullabilityChange("nullable-added", "response")).toBe("warning");
+    expect(classifyNullabilityChange("nullable-added", "request")).toBe("safe");
+    expect(classifyNullabilityChange("nullable-removed", "response")).toBe("safe");
+    expect(classifyNullabilityChange("nullable-removed", "request")).toBe("breaking");
+    expect(classifyNullabilityChange("nullable-added-field", "response", false, true)).toBe("warning");
+    expect(classifyNullabilityChange("nullable-added-field", "request", false, true)).toBe("breaking");
+  });
   it("mentions the direction in the rule text", () => {
     expect(compatibilityRule("field-removed", "response")).toContain("Response payload");
     expect(compatibilityRule("field-added", "request")).toContain("Request payload");
@@ -111,6 +120,64 @@ describe("contract comparison", () => {
     expect(changes.some((change) => change.pointer === "/added" && change.kind === "field-added")).toBe(true);
     expect(changes.some((change) => change.pointer === "/variant" && change.kind === "type-changed")).toBe(true);
     expect(changes.some((change) => change.pointer === "/sometimes" && change.kind === "became-optional")).toBe(true);
+  });
+  it("reports a non-null field becoming null separately from removal", () => {
+    const changes = compareContracts(contractFor([{ phone: "555-0100" }]), contractFor([{ phone: null }]), "response");
+    const change = changes.find((entry) => entry.pointer === "/phone");
+    expect(change?.kind).toBe("nullability-changed");
+    expect(change?.severity).toBe("breaking");
+    expect(change?.title).toBe("Field became null");
+    expect(change?.explanation).toContain("Swift");
+    expect(changes.some((entry) => entry.kind === "field-removed")).toBe(false);
+  });
+  it("reports a field that starts appearing as nullable", () => {
+    const changes = compareContracts(
+      contractFor([{ phone: "555-0100" }]),
+      contractFor([{ phone: "555-0100" }, { phone: null }]),
+      "response",
+    );
+    const change = changes.find((entry) => entry.pointer === "/phone");
+    expect(change?.kind).toBe("nullability-changed");
+    expect(change?.severity).toBe("warning");
+    expect(change?.title).toBe("Field became nullable");
+    expect(changes.filter((entry) => entry.pointer === "/phone")).toHaveLength(1);
+  });
+  it("describes a missing-to-null change as a nullable addition", () => {
+    const changes = compareContracts(contractFor([{ id: 1 }]), contractFor([{ id: 1, phone: null }]), "response");
+    const change = changes.find((entry) => entry.pointer === "/phone");
+    expect(change?.kind).toBe("nullability-changed");
+    expect(change?.title).toBe("Nullable field added");
+    expect(change?.severity).toBe("warning");
+    expect(change?.before).toBeNull();
+    expect(change?.after?.kinds).toEqual(["null"]);
+  });
+  it("describes a null-to-missing change as removal of a nullable field", () => {
+    const changes = compareContracts(contractFor([{ id: 1, phone: null }]), contractFor([{ id: 1 }]), "response");
+    const change = changes.find((entry) => entry.pointer === "/phone");
+    expect(change?.kind).toBe("field-removed");
+    expect(change?.title).toBe("Nullable field removed");
+    expect(change?.explanation).toContain("nullable");
+  });
+  it("does not double-report a nullability change as a type change", () => {
+    const changes = compareContracts(
+      contractFor([{ phone: "555-0100" }]),
+      contractFor([{ phone: "555-0100" }, { phone: null }]),
+      "response",
+    );
+    expect(changes.filter((entry) => entry.pointer === "/phone").map((entry) => entry.kind)).toEqual(["nullability-changed"]);
+  });
+  it("keeps a real type change separate from nullability", () => {
+    const changes = compareContracts(contractFor([{ phone: "555-0100" }]), contractFor([{ phone: 1234 }]), "response");
+    expect(changes.find((entry) => entry.pointer === "/phone")?.kind).toBe("type-changed");
+  });
+  it("reports null removal with the direction-aware severity", () => {
+    const before = contractFor([{ phone: "555-0100" }, { phone: null }]);
+    const after = contractFor([{ phone: "555-0100" }, { phone: "555-0101" }]);
+    const response = compareContracts(before, after, "response").find((entry) => entry.pointer === "/phone");
+    const request = compareContracts(before, after, "request").find((entry) => entry.pointer === "/phone");
+    expect(response?.kind).toBe("nullability-changed");
+    expect(response?.severity).toBe("safe");
+    expect(request?.severity).toBe("breaking");
   });
   it("suppresses descendant changes beneath a changed-type parent", () => {
     const changes = compareContracts(

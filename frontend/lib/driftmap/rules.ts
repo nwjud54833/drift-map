@@ -1,4 +1,4 @@
-import type { ChangeKind, ChangeSeverity, ContractDirection, JsonKind } from "@/lib/contract/types";
+import type { ChangeKind, ChangeSeverity, ContractDirection, ContractNode, JsonKind } from "@/lib/contract/types";
 
 /**
  * Presentation vocabulary for the Obsidian v2.5 "Spatial" surface.
@@ -34,19 +34,32 @@ export function severityStrokeColor(severity: ChangeSeverity): string {
  * own `ChangeKind`; the direction only disambiguates the two kinds whose
  * classification genuinely depends on it.
  */
-export function ruleIdFor(kind: ChangeKind, direction: ContractDirection): string {
+export function ruleIdFor(
+  kind: ChangeKind,
+  direction: ContractDirection,
+  before?: ContractNode | null,
+  after?: ContractNode | null,
+): string {
   switch (kind) {
     case "field-removed":
     case "property-removed":
-      return "RULE_REQUIRED_FIELD_REMOVED";
+      return before?.kinds.includes("null") ? "RULE_NULLABLE_FIELD_REMOVED" : "RULE_REQUIRED_FIELD_REMOVED";
     case "field-added":
     case "property-added":
-      return "RULE_OPTIONAL_FIELD_ADDED";
+      return after?.kinds.includes("null") ? "RULE_NULLABLE_ADDED" : "RULE_OPTIONAL_FIELD_ADDED";
     case "type-changed":
     case "format-changed":
       return "RULE_WIRE_TYPE_CHANGED";
-    case "nullability-changed":
+    case "nullability-changed": {
+      if (!before && after?.kinds.includes("null")) return "RULE_NULLABLE_ADDED";
+      if (before && !before.kinds.includes("null") && after?.kinds.includes("null")) {
+        return after.kinds.filter((item) => item !== "null").length === 0
+          ? "RULE_NULL_INTRODUCED"
+          : "RULE_FIELD_BECAME_NULLABLE";
+      }
+      if (before?.kinds.includes("null") && after && !after.kinds.includes("null")) return "RULE_NULLABILITY_REMOVED";
       return "RULE_FIELD_BECAME_NULLABLE";
+    }
     case "became-required":
     case "requiredness-changed":
       return "RULE_REQUIREDNESS_NARROWED";
@@ -87,19 +100,39 @@ export function ruleIdFor(kind: ChangeKind, direction: ContractDirection): strin
  * The reference build's classification pill text, e.g. `Breaking · type narrowed`.
  * Every wording below describes a condition the engine actually reports.
  */
-export function driftLabelFor(kind: ChangeKind, severity: ChangeSeverity, direction: ContractDirection, becameOptional = false): string {
+export function driftLabelFor(
+  kind: ChangeKind,
+  severity: ChangeSeverity,
+  direction: ContractDirection,
+  becameOptional = false,
+  before?: ContractNode | null,
+  after?: ContractNode | null,
+): string {
   if (kind === "type-changed") return "Breaking · type narrowed";
   if (kind === "field-removed" || kind === "property-removed") {
+    if (before?.kinds.includes("null")) return severity === "breaking" ? "Breaking · nullable removed" : "Safe · nullable removed";
     return becameOptional || severity === "safe" ? "Warning · opt removed" : "Breaking · removed";
   }
   if (kind === "field-added" || kind === "property-added") {
+    if (after?.kinds.includes("null")) return severity === "safe" ? "Safe · nullable added" : severity === "warning" ? "Warning · nullable added" : "Breaking · nullable added";
     if (severity === "safe") return "Safe · added optional";
     if (severity === "warning") return "Warning · added required";
     return "Breaking · required added";
   }
   if (kind === "became-required" || kind === "requiredness-changed") return "Breaking · became required";
   if (kind === "became-optional") return direction === "request" ? "Safe · became optional" : "Info · req → opt";
-  if (kind === "nullability-changed") return "Warning · nullable";
+  if (kind === "nullability-changed") {
+    if (!before && after?.kinds.includes("null")) return severity === "safe" ? "Safe · nullable added" : "Warning · nullable added";
+    if (before && !before.kinds.includes("null") && after?.kinds.includes("null")) {
+      return after.kinds.filter((item) => item !== "null").length === 0
+        ? "Breaking · null introduced"
+        : "Warning · became nullable";
+    }
+    if (before?.kinds.includes("null") && after && !after.kinds.includes("null")) {
+      return severity === "breaking" ? "Breaking · null removed" : "Safe · null removed";
+    }
+    return "Warning · nullable";
+  }
   if (kind === "enum-changed") return "Warning · enum narrowed";
   if (kind === "format-changed") return "Warning · format changed";
   if (kind === "constraint-changed") return "Warning · constraint changed";

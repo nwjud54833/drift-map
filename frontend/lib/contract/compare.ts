@@ -1,35 +1,69 @@
 import type { ChangeKind, ContractChange, ContractDirection, ContractNode, JsonKind, JsonValue, OpenApiContract, StoredContract } from "./types";
-import { classifyChange } from "./compatibility";
+import { classifyChange, classifyNullabilityChange, type NullabilityChange } from "./compatibility";
 import { getJsonKind, pointerDepth, pointerLabel } from "./normalize";
 import { collectContractNodes } from "./infer";
 import { compareOpenApiContracts } from "./openapi";
 
 const severityRank = { breaking: 0, warning: 1, safe: 2, info: 3 } as const;
-function makeChange(pointer: string, kind: ChangeKind, before: ContractNode | null, after: ContractNode | null, direction: ContractDirection): ContractChange {
-  const severity = classifyChange(kind, direction, before?.required ?? false, after?.required ?? false);
+function nullabilityTitle(change: NullabilityChange): string {
+  if (change === "null-introduced") return "Field became null";
+  if (change === "nullable-added") return "Field became nullable";
+  if (change === "nullable-added-field") return "Nullable field added";
+  if (change === "nullable-removed") return "Field is no longer nullable";
+  return "Nullable field removed";
+}
+
+function nullabilityExplanation(
+  change: NullabilityChange,
+  direction: ContractDirection,
+  severity: ContractChange["severity"],
+  left: string,
+  right: string,
+): string {
+  const strictClients = "Statically typed clients (Swift, Kotlin, Go, and TypeScript with strict null checks) can crash or fail to compile when a non-null field becomes nullable.";
+  if (change === "null-introduced") return `The field was non-null in the baseline (${left}) and every observed candidate value is null (${right}). ${strictClients} For ${direction} compatibility this is classified as ${severity}.`;
+  if (change === "nullable-added") return `The field was non-null in the baseline (${left}) and now sometimes appears as null (${right}). ${strictClients} For ${direction} compatibility this is classified as ${severity}.`;
+  if (change === "nullable-added-field") return `The field is absent from the baseline and appears as a nullable candidate field (${right}). A newly added nullable field still requires consumers to handle null. For ${direction} compatibility this is classified as ${severity}.`;
+  if (change === "nullable-removed") return `The field was nullable in the baseline and no longer carries null (${right}). Removing null strengthens response/event guarantees, but request callers that still send null can break. For ${direction} compatibility this is classified as ${severity}.`;
+  return `The field was nullable in the baseline and is absent from all candidate samples. Removing a nullable field is a distinct change from making it null. For ${direction} compatibility this is classified as ${severity}.`;
+}
+
+function makeChange(
+  pointer: string,
+  kind: ChangeKind,
+  before: ContractNode | null,
+  after: ContractNode | null,
+  direction: ContractDirection,
+  nullability?: NullabilityChange,
+): ContractChange {
+  const severity = nullability
+    ? classifyNullabilityChange(nullability, direction, before?.required ?? false, after?.required ?? false)
+    : classifyChange(kind, direction, before?.required ?? false, after?.required ?? false);
   const names: Partial<Record<ChangeKind, string>> = { "field-added": "Field added", "field-removed": "Field removed", "type-changed": "Type changed", "became-required": "Field became required", "became-optional": "Field became optional" };
   const left = before ? before.kinds.join(" | ") : "missing";
   const right = after ? after.kinds.join(" | ") : "missing";
   const itemOptional = kind === "became-optional"
     && after?.totalItems !== undefined
     && (after.presentInItems ?? 0) < after.totalItems;
-  const explanation = kind === "field-removed"
-    ? `The field existed in the baseline contract but is absent from all candidate samples. For ${direction} compatibility this is classified as ${severity}.`
-    : kind === "field-added"
-      ? `The field appears in candidate samples (${after?.presentInSamples ?? 0}/${after?.totalSamples ?? 0}). Sample inference considers it ${after?.required ? "required" : "optional"}. For ${direction} compatibility this is classified as ${severity}.`
-      : kind === "type-changed"
-        ? `The inferred JSON kind changed from ${left} to ${right}. Any kind-set difference is conservatively classified as breaking.`
-        : kind === "became-required"
-          ? "The field is present in every candidate sample and appears required. Sample inference is evidence, not proof of the producer's formal schema."
-          : itemOptional
-            ? `The field is missing from one or more candidate array items (${after?.presentInItems ?? 0}/${after?.totalItems ?? 0} item occurrences) and appears optional. Sample inference is evidence, not proof of the producer's formal schema.`
-            : "The field is missing from one or more candidate samples and appears optional. Sample inference is evidence, not proof of the producer's formal schema.";
+  const explanation = nullability
+    ? nullabilityExplanation(nullability, direction, severity, left, right)
+    : kind === "field-removed"
+      ? `The field existed in the baseline contract but is absent from all candidate samples. For ${direction} compatibility this is classified as ${severity}.`
+      : kind === "field-added"
+        ? `The field appears in candidate samples (${after?.presentInSamples ?? 0}/${after?.totalSamples ?? 0}). Sample inference considers it ${after?.required ? "required" : "optional"}. For ${direction} compatibility this is classified as ${severity}.`
+        : kind === "type-changed"
+          ? `The inferred JSON kind changed from ${left} to ${right}. Any kind-set difference is conservatively classified as breaking.`
+          : kind === "became-required"
+            ? "The field is present in every candidate sample and appears required. Sample inference is evidence, not proof of the producer's formal schema."
+            : itemOptional
+              ? `The field is missing from one or more candidate array items (${after?.presentInItems ?? 0}/${after?.totalItems ?? 0} item occurrences) and appears optional. Sample inference is evidence, not proof of the producer's formal schema.`
+              : "The field is missing from one or more candidate samples and appears optional. Sample inference is evidence, not proof of the producer's formal schema.";
   return {
     id: `${pointer}:${kind}`,
     pointer,
     kind,
     severity,
-    title: itemOptional ? "Field missing from some array items" : names[kind] ?? "Contract changed",
+    title: nullability ? nullabilityTitle(nullability) : itemOptional ? "Field missing from some array items" : names[kind] ?? "Contract changed",
     explanation,
     before,
     after,
@@ -88,10 +122,46 @@ export function compareContracts(baseline: StoredContract, candidate: StoredCont
     const before = beforeNodes.get(pointer) ?? null;
     const after = afterNodes.get(pointer) ?? null;
     if (before && after) {
-      if (before.kinds.join("|") !== after.kinds.join("|")) changes.push(makeChange(pointer, "type-changed", before, after, direction));
-      else if (!before.required && after.required) changes.push(makeChange(pointer, "became-required", before, after, direction));
-      else if (before.required && !after.required) changes.push(makeChange(pointer, "became-optional", before, after, direction));
-    } else changes.push(makeChange(pointer, before ? "field-removed" : "field-added", before, after, direction));
+      const beforeNullable = before.kinds.includes("null");
+      const afterNullable = after.kinds.includes("null");
+      const beforeNonNull = before.kinds.filter((kind) => kind !== "null");
+      const afterNonNull = after.kinds.filter((kind) => kind !== "null");
+      const sameNonNullKinds = beforeNonNull.join("|") === afterNonNull.join("|");
+      if (!beforeNullable && afterNullable && (sameNonNullKinds || afterNonNull.length === 0)) {
+        changes.push(makeChange(
+          pointer,
+          "nullability-changed",
+          before,
+          after,
+          direction,
+          afterNonNull.length === 0 ? "null-introduced" : "nullable-added",
+        ));
+      } else if (beforeNullable && !afterNullable && sameNonNullKinds) {
+        changes.push(makeChange(pointer, "nullability-changed", before, after, direction, "nullable-removed"));
+      } else if (beforeNullable && afterNullable && sameNonNullKinds) {
+        if (!before.required && after.required) changes.push(makeChange(pointer, "became-required", before, after, direction));
+        else if (before.required && !after.required) changes.push(makeChange(pointer, "became-optional", before, after, direction));
+      } else if (before.kinds.join("|") !== after.kinds.join("|")) {
+        changes.push(makeChange(pointer, "type-changed", before, after, direction));
+      } else if (!before.required && after.required) {
+        changes.push(makeChange(pointer, "became-required", before, after, direction));
+      } else if (before.required && !after.required) {
+        changes.push(makeChange(pointer, "became-optional", before, after, direction));
+      }
+    } else if (before) {
+      changes.push(makeChange(
+        pointer,
+        "field-removed",
+        before,
+        null,
+        direction,
+        before.kinds.includes("null") ? "nullable-field-removed" : undefined,
+      ));
+    } else if (after) {
+      changes.push(after.kinds.includes("null")
+        ? makeChange(pointer, "nullability-changed", null, after, direction, "nullable-added-field")
+        : makeChange(pointer, "field-added", null, after, direction));
+    }
   }
   const changedTypes = new Set(changes.filter((change) => change.kind === "type-changed").map((change) => change.pointer));
   const suppressedParents = new Set([...changedTypes, ...emptyArrayPointers]);

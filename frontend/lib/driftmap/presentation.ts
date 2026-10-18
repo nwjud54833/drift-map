@@ -102,8 +102,8 @@ export function toFinding(change: ContractChange, context: FindingContext): Find
     severity: change.severity,
     kind: change.kind,
     title: change.title,
-    ruleId: ruleIdFor(change.kind, context.direction),
-    driftLabel: driftLabelFor(change.kind, change.severity, context.direction, becameOptional),
+    ruleId: ruleIdFor(change.kind, context.direction, change.before, change.after),
+    driftLabel: driftLabelFor(change.kind, change.severity, context.direction, becameOptional, change.before, change.after),
     fromType: change.before ? change.before.kinds.join(" | ") || "unknown" : "absent",
     toType: change.after ? change.after.kinds.join(" | ") || "unknown" : "missing",
     baseSummary: change.before
@@ -124,7 +124,7 @@ export function toFinding(change: ContractChange, context: FindingContext): Find
     hasSampleEvidence: totalSamples > 0,
     sparkPoints: presenceSeries(presentCount, totalSamples || 1, sparkDirection(change)),
     explanation: change.explanation,
-    ruleExplanation: compatibilityRule(change.kind, context.direction, change.before?.required ?? false),
+    ruleExplanation: compatibilityRule(change.kind, context.direction, change.before?.required ?? false, change.before?.kinds ?? [], change.after?.kinds ?? []),
     change,
   };
 }
@@ -402,7 +402,13 @@ export function applyChangeToValue(value: JsonObject, change: ContractChange, ca
   const kinds = change.after.kinds;
   const kind = kinds[0] ?? "string";
   const touched = walk(draft, segments, (leaf) => {
-    if (change.kind === "nullability-changed") return null;
+    // A nullable change sets null when the candidate still allows null. When
+    // null was removed, use the candidate's concrete value instead of forcing
+    // null back into the revision.
+    if (change.kind === "nullability-changed") {
+      if (change.after?.kinds.includes("null")) return null;
+      return candidateValue !== undefined ? structuredClone(candidateValue) : coerceToKind(kind, leaf, candidateValue);
+    }
     // A field the candidate *adds* takes the candidate's own value, so the row's
     // evidence reads like the document under review rather than a placeholder.
     if (!change.before && candidateValue !== undefined) return structuredClone(candidateValue);

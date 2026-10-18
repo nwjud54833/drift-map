@@ -105,6 +105,40 @@ describe("driftmap presentation adapter", () => {
     expect(ruleIdFor("became-optional", "response")).toBe("RULE_REQUIRED_TO_OPTIONAL");
   });
 
+  it("maps each nullability change to its dedicated rule", () => {
+    const nonNull = node("/phone", ["string"], true, 2, 2);
+    const nullable = node("/phone", ["null", "string"], true, 2, 2);
+    const onlyNull = node("/phone", ["null"], true, 2, 2);
+    expect(ruleIdFor("nullability-changed", "response", nonNull, onlyNull)).toBe("RULE_NULL_INTRODUCED");
+    expect(ruleIdFor("nullability-changed", "response", nonNull, nullable)).toBe("RULE_FIELD_BECAME_NULLABLE");
+    expect(ruleIdFor("nullability-changed", "response", null, nullable)).toBe("RULE_NULLABLE_ADDED");
+    expect(ruleIdFor("nullability-changed", "response", nullable, nonNull)).toBe("RULE_NULLABILITY_REMOVED");
+    expect(ruleIdFor("field-removed", "response", onlyNull, null)).toBe("RULE_NULLABLE_FIELD_REMOVED");
+    expect(ruleIdFor("field-added", "response", null, onlyNull)).toBe("RULE_NULLABLE_ADDED");
+  });
+
+  it("labels nullability changes without recomputing severity", () => {
+    const nonNull = node("/phone", ["string"], true, 2, 2);
+    const nullable = node("/phone", ["null", "string"], true, 2, 2);
+    const onlyNull = node("/phone", ["null"], true, 2, 2);
+    expect(driftLabelFor("nullability-changed", "breaking", "response", false, nonNull, onlyNull)).toBe("Breaking · null introduced");
+    expect(driftLabelFor("nullability-changed", "warning", "response", false, nonNull, nullable)).toBe("Warning · became nullable");
+    expect(driftLabelFor("nullability-changed", "warning", "response", false, null, nullable)).toBe("Warning · nullable added");
+    expect(driftLabelFor("nullability-changed", "safe", "response", false, nullable, nonNull)).toBe("Safe · null removed");
+  });
+
+  it("surfaces the null-introduced rule and strict-client impact in a finding", () => {
+    const nonNull = node("/phone", ["string"], true, 2, 2);
+    const onlyNull = node("/phone", ["null"], true, 2, 2);
+    const finding = toFinding(
+      change("/phone", "nullability-changed", "breaking", nonNull, onlyNull),
+      { direction: "response", candidateVersion: "candidate" },
+    );
+    expect(finding.ruleId).toBe("RULE_NULL_INTRODUCED");
+    expect(finding.driftLabel).toBe("Breaking · null introduced");
+    expect(finding.ruleExplanation).toContain("statically typed clients");
+  });
+
   it("describes each change kind using only conditions the engine reports", () => {
     expect(driftLabelFor("type-changed", "breaking", "response")).toBe("Breaking · type narrowed");
     expect(driftLabelFor("nullability-changed", "warning", "response")).toBe("Warning · nullable");
@@ -233,6 +267,15 @@ describe("applyChangeToValue", () => {
       change("/customer/nickname", "field-added", "safe", null, node("/customer/nickname", ["string"], false, 1, 1)),
     );
     expect(result).toEqual({ customer: { age: "29", nickname: "value" } });
+  });
+
+  it("does not force null back when nullability was removed", () => {
+    const result = applyChangeToValue(
+      { phone: null },
+      change("/phone", "nullability-changed", "safe", node("/phone", ["null", "string"], true, 2, 2), node("/phone", ["string"], true, 2, 2)),
+      "555-0100",
+    );
+    expect(result).toEqual({ phone: "555-0100" });
   });
 
   it("never mutates the payload it is given", () => {
