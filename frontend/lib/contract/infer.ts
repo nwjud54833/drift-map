@@ -1,5 +1,6 @@
-import type { ContractNode, ExampleValue, InferredContract, JsonKind, JsonObject, JsonValue, PayloadSample } from "./types";
+import type { ContractNode, ExampleValue, InferredContract, JsonKind, JsonObject, JsonValue, PayloadSample, StringFormatEvidence } from "./types";
 import { exampleFor, escapePointerSegment, getJsonKind, pointerLabel } from "./normalize";
+import { detectStringFormat, summarizeStringFormats } from "./formats";
 
 interface NodeAccumulator {
   pointer: string;
@@ -10,6 +11,8 @@ interface NodeAccumulator {
   itemPresence?: Set<string>;
   /** Total items observed for an array node, including empty arrays. */
   itemCount?: number;
+  /** Formats detected across every string value at this node. */
+  stringFormats?: Set<StringFormatEvidence>;
 }
 
 /** The nearest array wildcard ancestor of a pointer, or null for non-array paths. */
@@ -41,6 +44,10 @@ function visit(
   const node = nodes.get(pointer) ?? { pointer, kinds: new Set<JsonKind>(), present: new Set<number>(), examples: [] };
   node.kinds.add(getJsonKind(value));
   node.present.add(sampleIndex);
+  if (typeof value === "string") {
+    node.stringFormats ??= new Set<StringFormatEvidence>();
+    node.stringFormats.add(detectStringFormat(value) ?? "plain");
+  }
   if (itemToken !== null) {
     node.itemPresence ??= new Set<string>();
     node.itemPresence.add(itemToken);
@@ -78,6 +85,7 @@ export function inferContract(samples: PayloadSample[], generatedAt = new Date()
       ? itemTotals.get(wildcardPointer)!
       : undefined;
     const presentInItems = totalItems === undefined ? undefined : node.itemPresence?.size ?? 0;
+    const stringFormat = summarizeStringFormats(node.stringFormats);
     return {
       pointer: node.pointer,
       label: pointerLabel(node.pointer),
@@ -88,9 +96,10 @@ export function inferContract(samples: PayloadSample[], generatedAt = new Date()
       examples: [...node.examples].sort(compareExamples).slice(0, 3),
       ...(node.kinds.has("array") ? { itemCount: node.itemCount ?? 0 } : {}),
       ...(totalItems === undefined ? {} : { presentInItems, totalItems }),
+      ...(stringFormat ? { sampleFormat: stringFormat.format, sampleFormats: stringFormat.formats } : {}),
     };
   }).sort((a, b) => a.pointer.localeCompare(b.pointer));
-  const canonical = JSON.stringify({ rootKinds: [...rootKinds].sort(), nodes: contractNodes.map(({ pointer, kinds, required }) => ({ pointer, kinds, required })) });
+  const canonical = JSON.stringify({ rootKinds: [...rootKinds].sort(), nodes: contractNodes.map(({ pointer, kinds, required, sampleFormat }) => ({ pointer, kinds, required, sampleFormat })) });
   return { rootKinds: [...rootKinds].sort(), nodes: contractNodes, fingerprint: hashString(canonical), generatedAt, inferenceVersion: 1 };
 }
 

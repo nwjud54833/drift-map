@@ -29,16 +29,28 @@ export function classifyNullabilityChange(
 
 export function classifyChange(kind: ChangeKind, direction: ContractDirection, beforeRequired = false, afterRequired = false): ChangeSeverity {
   if (kind === "type-changed" || kind === "became-required") return "breaking";
+  if (kind === "format-changed") return "warning";
   if (kind === "field-removed") return direction === "request" && !beforeRequired ? "safe" : "breaking";
   if (kind === "field-added") return direction === "request" ? (afterRequired ? "breaking" : "safe") : (afterRequired ? "warning" : "safe");
   if (kind === "became-optional") return "info";
   return "safe";
 }
 
-export function compatibilityRule(kind: ChangeKind, direction: ContractDirection, required = false, beforeKinds: readonly string[] = [], afterKinds: readonly string[] = []): string {
+export function compatibilityRule(
+  kind: ChangeKind,
+  direction: ContractDirection,
+  required = false,
+  beforeKinds: readonly string[] = [],
+  afterKinds: readonly string[] = [],
+  beforeFormat: string | null = null,
+  afterFormat: string | null = null,
+): string {
   const label = direction === "event" ? "Event" : direction === "request" ? "Request" : "Response";
   const beforeNullable = beforeKinds.includes("null");
   const afterNullable = afterKinds.includes("null");
+  if (kind === "format-changed" && (beforeFormat || afterFormat)) {
+    return `${label} payload: the observed string format changed from ${beforeFormat ?? "plain"} to ${afterFormat ?? "plain"}. This rule is heuristic and based on sample values, not a declared schema format.`;
+  }
   if (kind === "nullability-changed") {
     if (!beforeKinds.length && afterNullable) return `${label} payload: a newly added nullable field still requires consumers to handle null.`;
     if (!beforeNullable && afterNullable) return `${label} payload: a non-null field became nullable; statically typed clients (Swift, Kotlin, Go, TypeScript with strict null checks) can crash or fail to compile.`;

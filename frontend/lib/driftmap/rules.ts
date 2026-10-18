@@ -1,4 +1,5 @@
-import type { ChangeKind, ChangeSeverity, ContractDirection, ContractNode, JsonKind } from "@/lib/contract/types";
+import type { ChangeKind, ChangeSeverity, ContractDirection, ContractNode, DetectedStringFormat, JsonKind } from "@/lib/contract/types";
+import { stringFormatLabel } from "@/lib/contract/formats";
 
 /**
  * Presentation vocabulary for the Obsidian v2.5 "Spatial" surface.
@@ -48,8 +49,9 @@ export function ruleIdFor(
     case "property-added":
       return after?.kinds.includes("null") ? "RULE_NULLABLE_ADDED" : "RULE_OPTIONAL_FIELD_ADDED";
     case "type-changed":
-    case "format-changed":
       return "RULE_WIRE_TYPE_CHANGED";
+    case "format-changed":
+      return before?.sampleFormat || after?.sampleFormat ? "RULE_STRING_FORMAT_CHANGED" : "RULE_WIRE_TYPE_CHANGED";
     case "nullability-changed": {
       if (!before && after?.kinds.includes("null")) return "RULE_NULLABLE_ADDED";
       if (before && !before.kinds.includes("null") && after?.kinds.includes("null")) {
@@ -134,7 +136,9 @@ export function driftLabelFor(
     return "Warning · nullable";
   }
   if (kind === "enum-changed") return "Warning · enum narrowed";
-  if (kind === "format-changed") return "Warning · format changed";
+  if (kind === "format-changed") {
+    return before?.sampleFormat || after?.sampleFormat ? "Warning · string format changed" : "Warning · format changed";
+  }
   if (kind === "constraint-changed") return "Warning · constraint changed";
   if (severity === "breaking") return "Breaking · incompatible";
   if (severity === "warning") return "Warning · review";
@@ -143,10 +147,15 @@ export function driftLabelFor(
 }
 
 /** `string | null · required` — the reference build's two-part evidence summary. */
-export function contractSummary(kinds: readonly JsonKind[], required: boolean, hasEvidence: boolean): string {
+export function contractSummary(
+  kinds: readonly JsonKind[],
+  required: boolean,
+  hasEvidence: boolean,
+  format?: DetectedStringFormat | null,
+): string {
   const type = kinds.length > 0 ? kinds.join(" | ") : "unknown";
-  if (!hasEvidence) return `${type} · OpenAPI declaration`;
-  return `${type} · ${required ? "required" : "optional"}`;
+  const summary = !hasEvidence ? `${type} · OpenAPI declaration` : `${type} · ${required ? "required" : "optional"}`;
+  return format && format !== "plain" ? `${summary} · ${stringFormatLabel(format)}` : summary;
 }
 
 export function missingSummary(): string {

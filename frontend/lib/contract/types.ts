@@ -6,6 +6,9 @@ export type ContractDirection = "response" | "request" | "event";
 export type SnapshotSource = "paste" | "file" | "fixture" | "workspace-import";
 export type JsonKind = "string" | "number" | "boolean" | "null" | "object" | "array";
 export type ExampleValue = JsonPrimitive | "[object]" | "[array]";
+export type StringFormat = "iso-date" | "day-first-date" | "email" | "uuid" | "jwt";
+export type StringFormatEvidence = StringFormat | "plain";
+export type DetectedStringFormat = StringFormat | "mixed" | "plain";
 export type ChangeKind = "field-added" | "field-removed" | "type-changed" | "became-required" | "became-optional"
   | "endpoint-added" | "endpoint-removed" | "parameter-added" | "parameter-removed" | "parameter-changed"
   | "request-schema-changed" | "response-status-added" | "response-status-removed" | "response-schema-changed"
@@ -28,6 +31,10 @@ export interface ContractNode {
   totalItems?: number;
   /** For array nodes: total items observed across every sample. */
   itemCount?: number;
+  /** Detected format across all string values, or `mixed` when they disagree. */
+  sampleFormat?: DetectedStringFormat;
+  /** The formats observed across all string values, including `plain`. */
+  sampleFormats?: StringFormatEvidence[];
 }
 export interface InferredContract { rootKinds: JsonKind[]; nodes: ContractNode[]; fingerprint: string; generatedAt: IsoDateString; inferenceVersion: 1 }
 export interface OpenApiOperation { key: string; path: string; method: string; operationId: string | null; summary: string | null; parameters: JsonValue[]; requestBody: JsonValue | null; responses: Record<string, JsonValue> }

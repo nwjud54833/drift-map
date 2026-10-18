@@ -57,6 +57,20 @@ describe("contract inference", () => {
     expect(contract.nodes.find((node) => node.pointer === "/id")?.required).toBe(true);
     expect(contract.nodes.find((node) => node.pointer === "/email")?.required).toBe(false);
   });
+  it("detects one string format across every sample", () => {
+    const contract = contractFor([{ when: "2026-10-15" }]);
+    expect(contract.nodes.find((node) => node.pointer === "/when")?.sampleFormat).toBe("iso-date");
+  });
+  it("reports mixed formats instead of choosing one", () => {
+    const contract = contractFor([{ when: "2026-10-15" }, { when: "15/10/2026" }]);
+    const node = contract.nodes.find((entry) => entry.pointer === "/when");
+    expect(node?.sampleFormat).toBe("mixed");
+    expect(node?.sampleFormats).toEqual(["iso-date", "day-first-date"]);
+  });
+  it("treats an undetectable string as plain", () => {
+    const contract = contractFor([{ status: "shipped" }]);
+    expect(contract.nodes.find((node) => node.pointer === "/status")?.sampleFormat).toBe("plain");
+  });
   it("bounds examples per node", () => {
     const contract = contractFor([{ tag: "a" }, { tag: "b" }, { tag: "c" }, { tag: "d" }]);
     expect(contract.nodes.find((node) => node.pointer === "/tag")?.examples).toHaveLength(3);
@@ -120,6 +134,30 @@ describe("contract comparison", () => {
     expect(changes.some((change) => change.pointer === "/added" && change.kind === "field-added")).toBe(true);
     expect(changes.some((change) => change.pointer === "/variant" && change.kind === "type-changed")).toBe(true);
     expect(changes.some((change) => change.pointer === "/sometimes" && change.kind === "became-optional")).toBe(true);
+  });
+  it("reports a string format change as a warning", () => {
+    const changes = compareContracts(contractFor([{ when: "2026-10-15" }]), contractFor([{ when: "15/10/2026" }]), "response");
+    const change = changes.find((entry) => entry.pointer === "/when");
+    expect(change?.kind).toBe("format-changed");
+    expect(change?.severity).toBe("warning");
+    expect(change?.title).toBe("String format changed");
+    expect(change?.explanation).toContain("ISO date");
+    expect(change?.explanation).toContain("day-first date");
+  });
+  it("does not report a format change for ordinary strings", () => {
+    expect(compareContracts(contractFor([{ status: "abc" }]), contractFor([{ status: "def" }]), "response")).toEqual([]);
+  });
+  it("does not double-report a string-to-number type change as a format change", () => {
+    const changes = compareContracts(contractFor([{ value: "2026-10-15" }]), contractFor([{ value: 20261015 }]), "response");
+    expect(changes.map((entry) => entry.kind)).toEqual(["type-changed"]);
+  });
+  it("reports a change away from mixed sample formats", () => {
+    const changes = compareContracts(
+      contractFor([{ when: "2026-10-15" }, { when: "15/10/2026" }]),
+      contractFor([{ when: "2026-10-15" }, { when: "2026-10-16" }]),
+      "response",
+    );
+    expect(changes.find((entry) => entry.pointer === "/when")?.kind).toBe("format-changed");
   });
   it("reports a non-null field becoming null separately from removal", () => {
     const changes = compareContracts(contractFor([{ phone: "555-0100" }]), contractFor([{ phone: null }]), "response");

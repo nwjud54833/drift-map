@@ -105,6 +105,25 @@ describe("driftmap presentation adapter", () => {
     expect(ruleIdFor("became-optional", "response")).toBe("RULE_REQUIRED_TO_OPTIONAL");
   });
 
+  it("maps a sampled string format change to its own rule", () => {
+    const iso = { ...node("/when", ["string"], true, 2, 2), sampleFormat: "iso-date" as const };
+    const dayFirst = { ...node("/when", ["string"], true, 2, 2), sampleFormat: "day-first-date" as const };
+    expect(ruleIdFor("format-changed", "response", iso, dayFirst)).toBe("RULE_STRING_FORMAT_CHANGED");
+    expect(ruleIdFor("format-changed", "response")).toBe("RULE_WIRE_TYPE_CHANGED");
+
+    const finding = toFinding(
+      change("/when", "format-changed", "warning", iso, dayFirst),
+      { direction: "response", candidateVersion: "candidate" },
+    );
+    expect(finding.ruleId).toBe("RULE_STRING_FORMAT_CHANGED");
+    expect(finding.driftLabel).toBe("Warning · string format changed");
+    expect(finding.fromFormat).toBe("iso-date");
+    expect(finding.toFormat).toBe("day-first-date");
+    expect(finding.baseSummary).toContain("ISO date");
+    expect(finding.candSummary).toContain("day-first date");
+    expect(finding.ruleExplanation).toContain("heuristic");
+  });
+
   it("maps each nullability change to its dedicated rule", () => {
     const nonNull = node("/phone", ["string"], true, 2, 2);
     const nullable = node("/phone", ["null", "string"], true, 2, 2);

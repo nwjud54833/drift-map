@@ -5,6 +5,7 @@ import type {
   ContractDirection,
   ContractNode,
   ContractSnapshot,
+  DetectedStringFormat,
   InferredContract,
   JsonKind,
   JsonObject,
@@ -40,6 +41,9 @@ export interface Finding {
   /** Type labels for the two sides of the type-shift cell. */
   fromType: string;
   toType: string;
+  /** Detected sample string formats, when either side has string evidence. */
+  fromFormat: DetectedStringFormat | null;
+  toFormat: DetectedStringFormat | null;
   baseSummary: string;
   candSummary: string;
   /** JSON-encoded observed example, or `null` when the engine recorded none. */
@@ -106,11 +110,13 @@ export function toFinding(change: ContractChange, context: FindingContext): Find
     driftLabel: driftLabelFor(change.kind, change.severity, context.direction, becameOptional, change.before, change.after),
     fromType: change.before ? change.before.kinds.join(" | ") || "unknown" : "absent",
     toType: change.after ? change.after.kinds.join(" | ") || "unknown" : "missing",
+    fromFormat: change.before?.sampleFormat ?? null,
+    toFormat: change.after?.sampleFormat ?? null,
     baseSummary: change.before
-      ? contractSummary(change.before.kinds, change.before.required, change.before.totalSamples > 0)
+      ? contractSummary(change.before.kinds, change.before.required, change.before.totalSamples > 0, change.before.sampleFormat)
       : ABSENT_SUMMARY,
     candSummary: change.after
-      ? contractSummary(change.after.kinds, change.after.required, change.after.totalSamples > 0)
+      ? contractSummary(change.after.kinds, change.after.required, change.after.totalSamples > 0, change.after.sampleFormat)
       : MISSING_SUMMARY,
     baseSample: exampleFor(change.before),
     candSample: exampleFor(change.after),
@@ -124,7 +130,15 @@ export function toFinding(change: ContractChange, context: FindingContext): Find
     hasSampleEvidence: totalSamples > 0,
     sparkPoints: presenceSeries(presentCount, totalSamples || 1, sparkDirection(change)),
     explanation: change.explanation,
-    ruleExplanation: compatibilityRule(change.kind, context.direction, change.before?.required ?? false, change.before?.kinds ?? [], change.after?.kinds ?? []),
+    ruleExplanation: compatibilityRule(
+      change.kind,
+      context.direction,
+      change.before?.required ?? false,
+      change.before?.kinds ?? [],
+      change.after?.kinds ?? [],
+      change.before?.sampleFormat ?? null,
+      change.after?.sampleFormat ?? null,
+    ),
     change,
   };
 }

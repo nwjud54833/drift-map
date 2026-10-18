@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { astDiffInputFor, buildSplitAstDiffHTML } from "@/lib/driftmap/ast-diff";
 import { presencePercent, type Finding } from "@/lib/driftmap/presentation";
 import { severityPillClass } from "@/lib/driftmap/rules";
+import { stringFormatLabel } from "@/lib/contract/formats";
 
 /**
  * Deep finding inspector (right column).
@@ -98,6 +99,13 @@ export function WorkbenchInspector({
               <span className="text-white">{finding.hasSampleEvidence ? `${percent}%` : "declared"}</span>
             </div>
           </div>
+
+          {(finding.fromFormat || finding.toFormat) && (
+            <div className="p-2.5 rounded-xl bg-[#050507] border border-white/[0.07] flex items-center justify-between gap-2 text-[10px] text-[#9496A1]">
+              <span className="uppercase">Detected string format</span>
+              <span className="text-white text-right">{stringFormatLabel(finding.fromFormat)} → {stringFormatLabel(finding.toFormat)}</span>
+            </div>
+          )}
         </div>
 
         <div className="p-3 rounded-xl bg-[#111116] border border-white/[0.08]">

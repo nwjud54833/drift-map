@@ -1,5 +1,6 @@
 import type { ChangeKind, ContractChange, ContractDirection, ContractNode, JsonKind, JsonValue, OpenApiContract, StoredContract } from "./types";
 import { classifyChange, classifyNullabilityChange, type NullabilityChange } from "./compatibility";
+import { stringFormatLabel } from "./formats";
 import { getJsonKind, pointerDepth, pointerLabel } from "./normalize";
 import { collectContractNodes } from "./infer";
 import { compareOpenApiContracts } from "./openapi";
@@ -28,6 +29,13 @@ function nullabilityExplanation(
   return `The field was nullable in the baseline and is absent from all candidate samples. Removing a nullable field is a distinct change from making it null. For ${direction} compatibility this is classified as ${severity}.`;
 }
 
+function stringFormatChanged(before: ContractNode, after: ContractNode): boolean {
+  if (!before.kinds.includes("string") || !after.kinds.includes("string")) return false;
+  const left = before.sampleFormat;
+  const right = after.sampleFormat;
+  return Boolean(left && right && left !== right);
+}
+
 function makeChange(
   pointer: string,
   kind: ChangeKind,
@@ -47,7 +55,9 @@ function makeChange(
     && (after.presentInItems ?? 0) < after.totalItems;
   const explanation = nullability
     ? nullabilityExplanation(nullability, direction, severity, left, right)
-    : kind === "field-removed"
+    : kind === "format-changed"
+      ? `The observed string format changed from ${stringFormatLabel(before?.sampleFormat)} to ${stringFormatLabel(after?.sampleFormat)}. This detection is heuristic and based on sample values; it is not a declared schema format. For ${direction} compatibility this is classified as ${severity}.`
+      : kind === "field-removed"
       ? `The field existed in the baseline contract but is absent from all candidate samples. For ${direction} compatibility this is classified as ${severity}.`
       : kind === "field-added"
         ? `The field appears in candidate samples (${after?.presentInSamples ?? 0}/${after?.totalSamples ?? 0}). Sample inference considers it ${after?.required ? "required" : "optional"}. For ${direction} compatibility this is classified as ${severity}.`
@@ -63,7 +73,13 @@ function makeChange(
     pointer,
     kind,
     severity,
-    title: nullability ? nullabilityTitle(nullability) : itemOptional ? "Field missing from some array items" : names[kind] ?? "Contract changed",
+    title: nullability
+      ? nullabilityTitle(nullability)
+      : kind === "format-changed"
+        ? "String format changed"
+        : itemOptional
+          ? "Field missing from some array items"
+          : names[kind] ?? "Contract changed",
     explanation,
     before,
     after,
@@ -122,6 +138,7 @@ export function compareContracts(baseline: StoredContract, candidate: StoredCont
     const before = beforeNodes.get(pointer) ?? null;
     const after = afterNodes.get(pointer) ?? null;
     if (before && after) {
+      if (stringFormatChanged(before, after)) changes.push(makeChange(pointer, "format-changed", before, after, direction));
       const beforeNullable = before.kinds.includes("null");
       const afterNullable = after.kinds.includes("null");
       const beforeNonNull = before.kinds.filter((kind) => kind !== "null");
