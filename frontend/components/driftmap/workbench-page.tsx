@@ -8,6 +8,7 @@ import type { ChangeSeverity, ContractDirection, ContractSnapshot, ImportArtifac
 import { buildDiff, compareContracts } from "@/lib/contract/compare";
 import { OpenApiComparisonError } from "@/lib/contract/openapi";
 import { buildMarkdownReport, buildWorkspaceExport } from "@/lib/contract/export";
+import { sampleWarningsForSnapshots } from "@/lib/contract/sample-warnings";
 import {
   createCloudOpenApiSnapshot,
   createCloudSnapshot,
@@ -148,6 +149,7 @@ export function WorkbenchPage() {
   const candidate = snapshots.find((snapshot) => snapshot.id === active?.candidateSnapshotId) ?? null;
   const hasComparison = Boolean(baseline && candidate);
   const direction: ContractDirection = active?.direction ?? "response";
+  const sampleWarnings = useMemo(() => sampleWarningsForSnapshots(baseline, candidate), [baseline, candidate]);
 
   /* ---------- Comparison --------------------------------------------------- */
 
@@ -714,6 +716,13 @@ export function WorkbenchPage() {
         cloudStatus={sessionStatus === "authenticated" ? (session?.user?.email ?? "signed in") : null}
         onSignIn={() => { window.location.href = "/signin"; }}
       />
+
+      {sampleWarnings.length > 0 && (
+        <div role="status" className="px-4 sm:px-6 py-2 bg-amber-950/40 border-b border-amber-500/30 text-xs font-mono text-amber-200">
+          <strong>Thin sample evidence.</strong>{" "}
+          {sampleWarnings.map((warning) => warning.message).join(" ")}
+        </div>
+      )}
 
       {error && (
         <div className="px-4 sm:px-6 py-2 bg-rose-950/40 border-b border-rose-500/30 text-xs font-mono text-rose-200 flex items-center justify-between gap-3">
