@@ -61,6 +61,18 @@ describe("contract inference", () => {
     const contract = contractFor([{ tag: "a" }, { tag: "b" }, { tag: "c" }, { tag: "d" }]);
     expect(contract.nodes.find((node) => node.pointer === "/tag")?.examples).toHaveLength(3);
   });
+  it("tracks presence across every array item, not just the first", () => {
+    const contract = contractFor([{ items: [{ sku: "A", qty: 1 }, { sku: "B" }] }]);
+    const qty = contract.nodes.find((node) => node.pointer === "/items/*/qty");
+    expect(qty?.presentInItems).toBe(1);
+    expect(qty?.totalItems).toBe(2);
+    expect(qty?.required).toBe(false);
+  });
+  it("counts empty arrays without inventing child nodes", () => {
+    const contract = contractFor([{ items: [] }]);
+    expect(contract.nodes.find((node) => node.pointer === "/items")?.itemCount).toBe(0);
+    expect(contract.nodes.some((node) => node.pointer.startsWith("/items/*"))).toBe(false);
+  });
   it("has a stable fingerprint independent of array order", () => {
     const a = contractFor([{ values: [{ id: 1 }, { id: 2 }] }]);
     const b = contractFor([{ values: [{ id: 2 }, { id: 1 }] }]);
@@ -108,6 +120,41 @@ describe("contract comparison", () => {
     );
     expect(changes).toHaveLength(1);
     expect(changes[0].pointer).toBe("/wrapper");
+  });
+  it("reports a field missing from a later array item as optional", () => {
+    const changes = compareContracts(
+      contractFor([{ items: [{ sku: "A", qty: 1 }, { sku: "B", qty: 2 }] }]),
+      contractFor([{ items: [{ sku: "A", qty: 1 }, { sku: "B" }] }]),
+      "response",
+    );
+    const change = changes.find((entry) => entry.pointer === "/items/*/qty");
+    expect(change?.kind).toBe("became-optional");
+    expect(change?.title).toBe("Field missing from some array items");
+    expect(change?.after?.presentInItems).toBe(1);
+    expect(change?.after?.totalItems).toBe(2);
+    expect(change?.explanation).toContain("1/2 item occurrences");
+  });
+  it("reports a type difference from a later array item", () => {
+    const changes = compareContracts(
+      contractFor([{ items: [{ qty: 1 }, { qty: 2 }] }]),
+      contractFor([{ items: [{ qty: 1 }, { qty: "1" }] }]),
+      "response",
+    );
+    expect(changes.find((change) => change.pointer === "/items/*/qty")?.kind).toBe("type-changed");
+  });
+  it("does not report descendant removals when an array is empty", () => {
+    const changes = compareContracts(
+      contractFor([{ items: [{ sku: "A", qty: 1 }] }]),
+      contractFor([{ items: [] }]),
+      "response",
+    );
+    expect(changes.some((change) => change.pointer.startsWith("/items/"))).toBe(false);
+  });
+  it("handles mixed primitive and object array items", () => {
+    const before = contractFor([{ items: [1, { sku: "A" }] }]);
+    const after = contractFor([{ items: [2, { sku: "B" }] }]);
+    expect(before.nodes.find((node) => node.pointer === "/items/*")?.kinds).toEqual(["number", "object"]);
+    expect(compareContracts(before, after, "response")).toEqual([]);
   });
   it("sorts deterministically by severity then pointer", () => {
     const changes = compareContracts(

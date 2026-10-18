@@ -14,7 +14,21 @@ export type ChangeKind = "field-added" | "field-removed" | "type-changed" | "bec
 export type ChangeSeverity = "breaking" | "warning" | "safe" | "info";
 export interface Workspace { id: string; name: string; direction: ContractDirection; baselineSnapshotId: string | null; candidateSnapshotId: string | null; createdAt: IsoDateString; updatedAt: IsoDateString }
 export interface PayloadSample { id: string; label: string; value: JsonObject; source: SnapshotSource; capturedAt: IsoDateString }
-export interface ContractNode { pointer: string; label: string; kinds: JsonKind[]; presentInSamples: number; totalSamples: number; required: boolean; examples: ExampleValue[] }
+export interface ContractNode {
+  pointer: string;
+  label: string;
+  kinds: JsonKind[];
+  presentInSamples: number;
+  totalSamples: number;
+  required: boolean;
+  examples: ExampleValue[];
+  /** For nodes below an array wildcard: item occurrences where the node appeared. */
+  presentInItems?: number;
+  /** For nodes below an array wildcard: total item occurrences at that wildcard. */
+  totalItems?: number;
+  /** For array nodes: total items observed across every sample. */
+  itemCount?: number;
+}
 export interface InferredContract { rootKinds: JsonKind[]; nodes: ContractNode[]; fingerprint: string; generatedAt: IsoDateString; inferenceVersion: 1 }
 export interface OpenApiOperation { key: string; path: string; method: string; operationId: string | null; summary: string | null; parameters: JsonValue[]; requestBody: JsonValue | null; responses: Record<string, JsonValue> }
 export interface OpenApiContract { kind: "openapi"; version: "3.0"; title: string; document: JsonValue; operations: OpenApiOperation[]; nodes: ContractNode[] }

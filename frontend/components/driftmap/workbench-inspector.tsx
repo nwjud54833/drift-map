@@ -94,7 +94,7 @@ export function WorkbenchInspector({
               Observed: <code className="text-amber-300">{finding.candSample ?? "no sample recorded"}</code>
             </div>
             <div className="mt-1.5 pt-1.5 border-t border-white/[0.05] flex items-center justify-between text-[10px] text-[#9496A1]">
-              <span>{finding.hasSampleEvidence ? "Sample frequency" : "Evidence source"}</span>
+              <span>{finding.hasSampleEvidence ? (finding.evidenceUnit === "items" ? "Item frequency" : "Sample frequency") : "Evidence source"}</span>
               <span className="text-white">{finding.hasSampleEvidence ? `${percent}%` : "declared"}</span>
             </div>
           </div>

@@ -10,6 +10,9 @@ function makeChange(pointer: string, kind: ChangeKind, before: ContractNode | nu
   const names: Partial<Record<ChangeKind, string>> = { "field-added": "Field added", "field-removed": "Field removed", "type-changed": "Type changed", "became-required": "Field became required", "became-optional": "Field became optional" };
   const left = before ? before.kinds.join(" | ") : "missing";
   const right = after ? after.kinds.join(" | ") : "missing";
+  const itemOptional = kind === "became-optional"
+    && after?.totalItems !== undefined
+    && (after.presentInItems ?? 0) < after.totalItems;
   const explanation = kind === "field-removed"
     ? `The field existed in the baseline contract but is absent from all candidate samples. For ${direction} compatibility this is classified as ${severity}.`
     : kind === "field-added"
@@ -18,8 +21,19 @@ function makeChange(pointer: string, kind: ChangeKind, before: ContractNode | nu
         ? `The inferred JSON kind changed from ${left} to ${right}. Any kind-set difference is conservatively classified as breaking.`
         : kind === "became-required"
           ? "The field is present in every candidate sample and appears required. Sample inference is evidence, not proof of the producer's formal schema."
-          : "The field is missing from one or more candidate samples and appears optional. Sample inference is evidence, not proof of the producer's formal schema.";
-  return { id: `${pointer}:${kind}`, pointer, kind, severity, title: names[kind] ?? "Contract changed", explanation, before, after };
+          : itemOptional
+            ? `The field is missing from one or more candidate array items (${after?.presentInItems ?? 0}/${after?.totalItems ?? 0} item occurrences) and appears optional. Sample inference is evidence, not proof of the producer's formal schema.`
+            : "The field is missing from one or more candidate samples and appears optional. Sample inference is evidence, not proof of the producer's formal schema.";
+  return {
+    id: `${pointer}:${kind}`,
+    pointer,
+    kind,
+    severity,
+    title: itemOptional ? "Field missing from some array items" : names[kind] ?? "Contract changed",
+    explanation,
+    before,
+    after,
+  };
 }
 
 function isOpenApiContract(contract: StoredContract): contract is OpenApiContract {
@@ -63,6 +77,12 @@ export function compareContracts(baseline: StoredContract, candidate: StoredCont
   if (isOpenApiContract(baseline) || isOpenApiContract(candidate)) return [];
   const beforeNodes = collectContractNodes(baseline);
   const afterNodes = collectContractNodes(candidate);
+  // An empty array is absence of item evidence, not evidence that every field
+  // disappeared. Do not turn an empty array into a cascade of false removals.
+  const emptyArrayPointers = new Set<string>();
+  for (const node of [...beforeNodes.values(), ...afterNodes.values()]) {
+    if (node.kinds.includes("array") && node.itemCount === 0) emptyArrayPointers.add(node.pointer);
+  }
   const changes: ContractChange[] = [];
   for (const pointer of new Set([...beforeNodes.keys(), ...afterNodes.keys()])) {
     const before = beforeNodes.get(pointer) ?? null;
@@ -74,7 +94,8 @@ export function compareContracts(baseline: StoredContract, candidate: StoredCont
     } else changes.push(makeChange(pointer, before ? "field-removed" : "field-added", before, after, direction));
   }
   const changedTypes = new Set(changes.filter((change) => change.kind === "type-changed").map((change) => change.pointer));
-  return changes.filter((change) => ![...changedTypes].some((parent) => parent !== change.pointer && change.pointer.startsWith(`${parent}/`)))
+  const suppressedParents = new Set([...changedTypes, ...emptyArrayPointers]);
+  return changes.filter((change) => ![...suppressedParents].some((parent) => parent !== change.pointer && change.pointer.startsWith(`${parent}/`)))
     .sort((a, b) => severityRank[a.severity] - severityRank[b.severity] || pointerDepth(a.pointer) - pointerDepth(b.pointer) || a.pointer.localeCompare(b.pointer));
 }
 

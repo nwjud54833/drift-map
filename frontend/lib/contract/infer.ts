@@ -1,7 +1,23 @@
 import type { ContractNode, ExampleValue, InferredContract, JsonKind, JsonObject, JsonValue, PayloadSample } from "./types";
 import { exampleFor, escapePointerSegment, getJsonKind, pointerLabel } from "./normalize";
 
-interface NodeAccumulator { pointer: string; kinds: Set<JsonKind>; present: Set<number>; examples: ExampleValue[] }
+interface NodeAccumulator {
+  pointer: string;
+  kinds: Set<JsonKind>;
+  present: Set<number>;
+  examples: ExampleValue[];
+  /** Tokens for each array item in which this node appeared. */
+  itemPresence?: Set<string>;
+  /** Total items observed for an array node, including empty arrays. */
+  itemCount?: number;
+}
+
+/** The nearest array wildcard ancestor of a pointer, or null for non-array paths. */
+function wildcardPointerFor(pointer: string): string | null {
+  const segments = pointer.split("/");
+  const index = segments.lastIndexOf("*");
+  return index > 0 ? segments.slice(0, index + 1).join("/") : null;
+}
 
 /** Deterministic example ordering, independent of sample or array encounter order. */
 function compareExamples(a: ExampleValue, b: ExampleValue): number {
@@ -13,38 +29,67 @@ function hashString(input: string): string {
   return (hash >>> 0).toString(16).padStart(8, "0");
 }
 
-function visit(value: JsonValue, pointer: string, sampleIndex: number, nodes: Map<string, NodeAccumulator>): void {
+function visit(
+  value: JsonValue,
+  pointer: string,
+  sampleIndex: number,
+  nodes: Map<string, NodeAccumulator>,
+  itemTotals: Map<string, number>,
+  itemToken: string | null,
+): void {
   if (!pointer) return;
   const node = nodes.get(pointer) ?? { pointer, kinds: new Set<JsonKind>(), present: new Set<number>(), examples: [] };
   node.kinds.add(getJsonKind(value));
   node.present.add(sampleIndex);
+  if (itemToken !== null) {
+    node.itemPresence ??= new Set<string>();
+    node.itemPresence.add(itemToken);
+  }
   const example = exampleFor(value);
   if (!node.examples.some((existing) => Object.is(existing, example))) node.examples.push(example);
   nodes.set(pointer, node);
   if (Array.isArray(value)) {
-    for (const item of value) visit(item, `${pointer}/*`, sampleIndex, nodes);
+    // Every item is visited; `itemCount` and `itemTotals` make missing fields
+    // inside array items observable rather than collapsing them into "present".
+    node.itemCount = (node.itemCount ?? 0) + value.length;
+    const itemPointer = `${pointer}/*`;
+    value.forEach((item, index) => {
+      itemTotals.set(itemPointer, (itemTotals.get(itemPointer) ?? 0) + 1);
+      const token = `${sampleIndex}|${itemPointer}|${index}|${itemToken ?? ""}`;
+      visit(item, itemPointer, sampleIndex, nodes, itemTotals, token);
+    });
   } else if (value !== null && typeof value === "object") {
-    for (const [key, child] of Object.entries(value)) visit(child, `${pointer}/${escapePointerSegment(key)}`, sampleIndex, nodes);
+    for (const [key, child] of Object.entries(value)) visit(child, `${pointer}/${escapePointerSegment(key)}`, sampleIndex, nodes, itemTotals, itemToken);
   }
 }
 
 export function inferContract(samples: PayloadSample[], generatedAt = new Date().toISOString()): InferredContract {
   if (!samples.length) throw new Error("At least one sample is required to infer a contract.");
   const nodes = new Map<string, NodeAccumulator>();
+  const itemTotals = new Map<string, number>();
   const rootKinds = new Set<JsonKind>();
   samples.forEach((sample, index) => {
     rootKinds.add(getJsonKind(sample.value));
-    for (const [key, child] of Object.entries(sample.value)) visit(child, `/${escapePointerSegment(key)}`, index, nodes);
+    for (const [key, child] of Object.entries(sample.value)) visit(child, `/${escapePointerSegment(key)}`, index, nodes, itemTotals, null);
   });
-  const contractNodes: ContractNode[] = [...nodes.values()].map((node) => ({
-    pointer: node.pointer,
-    label: pointerLabel(node.pointer),
-    kinds: [...node.kinds].sort(),
-    presentInSamples: node.present.size,
-    totalSamples: samples.length,
-    required: node.present.size === samples.length,
-    examples: [...node.examples].sort(compareExamples).slice(0, 3),
-  })).sort((a, b) => a.pointer.localeCompare(b.pointer));
+  const contractNodes: ContractNode[] = [...nodes.values()].map((node) => {
+    const wildcardPointer = wildcardPointerFor(node.pointer);
+    const totalItems = wildcardPointer !== null && itemTotals.has(wildcardPointer)
+      ? itemTotals.get(wildcardPointer)!
+      : undefined;
+    const presentInItems = totalItems === undefined ? undefined : node.itemPresence?.size ?? 0;
+    return {
+      pointer: node.pointer,
+      label: pointerLabel(node.pointer),
+      kinds: [...node.kinds].sort(),
+      presentInSamples: node.present.size,
+      totalSamples: samples.length,
+      required: node.present.size === samples.length && (totalItems === undefined || presentInItems === totalItems),
+      examples: [...node.examples].sort(compareExamples).slice(0, 3),
+      ...(node.kinds.has("array") ? { itemCount: node.itemCount ?? 0 } : {}),
+      ...(totalItems === undefined ? {} : { presentInItems, totalItems }),
+    };
+  }).sort((a, b) => a.pointer.localeCompare(b.pointer));
   const canonical = JSON.stringify({ rootKinds: [...rootKinds].sort(), nodes: contractNodes.map(({ pointer, kinds, required }) => ({ pointer, kinds, required })) });
   return { rootKinds: [...rootKinds].sort(), nodes: contractNodes, fingerprint: hashString(canonical), generatedAt, inferenceVersion: 1 };
 }

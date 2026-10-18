@@ -49,6 +49,11 @@ export interface Finding {
   candKinds: JsonKind[];
   presentCount: number;
   totalSamples: number;
+  /** Item-level evidence for fields inside arrays; null for ordinary fields. */
+  presentInItems: number | null;
+  totalItems: number | null;
+  /** Which unit `presentCount` / `totalSamples` describe. */
+  evidenceUnit: "items" | "samples";
   /** False when the sides come from OpenAPI declarations with no sample evidence. */
   hasSampleEvidence: boolean;
   sparkPoints: number[];
@@ -84,8 +89,11 @@ function sparkDirection(change: ContractChange): SparklineDirection {
 export function toFinding(change: ContractChange, context: FindingContext): Finding {
   const node = change.after ?? change.before;
   const revised = context.revisedPresence?.get(change.id);
-  const presentCount = revised?.presentCount ?? node?.presentInSamples ?? 0;
-  const totalSamples = revised?.totalSamples ?? node?.totalSamples ?? 0;
+  const presentInItems = node?.presentInItems ?? null;
+  const totalItems = node?.totalItems ?? null;
+  const presentCount = revised?.presentCount ?? presentInItems ?? node?.presentInSamples ?? 0;
+  const totalSamples = revised?.totalSamples ?? totalItems ?? node?.totalSamples ?? 0;
+  const evidenceUnit = presentInItems !== null && totalItems !== null ? "items" : "samples";
   const becameOptional = change.kind === "became-optional" && !change.after;
 
   return {
@@ -110,6 +118,9 @@ export function toFinding(change: ContractChange, context: FindingContext): Find
     candKinds: change.after?.kinds ?? [],
     presentCount,
     totalSamples,
+    presentInItems,
+    totalItems,
+    evidenceUnit,
     hasSampleEvidence: totalSamples > 0,
     sparkPoints: presenceSeries(presentCount, totalSamples || 1, sparkDirection(change)),
     explanation: change.explanation,
