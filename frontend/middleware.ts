@@ -27,5 +27,7 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // The SPATIAL landing page is a standalone static artifact that loads Tailwind
+  // and Google Fonts from its own CDNs, so it opts out of the app's nonce CSP.
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|driftmap-v3-spatial\\.html).*)"],
 };
