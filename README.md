@@ -80,6 +80,18 @@ The domain engine covers JSON parsing, normalized JSON-pointer paths, array wild
 - Local IndexedDB data is not automatically synchronized with cloud workspaces.
 - Collaboration and CI integration are not implemented.
 
+## Security
+
+See [SECURITY.md](SECURITY.md) for how to report a vulnerability and for the
+current list of hardened controls and known residual risks.
+
+CI (`.github/workflows/`) runs the quality checks, a gitleaks scan of full
+history, and CodeQL analysis on every pull request. Repository owners should
+also enable GitHub's built-in **secret scanning with push protection**
+(Settings → Code security → Advanced Security → Secret scanning), which blocks
+newly committed credentials at push time; gitleaks in CI is a defence in depth
+that does not require that setting.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

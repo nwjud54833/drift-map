@@ -1,0 +1,35 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: analyze (javascript-typescript)
+    runs-on: ubuntu-latest
+    permissions:
+      # Only this job uploads code-scanning results.
+      contents: read
+      security-events: write
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@5fe9434cd24fe243e33e7f3305f8a5b519b70280 # v4.31.1
+        with:
+          languages: javascript-typescript
+      # The JavaScript/TypeScript extractor analyses sources directly; no build
+      # step is required.
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@5fe9434cd24fe243e33e7f3305f8a5b519b70280 # v4.31.1
+        with:
+          category: "/language:javascript-typescript"
