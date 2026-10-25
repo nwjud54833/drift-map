@@ -1,0 +1,20 @@
+[
+  {
+    "order_id": "ORD-1001",
+    "status": "shipped",
+    "total_cents": 149900,
+    "customer": { "name": "Taylor Reed", "tier": "gold" },
+    "items": [
+      { "sku": "SOCKS-9", "qty": 3, "unit_cents": 450 }
+    ]
+  },
+  {
+    "order_id": "ORD-1002",
+    "status": "processing",
+    "total_cents": 8200,
+    "customer": { "name": "Ada Osei", "tier": "silver" },
+    "items": [
+      { "sku": "MUG-2", "qty": "1", "unit_cents": 8200 }
+    ]
+  }
+]

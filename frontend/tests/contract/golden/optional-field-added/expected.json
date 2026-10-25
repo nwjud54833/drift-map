@@ -1,0 +1,11 @@
+{
+  "direction": "response",
+  "changes": [
+    {
+      "pointer": "/gift_note",
+      "kind": "field-added",
+      "severity": "safe",
+      "rule": "RULE_OPTIONAL_FIELD_ADDED"
+    }
+  ]
+}

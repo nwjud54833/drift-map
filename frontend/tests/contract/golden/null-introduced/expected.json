@@ -1,0 +1,11 @@
+{
+  "direction": "response",
+  "changes": [
+    {
+      "pointer": "/customer/phone",
+      "kind": "nullability-changed",
+      "severity": "breaking",
+      "rule": "RULE_NULL_INTRODUCED"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "direction": "response",
+  "changes": [
+    {
+      "pointer": "/paths/~1orders/post/responses/201/content/application~1json/properties/status/enum",
+      "kind": "enum-changed",
+      "severity": "warning",
+      "rule": "RULE_ENUM_VALUE_SET_CHANGED"
+    }
+  ]
+}

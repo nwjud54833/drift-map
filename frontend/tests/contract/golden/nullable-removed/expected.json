@@ -1,0 +1,11 @@
+{
+  "direction": "response",
+  "changes": [
+    {
+      "pointer": "/customer/fax",
+      "kind": "nullability-changed",
+      "severity": "safe",
+      "rule": "RULE_NULLABILITY_REMOVED"
+    }
+  ]
+}

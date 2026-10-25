@@ -1,0 +1,11 @@
+{
+  "direction": "response",
+  "changes": [
+    {
+      "pointer": "/tracking_code",
+      "kind": "became-optional",
+      "severity": "info",
+      "rule": "RULE_REQUIRED_TO_OPTIONAL"
+    }
+  ]
+}
