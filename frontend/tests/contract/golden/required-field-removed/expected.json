@@ -1,0 +1,11 @@
+{
+  "direction": "response",
+  "changes": [
+    {
+      "pointer": "/customer/email",
+      "kind": "field-removed",
+      "severity": "breaking",
+      "rule": "RULE_REQUIRED_FIELD_REMOVED"
+    }
+  ]
+}

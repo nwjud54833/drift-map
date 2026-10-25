@@ -1,0 +1,11 @@
+{
+  "direction": "response",
+  "changes": [
+    {
+      "pointer": "/coupon_code",
+      "kind": "became-required",
+      "severity": "breaking",
+      "rule": "RULE_REQUIREDNESS_NARROWED"
+    }
+  ]
+}

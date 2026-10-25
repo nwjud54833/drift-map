@@ -1,0 +1,11 @@
+{
+  "direction": "response",
+  "changes": [
+    {
+      "pointer": "/order_date",
+      "kind": "format-changed",
+      "severity": "warning",
+      "rule": "RULE_STRING_FORMAT_CHANGED"
+    }
+  ]
+}

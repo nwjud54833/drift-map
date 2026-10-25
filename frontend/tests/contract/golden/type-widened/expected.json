@@ -1,0 +1,11 @@
+{
+  "direction": "response",
+  "changes": [
+    {
+      "pointer": "/items/*/qty",
+      "kind": "type-changed",
+      "severity": "breaking",
+      "rule": "RULE_WIRE_TYPE_CHANGED"
+    }
+  ]
+}

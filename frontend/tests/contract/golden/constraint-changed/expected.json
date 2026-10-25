@@ -1,0 +1,23 @@
+{
+  "direction": "response",
+  "changes": [
+    {
+      "pointer": "/paths/~1orders/post/responses/201/content/application~1json/properties/label/maxLength",
+      "kind": "constraint-changed",
+      "severity": "warning",
+      "rule": "RULE_CONSTRAINT_TIGHTENED"
+    },
+    {
+      "pointer": "/paths/~1orders/post/responses/201/content/application~1json/properties/note/minLength",
+      "kind": "constraint-changed",
+      "severity": "safe",
+      "rule": "RULE_CONSTRAINT_TIGHTENED"
+    },
+    {
+      "pointer": "/paths/~1orders/post/responses/201/content/application~1json/properties/total/maximum",
+      "kind": "constraint-changed",
+      "severity": "safe",
+      "rule": "RULE_CONSTRAINT_TIGHTENED"
+    }
+  ]
+}
