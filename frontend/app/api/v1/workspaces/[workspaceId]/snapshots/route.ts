@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { apiError, isUuid, readJsonBody, requireAuthenticatedUser } from "@/lib/server/api";
+import { apiError, assertDocumentBudget, isUuid, readJsonBody, requireAuthenticatedUser, tooManyRequests } from "@/lib/server/api";
+import { checkRateLimit, WRITE_RATE_LIMIT } from "@/lib/server/rate-limit";
 import { prisma } from "@/lib/db/prisma";
 import { parsePayloadText } from "@/lib/contract/parse";
 import { parseOpenApiText } from "@/lib/contract/openapi";
@@ -26,6 +27,8 @@ export async function GET(_request: Request, context: Context) {
 export async function POST(request: Request, context: Context) {
   const authResult = await requireAuthenticatedUser();
   if (!authResult.ok) return authResult.response;
+  const limit = checkRateLimit("v1:snapshots:post", authResult.userId, WRITE_RATE_LIMIT.limit, WRITE_RATE_LIMIT.windowMs);
+  if (!limit.allowed) return tooManyRequests(limit.retryAfterSeconds);
   const { workspaceId } = await context.params;
   if (!isUuid(workspaceId)) return apiError("Invalid workspace ID.", 400);
 
@@ -34,6 +37,7 @@ export async function POST(request: Request, context: Context) {
     const parsed = snapshotCreateSchema.safeParse(await readJsonBody(request));
     if (!parsed.success) return apiError("Invalid snapshot request.", 400);
     body = parsed.data;
+    assertDocumentBudget("documentText" in body ? body.documentText : body.payloads, "The document");
   } catch (error) {
     return apiError(error instanceof RangeError ? error.message : "Request body must be valid JSON.", error instanceof RangeError ? 413 : 400);
   }

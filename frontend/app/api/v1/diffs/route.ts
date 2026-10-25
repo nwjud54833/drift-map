@@ -7,7 +7,8 @@ import { inferContract } from "@/lib/contract/infer";
 import { parsePayloadText } from "@/lib/contract/parse";
 import type { ChangeKind, ContractDirection, SnapshotSource, StoredContract } from "@/lib/contract/types";
 import { prisma } from "@/lib/db/prisma";
-import { apiError, isUuid, readJsonBody, requireAuthenticatedUser } from "@/lib/server/api";
+import { apiError, assertDocumentBudget, isUuid, readJsonBody, requireAuthenticatedUser, tooManyRequests } from "@/lib/server/api";
+import { checkRateLimit, WRITE_RATE_LIMIT } from "@/lib/server/rate-limit";
 
 const directions = ["response", "request", "event"] as const;
 const sideSchema = z.object({
@@ -93,12 +94,19 @@ export async function POST(request: Request) {
   const authResult = await requireAuthenticatedUser();
   if (!authResult.ok) return authResult.response;
   const userId = authResult.userId;
+  const limit = checkRateLimit("v1:diffs:post", userId, WRITE_RATE_LIMIT.limit, WRITE_RATE_LIMIT.windowMs);
+  if (!limit.allowed) return tooManyRequests(limit.retryAfterSeconds);
 
   let body: z.infer<typeof diffRequestSchema>;
   try {
     const parsed = diffRequestSchema.safeParse(await readJsonBody(request));
     if (!parsed.success) return apiError("Invalid diff request.", 400);
     body = parsed.data;
+    // Each side is one document, so each gets the client's per-document cap.
+    if ("baseline" in body) {
+      assertDocumentBudget(body.baseline.payloads, "The baseline payloads");
+      assertDocumentBudget(body.candidate.payloads, "The candidate payloads");
+    }
   } catch (error) {
     if (error instanceof RangeError) return apiError(error.message, 413);
     return apiError("Request body must be valid JSON.", 400);

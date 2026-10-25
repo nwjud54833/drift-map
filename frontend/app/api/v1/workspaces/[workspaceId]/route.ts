@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { apiError, isUuid, readJsonBody, requireAuthenticatedUser } from "@/lib/server/api";
+import { apiError, isUuid, readJsonBody, requireAuthenticatedUser, tooManyRequests } from "@/lib/server/api";
+import { checkRateLimit, WRITE_RATE_LIMIT } from "@/lib/server/rate-limit";
 import { prisma } from "@/lib/db/prisma";
 import { workspaceUpdateSchema } from "@/lib/server/contracts";
 type Context = { params: Promise<{ workspaceId: string }> };
@@ -21,6 +22,8 @@ export async function GET(_request: Request, context: Context) {
 export async function PATCH(request: Request, context: Context) {
   const authResult = await requireAuthenticatedUser();
   if (!authResult.ok) return authResult.response;
+  const limit = checkRateLimit("v1:workspace:patch", authResult.userId, WRITE_RATE_LIMIT.limit, WRITE_RATE_LIMIT.windowMs);
+  if (!limit.allowed) return tooManyRequests(limit.retryAfterSeconds);
   const { workspaceId } = await context.params;
   if (!isUuid(workspaceId)) return apiError("Invalid workspace ID.", 400);
   try {
@@ -68,6 +71,8 @@ export async function PATCH(request: Request, context: Context) {
 export async function DELETE(_request: Request, context: Context) {
   const authResult = await requireAuthenticatedUser();
   if (!authResult.ok) return authResult.response;
+  const limit = checkRateLimit("v1:workspace:delete", authResult.userId, WRITE_RATE_LIMIT.limit, WRITE_RATE_LIMIT.windowMs);
+  if (!limit.allowed) return tooManyRequests(limit.retryAfterSeconds);
   const { workspaceId } = await context.params;
   if (!isUuid(workspaceId)) return apiError("Invalid workspace ID.", 400);
   try {

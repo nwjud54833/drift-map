@@ -605,7 +605,10 @@ export function WorkbenchPage() {
       return;
     }
     try {
-      const content = buildWorkspaceExport(active, baseline, candidate);
+      // Cloud exports default to redacted: sample payloads may contain PII, and
+      // a workspace synced from the server is the one most likely to be shared.
+      const redactSamples = mode === "cloud";
+      const content = buildWorkspaceExport(active, baseline, candidate, { redactSamples });
       const blob = new Blob([content], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
@@ -613,11 +616,13 @@ export function WorkbenchPage() {
       anchor.download = "driftmap-workspace-export.json";
       anchor.click();
       URL.revokeObjectURL(url);
-      toast.success("Exported driftmap-workspace-export.json");
+      toast.success(redactSamples
+        ? "Exported driftmap-workspace-export.json — sample values redacted"
+        : "Exported driftmap-workspace-export.json");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Unable to export this workspace.");
     }
-  }, [active, baseline, candidate]);
+  }, [active, baseline, candidate, mode]);
 
   const copyPath = useCallback(async (pointer: string) => {
     try {

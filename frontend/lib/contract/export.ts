@@ -12,14 +12,45 @@ export function buildMarkdownReport(workspace: Workspace, baseline: ContractSnap
   return `# Contract Drift Report\n\n**Workspace:** ${workspace.name}\n\n**Baseline:** ${baseline.versionLabel}\n\n**Candidate:** ${candidate.versionLabel}\n\n**Direction:** ${workspace.direction}\n\n## Summary\n\n${diff.summary.breaking} breaking · ${diff.summary.warning} warning · ${diff.summary.safe} safe · ${diff.summary.info} info\n\n<!-- sampleWarnings: ${JSON.stringify(sampleWarnings)} -->\n\n${sampleWarnings.length ? `## Sample warnings\n\n${warningRows}\n\n` : ""}## Changes\n\n${rows || "No structural drift detected.\n"}\n> Sample inference is evidence, not proof of the producer's formal schema. Requiredness is based on the samples provided and may not reflect the real API.\n`;
 }
 
-export function buildWorkspaceExport(workspace: Workspace, baseline: ContractSnapshot | null, candidate: ContractSnapshot | null): string {
+export interface WorkspaceExportOptions {
+  /**
+   * Strip payload evidence from the export: sample values are omitted, the
+   * inferred contract's observed examples are cleared, and OpenAPI documents
+   * are replaced by a redaction notice. Samples may contain PII, so exports
+   * produced in cloud mode default to redacted. Local-mode exports keep full
+   * fidelity unless the caller opts in.
+   */
+  redactSamples?: boolean;
+}
+
+/**
+ * Removes sample evidence from one snapshot. The `value` key is dropped rather
+ * than nulled so the shape stays self-describing; a top-level
+ * `sampleValuesRedacted: true` flag on the export marks the mode.
+ */
+function redactSnapshot(snapshot: ContractSnapshot | null) {
+  if (!snapshot) return null;
+  const contract = "kind" in snapshot.contract && snapshot.contract.kind === "openapi"
+    ? { ...snapshot.contract, document: { redacted: true, note: "The OpenAPI document was omitted from this redacted export." } }
+    : { ...snapshot.contract, nodes: snapshot.contract.nodes.map((node) => ({ ...node, examples: [] })) };
+  return { ...snapshot, contract, samples: snapshot.samples.map(({ value: _value, ...sample }) => sample) };
+}
+
+export function buildWorkspaceExport(
+  workspace: Workspace,
+  baseline: ContractSnapshot | null,
+  candidate: ContractSnapshot | null,
+  options: WorkspaceExportOptions = {},
+): string {
+  const redacted = options.redactSamples === true;
   return JSON.stringify({
     format: "contract-atlas-workspace",
     version: 1,
     exportedAt: new Date().toISOString(),
     sampleWarnings: sampleWarningsForSnapshots(baseline, candidate),
+    ...(redacted ? { sampleValuesRedacted: true } : {}),
     workspace,
-    baseline,
-    candidate,
+    baseline: redacted ? redactSnapshot(baseline) : baseline,
+    candidate: redacted ? redactSnapshot(candidate) : candidate,
   }, null, 2);
 }

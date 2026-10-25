@@ -8,18 +8,28 @@ const updateManyMock = vi.hoisted(() => vi.fn());
 const deleteManyMock = vi.hoisted(() => vi.fn());
 const diffFindManyMock = vi.hoisted(() => vi.fn());
 const diffFindFirstMock = vi.hoisted(() => vi.fn());
+const txWorkspaceFindFirst = vi.hoisted(() => vi.fn());
+const txSnapshotFindFirst = vi.hoisted(() => vi.fn());
+const txCount = vi.hoisted(() => vi.fn());
+const txUpdate = vi.hoisted(() => vi.fn());
+const transactionMock = vi.hoisted(() => vi.fn(async (run: (tx: unknown) => unknown) => run({
+  workspace: { findFirst: txWorkspaceFindFirst, count: txCount, update: txUpdate },
+  contractSnapshot: { findFirst: txSnapshotFindFirst, count: txCount },
+})));
 vi.mock("@/auth", () => ({ auth: authMock }));
 vi.mock("@/lib/db/prisma", () => ({
   prisma: {
     workspace: { findFirst: findFirstMock, findMany: findManyMock, create: createMock, updateMany: updateManyMock, deleteMany: deleteManyMock },
     contractSnapshot: { findFirst: findFirstMock, updateMany: updateManyMock, deleteMany: deleteManyMock },
     contractDiff: { findMany: diffFindManyMock, findFirst: diffFindFirstMock },
+    $transaction: transactionMock,
   },
 }));
 
 import { GET as getWorkspaces, POST as postWorkspace } from "@/app/api/v1/workspaces/route";
-import { GET as getWorkspace } from "@/app/api/v1/workspaces/[workspaceId]/route";
-import { GET as getSnapshot, PATCH as patchSnapshot } from "@/app/api/v1/snapshots/[snapshotId]/route";
+import { GET as getWorkspace, PATCH as patchWorkspace, DELETE as deleteWorkspace } from "@/app/api/v1/workspaces/[workspaceId]/route";
+import { GET as getSnapshots, POST as postSnapshot } from "@/app/api/v1/workspaces/[workspaceId]/snapshots/route";
+import { GET as getSnapshot, PATCH as patchSnapshot, DELETE as deleteSnapshot } from "@/app/api/v1/snapshots/[snapshotId]/route";
 
 beforeEach(() => { vi.clearAllMocks(); });
 
@@ -156,5 +166,77 @@ describe("diff endpoint boundaries", () => {
     const response = await getDiffs(new Request("http://localhost/api/v1/diffs?workspaceId=6f9619ff-8b86-4d3a-a5a5-6d2a7e5b6c10&baselineSnapshotId=f47ac10b-58cc-4372-a567-0e02b2c3d479&candidateSnapshotId=7c9e6679-7425-40de-944b-e07fc1f90ae7&direction=invalid"));
     expect(response.status).toBe(400);
     expect(diffFindFirstMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("cross-user resource isolation (IDOR)", () => {
+  const workspaceId = "6f9619ff-8b86-4d3a-a5a5-6d2a7e5b6c10";
+  const snapshotId = "f47ac10b-58cc-4372-a567-0e02b2c3d479";
+  const otherSnapshotId = "7c9e6679-7425-40de-944b-e07fc1f90ae7";
+
+  function jsonRequest(url: string, method: string, body: unknown) {
+    return new Request(url, { method, body: JSON.stringify(body), headers: { "content-type": "application/json" } });
+  }
+
+  beforeEach(() => {
+    authMock.mockResolvedValue({ user: { id: "user-a" } });
+    // Every lookup misses: the authenticated user owns nothing under these ids.
+    findFirstMock.mockResolvedValue(null);
+    deleteManyMock.mockResolvedValue({ count: 0 });
+    txWorkspaceFindFirst.mockResolvedValue(null);
+    txSnapshotFindFirst.mockResolvedValue(null);
+  });
+
+  it("returns 404 when patching another user's workspace, without updating", async () => {
+    const response = await patchWorkspace(
+      jsonRequest(`http://localhost/api/v1/workspaces/${workspaceId}`, "PATCH", { name: "Hijacked" }),
+      { params: Promise.resolve({ workspaceId }) },
+    );
+    expect(response.status).toBe(404);
+    expect(txWorkspaceFindFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: workspaceId, userId: "user-a" } }));
+    expect(txUpdate).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 when deleting another user's workspace, scoped by userId", async () => {
+    const response = await deleteWorkspace(new Request("http://localhost"), { params: Promise.resolve({ workspaceId }) });
+    expect(response.status).toBe(404);
+    expect(deleteManyMock).toHaveBeenCalledWith(expect.objectContaining({ where: { id: workspaceId, userId: "user-a" } }));
+  });
+
+  it("returns 404 when listing another user's workspace snapshots", async () => {
+    const response = await getSnapshots(new Request("http://localhost"), { params: Promise.resolve({ workspaceId }) });
+    expect(response.status).toBe(404);
+    expect(findFirstMock).toHaveBeenCalledWith(expect.objectContaining({ where: { id: workspaceId, userId: "user-a" } }));
+    expect(findManyMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 when creating a snapshot in another user's workspace", async () => {
+    const response = await postSnapshot(
+      jsonRequest(`http://localhost/api/v1/workspaces/${workspaceId}/snapshots`, "POST", { versionLabel: "v1", payloads: [{ order_id: "A" }] }),
+      { params: Promise.resolve({ workspaceId }) },
+    );
+    expect(response.status).toBe(404);
+    expect(txWorkspaceFindFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: workspaceId, userId: "user-a" } }));
+    expect(createMock).not.toHaveBeenCalled();
+  });
+
+  it("scopes snapshot reads through the owning workspace's userId", async () => {
+    const response = await getSnapshot(new Request("http://localhost"), { params: Promise.resolve({ snapshotId }) });
+    expect(response.status).toBe(404);
+    expect(findFirstMock).toHaveBeenCalledWith(expect.objectContaining({ where: { id: snapshotId, workspace: { userId: "user-a" } } }));
+  });
+
+  it("returns 404 when deleting another user's snapshot", async () => {
+    const response = await deleteSnapshot(new Request("http://localhost"), { params: Promise.resolve({ snapshotId }) });
+    expect(response.status).toBe(404);
+    expect(txSnapshotFindFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: snapshotId, workspace: { userId: "user-a" } } }));
+  });
+
+  it("returns 404 when saving a diff that references another user's workspace or snapshots", async () => {
+    const response = await postDiff(
+      jsonRequest("http://localhost/api/v1/diffs", "POST", { workspaceId, baselineSnapshotId: snapshotId, candidateSnapshotId: otherSnapshotId }),
+      );
+    expect(response.status).toBe(404);
+    expect(txWorkspaceFindFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: workspaceId, userId: "user-a" } }));
   });
 });
