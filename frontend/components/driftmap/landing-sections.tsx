@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useSpatialUIStore } from "@/stores/spatial-ui-store";
+import { CLASSIFICATION_CAVEAT } from "@/lib/driftmap/rules";
 import { useTiltCard } from "./use-tilt-card";
 
 /**
@@ -11,7 +11,7 @@ import { useTiltCard } from "./use-tilt-card";
  * "Spatial" reference build.
  */
 
-export function DeepInspectionSection({ onOpenWorkbench, onLaunchGraph }: {
+export function DeepInspectionSection({ onLaunchGraph }: {
   onOpenWorkbench: () => void;
   onLaunchGraph: () => void;
 }) {
@@ -53,7 +53,7 @@ export function DeepInspectionSection({ onOpenWorkbench, onLaunchGraph }: {
             <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
-                onClick={onOpenWorkbench}
+                onClick={() => { window.location.href = "/workbench?sample=1"; }}
                 className="btn-geist-secondary px-4 py-2.5 rounded-xl text-xs font-mono uppercase tracking-wider text-white inline-flex items-center gap-2"
               >
                 <span>Try live inspector in Workbench</span>
@@ -112,7 +112,7 @@ export function DeepInspectionSection({ onOpenWorkbench, onLaunchGraph }: {
                     <line x1="12" y1="8" x2="12" y2="12" />
                     <line x1="12" y1="16" x2="12.01" y2="16" />
                   </svg>
-                  <span>Why this breaks consumers</span>
+                  <span>Why this is classified as breaking</span>
                 </div>
                 <p className="text-xs sm:text-sm text-[#9496A1] leading-relaxed">
                   Field <code className="text-white font-mono">/customer/email</code> was present in every baseline sample
@@ -121,6 +121,8 @@ export function DeepInspectionSection({ onOpenWorkbench, onLaunchGraph }: {
                   will see a missing key rather than a string.
                 </p>
               </div>
+
+              <p className="relative z-10 mt-4 text-[10px] font-mono text-[#5E606E] leading-relaxed">{CLASSIFICATION_CAVEAT}</p>
             </div>
           </div>
         </div>
@@ -181,7 +183,7 @@ function ScopeRow({ item }: { item: (typeof SCOPE_ITEMS)[number] }) {
   );
 }
 
-export function LandingCta({ onOpenWorkbench }: { onOpenWorkbench: () => void }) {
+export function LandingCta() {
   return (
     <section className="py-20 md:py-24 relative overflow-hidden">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center">
@@ -195,7 +197,7 @@ export function LandingCta({ onOpenWorkbench }: { onOpenWorkbench: () => void })
           No account required. Paste two samples and see the inferred contract diff in seconds.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3">
-          <button type="button" onClick={onOpenWorkbench} className="btn-geist-primary px-6 py-3 rounded-xl text-sm inline-flex items-center gap-2">
+          <button type="button" onClick={() => { window.location.href = "/workbench?sample=1"; }} className="btn-geist-primary px-6 py-3 rounded-xl text-sm inline-flex items-center gap-2">
             <span>Open the workbench</span>
             <span aria-hidden="true">→</span>
           </button>
@@ -210,12 +212,7 @@ export function LandingCta({ onOpenWorkbench }: { onOpenWorkbench: () => void })
 
 const GITHUB_URL = "https://github.com/nwjud54833/drift-map";
 
-export function SiteFooter({ onOpenWorkbench, onLaunchGraph }: {
-  onOpenWorkbench: () => void;
-  onLaunchGraph: () => void;
-}) {
-  const openCommandPalette = useSpatialUIStore((state) => state.openCommandPalette);
-  const openModal = useSpatialUIStore((state) => state.openModal);
+export function SiteFooter() {
 
   return (
     <footer className="relative z-10 border-t border-white/[0.08] bg-[#030304] py-8 px-4 sm:px-6 text-xs text-[#5E606E]">
@@ -223,14 +220,12 @@ export function SiteFooter({ onOpenWorkbench, onLaunchGraph }: {
         <div className="flex items-center gap-3 flex-wrap justify-center">
           <span className="font-semibold text-white">DriftMap</span>
           <span aria-hidden="true">·</span>
-          <span className="font-mono">Obsidian v2.5 Spatial · local-first API contract review</span>
+          <span className="font-mono">local-first API contract review</span>
         </div>
         <nav className="flex flex-wrap items-center justify-center gap-5 font-mono" aria-label="Footer">
           <Link href="/" className="hover:text-white transition-colors">Landing</Link>
-          <button type="button" onClick={onOpenWorkbench} className="hover:text-white transition-colors">Workbench</button>
-          <button type="button" onClick={onLaunchGraph} className="hover:text-white transition-colors">3D force graph</button>
-          <button type="button" onClick={openCommandPalette} className="hover:text-white transition-colors">Command (⌘K)</button>
-          <button type="button" onClick={() => openModal("tokens")} className="hover:text-white transition-colors">Design tokens</button>
+          <button type="button" onClick={() => { window.location.href = "/workbench?sample=1"; }} className="hover:text-white transition-colors">Workbench</button>
+
           <a href={`${GITHUB_URL}#readme`} target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
             GitHub README ↗
           </a>

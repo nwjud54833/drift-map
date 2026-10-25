@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { astDiffInputFor, buildSplitAstDiffHTML } from "@/lib/driftmap/ast-diff";
 import { presencePercent, type Finding } from "@/lib/driftmap/presentation";
-import { severityPillClass } from "@/lib/driftmap/rules";
+import { CLASSIFICATION_CAVEAT, severityPillClass } from "@/lib/driftmap/rules";
 import { stringFormatLabel } from "@/lib/contract/formats";
 
 /**
@@ -55,8 +55,11 @@ export function WorkbenchInspector({
         <div className="pb-3 border-b border-white/[0.08]">
           <div className="flex items-center justify-between gap-2 mb-1">
             <span className="text-[10px] font-mono uppercase tracking-wider text-[#5E606E]">FINDING INSPECTOR</span>
-            <span className={`${severityPillClass(finding.severity)} px-2 py-0.5 rounded-full text-[10px] font-mono shrink-0`}>
-              {finding.severity.toUpperCase()}
+            <span
+              className={`${severityPillClass(finding.severity)} px-2 py-0.5 rounded-full text-[10px] font-mono shrink-0`}
+              title={CLASSIFICATION_CAVEAT}
+            >
+              Classified {finding.severity}
             </span>
           </div>
           <div className="font-mono text-base font-semibold text-white break-all">{finding.pointer}</div>
@@ -112,6 +115,7 @@ export function WorkbenchInspector({
           <div className="text-[11px] font-mono uppercase tracking-wider text-white mb-1">Consumer impact</div>
           <p className="text-xs text-[#9496A1] leading-relaxed mb-2">{finding.explanation}</p>
           <p className="text-[11px] text-[#5E606E] leading-relaxed border-t border-white/[0.06] pt-2">{finding.ruleExplanation}</p>
+          <p className="text-[10px] text-[#5E606E] leading-relaxed border-t border-white/[0.06] pt-2 mt-2">{CLASSIFICATION_CAVEAT}</p>
         </div>
       </div>
 

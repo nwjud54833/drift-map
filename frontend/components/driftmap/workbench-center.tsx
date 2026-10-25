@@ -3,7 +3,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import type { ChangeSeverity } from "@/lib/contract/types";
 import type { Finding, TimelineRevision } from "@/lib/driftmap/presentation";
-import { severityPillClass, severityStrokeColor } from "@/lib/driftmap/rules";
+import { severityPillClass, severityStrokeColor, CLASSIFICATION_CAVEAT } from "@/lib/driftmap/rules";
 import { Sparkline } from "./sparkline";
 import { ContractForceGraph, type ContractForceGraphHandle } from "./contract-force-graph";
 import { TimelineScrubber } from "./timeline-scrubber";
@@ -190,7 +190,7 @@ export const WorkbenchCenter = forwardRef<WorkbenchCenterHandle, {
         </div>
 
         {/* Severity filter tabs */}
-        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter findings by severity">
+        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter findings by DriftMap classification">
           {SEVERITY_TABS.map((tab) => {
             const count = tab.key === "all" ? findings.length : counts[tab.key];
             const active = severity === tab.key;
@@ -212,6 +212,7 @@ export const WorkbenchCenter = forwardRef<WorkbenchCenterHandle, {
             );
           })}
         </div>
+        <p className="text-[10px] font-mono text-[#5E606E] leading-relaxed">{CLASSIFICATION_CAVEAT}</p>
 
         {/* Path search */}
         <div className="relative">

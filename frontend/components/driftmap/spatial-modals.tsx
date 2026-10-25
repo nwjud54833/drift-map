@@ -128,7 +128,7 @@ export function SpatialModals() {
       <ModalFrame labelledBy="tokens-modal-title" onClose={close}>
         <div className="flex items-center justify-between pb-4 mb-4 border-b border-white/[0.08]">
           <div>
-            <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-400">OBSIDIAN DESIGN SYSTEM</span>
+            <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-400">DRIFTMAP DESIGN SYSTEM</span>
             <h2 id="tokens-modal-title" className="text-lg font-semibold text-white">DriftMap black theme CSS tokens</h2>
           </div>
           <button type="button" onClick={close} className="text-[#9496A1] hover:text-white p-1" aria-label="Close">✕</button>
@@ -136,7 +136,7 @@ export function SpatialModals() {
 
         <p className="text-xs text-[#9496A1] mb-3">
           These are the variables the app itself renders with — declared in{" "}
-          <code className="text-white font-mono">app/globals.css</code> and consumed by every Obsidian surface class.
+          <code className="text-white font-mono">app/globals.css</code> and consumed by every DriftMap surface class.
         </p>
 
         <div className="flex flex-wrap gap-2 mb-4" aria-hidden="true">
@@ -170,7 +170,7 @@ export function SpatialModals() {
     <ModalFrame labelledBy="shortcuts-modal-title" onClose={close} maxWidth="max-w-lg">
       <div className="flex items-center justify-between pb-4 mb-4 border-b border-white/[0.08]">
         <div>
-          <span className="text-[10px] font-mono uppercase tracking-wider text-sky-400">SPATIAL CONTROLS</span>
+          <span className="text-[10px] font-mono uppercase tracking-wider text-sky-400">KEYBOARD CONTROLS</span>
           <h2 id="shortcuts-modal-title" className="text-lg font-semibold text-white">Keyboard shortcuts</h2>
         </div>
         <button type="button" onClick={close} className="text-[#9496A1] hover:text-white p-1" aria-label="Close">✕</button>

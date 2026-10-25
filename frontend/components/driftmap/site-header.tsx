@@ -75,9 +75,7 @@ function AudioSynthToggle() {
 
 const NAV_LINKS = [
   { href: "#how-it-works", label: "How it works" },
-  { href: "#capabilities", label: "Capabilities" },
-  { href: "#deep-inspection", label: "Inspector" },
-  { href: "#limitations", label: "Limitations" },
+  { href: "#features", label: "Features" },
 ] as const;
 
 /**
@@ -105,9 +103,6 @@ export function SiteHeader() {
               <DriftMapMark />
             </span>
             <span className="font-semibold tracking-tight text-white text-sm whitespace-nowrap shrink-0">DriftMap</span>
-            <span className="hidden sm:inline-flex items-center h-5 px-2 rounded text-[10px] font-mono font-medium bg-white/[0.05] text-[#9496A1] border border-white/[0.08] whitespace-nowrap shrink-0">
-              v2.5 SPATIAL
-            </span>
           </Link>
 
           <span className="hidden lg:block h-4 w-px bg-white/10 shrink-0" />
@@ -186,9 +181,9 @@ export function SiteHeader() {
 
         {/* Right: uniform h-8 single-line utility cluster */}
         <div className="flex items-center gap-2 shrink-0">
-          <AudioSynthToggle />
+          {isWorkbench && <AudioSynthToggle />}
 
-          <button
+          {isWorkbench && <button
             type="button"
             onClick={openCommandPalette}
             title="Open Command Palette (⌘K or Ctrl+K)"
@@ -201,19 +196,19 @@ export function SiteHeader() {
             </svg>
             <span className="hidden sm:inline whitespace-nowrap">Command</span>
             <kbd className="px-1.5 py-0.5 text-[10px] leading-none rounded bg-[#030304] text-white/80 border border-white/[0.12] shrink-0">⌘K</kbd>
-          </button>
+          </button>}
 
-          <button
+          {isWorkbench && <button
             type="button"
             onClick={() => openModal("tokens")}
-            title="Inspect and copy the Obsidian theme CSS tokens"
+            title="Inspect and copy the DriftMap theme CSS tokens"
             className="hidden md:inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-mono whitespace-nowrap shrink-0 text-[#9496A1] hover:text-white bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.08] transition-all"
           >
             <span className="w-2 h-2 rounded-full bg-rose-400 shrink-0" />
             <span className="whitespace-nowrap">Tokens</span>
-          </button>
+          </button>}
 
-          {status === "authenticated" ? (
+          {isWorkbench && (status === "authenticated" ? (
             <Link
               href="/workbench"
               className="hidden xl:inline-flex items-center h-8 px-2 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 text-emerald-400 hover:text-white transition-colors"
@@ -227,7 +222,7 @@ export function SiteHeader() {
             >
               Sign in
             </Link>
-          )}
+          ))}
 
           <Link
             href="/workbench"

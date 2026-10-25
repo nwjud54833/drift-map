@@ -37,6 +37,10 @@ export function WorkbenchEmptyState({
           <p className="text-[11px] font-mono text-[#5E606E] mt-2">
             Imports are capped at 2 MB per document. OpenAPI 3.0 JSON and YAML are supported; external $ref URLs are rejected.
           </p>
+          <p className="text-[11px] font-mono text-[#5E606E] mt-1">
+            Inference only covers fields that appear in the samples you provide — a field missing from every sample is invisible
+            to it, and more samples improve coverage.
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 shrink-0">
           <button type="button" onClick={onLoadSamplePair} className="btn-geist-primary px-4 py-2 rounded-lg text-xs">

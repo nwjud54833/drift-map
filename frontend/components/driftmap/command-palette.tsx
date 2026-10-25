@@ -60,7 +60,7 @@ export function CommandPalette() {
       },
       {
         id: "tokens",
-        title: "Inspect Obsidian CSS Design Tokens",
+        title: "Inspect the DriftMap CSS design tokens",
         category: "Theme",
         shortcut: "T",
         keywords: ["tokens", "css", "theme", "palette", "variables"],

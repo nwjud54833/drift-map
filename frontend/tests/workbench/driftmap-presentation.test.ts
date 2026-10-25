@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ChangeKind, ContractChange, ContractDirection, ContractNode, JsonKind } from "@/lib/contract/types";
 import { inferContract } from "@/lib/contract/infer";
 import { compareContracts } from "@/lib/contract/compare";
-import { buildTimeline, toFinding, presencePercent, applyChangeToValue } from "@/lib/driftmap/presentation";
+import { buildDemoTimeline, buildTimeline, toFinding, toFindings, presencePercent, applyChangeToValue } from "@/lib/driftmap/presentation";
 import { driftLabelFor, ruleIdFor, severityPillClass, severityStrokeColor } from "@/lib/driftmap/rules";
 import { presenceSeries, sparklinePointsAttr } from "@/lib/driftmap/sparkline";
 import { astDiffInputFor, buildSplitAstDiffHTML, escapeHtml } from "@/lib/driftmap/ast-diff";
@@ -323,7 +323,7 @@ describe("progressive revision timeline", () => {
     expect(timeline[0].version).toBe("v1.0.0");
     expect(timeline[timeline.length - 1].version).toBe("v2.0-rc1");
     expect(timeline[0].changes).toHaveLength(0);
-    expect(timeline[0].summary).toBe("clean baseline contract");
+    expect(timeline[0].summary).toBe("clean baseline · no findings");
     expect(timeline[0].tone).toBe("info");
   });
 
@@ -444,5 +444,65 @@ describe("progressive revision timeline", () => {
     const onlyAdditive = buildTimeline(additive, additiveNext, "response");
     expect(onlyAdditive).toHaveLength(2);
     expect(onlyAdditive[1].delta).toHaveLength(1);
+  });
+});
+
+describe("timeline counts", () => {
+  // The landing page's own ladder: 16 findings against the baseline, reached in
+  // two steps (10 warning, then 6 breaking).
+  const timeline = buildDemoTimeline();
+
+  it("counts the same findings list the table renders", () => {
+    for (const revision of timeline) {
+      const findings = toFindings(revision.changes, { direction: "event", candidateVersion: revision.version });
+      expect(revision.counts.total).toBe(findings.length);
+      expect(revision.counts.total).toBe(revision.changes.length);
+      for (const severity of ["breaking", "warning", "safe", "info"] as const) {
+        expect(revision.counts[severity]).toBe(findings.filter((finding) => finding.severity === severity).length);
+      }
+      // The engine aggregates the same array for the diff summary.
+      expect(revision.counts).toEqual(revision.diff.summary);
+    }
+  });
+
+  it("reports the tone from the findings, not from a separately tracked list", () => {
+    for (const revision of timeline) {
+      const expected = revision.counts.breaking > 0 ? "breaking"
+        : revision.counts.warning > 0 ? "warning"
+          : revision.counts.safe > 0 ? "safe"
+            : "info";
+      expect(revision.tone).toBe(expected);
+    }
+  });
+
+  it("counts only the findings a stop actually introduces", () => {
+    expect(timeline[0].stepCounts.total).toBe(0);
+    for (let index = 1; index < timeline.length; index += 1) {
+      const previousIds = new Set(timeline[index - 1].changes.map((change) => change.id));
+      const introduced = timeline[index].changes.filter((change) => !previousIds.has(change.id));
+      expect(timeline[index].stepCounts.total).toBe(introduced.length);
+      for (const change of introduced) expect(timeline[index].changes).toContainEqual(change);
+    }
+  });
+
+  it("names the quantity each label counts", () => {
+    for (const revision of timeline) {
+      if (revision.counts.total === 0) {
+        expect(revision.summary).toContain("no findings");
+        continue;
+      }
+      // Cumulative total first (this is what the findings table lists)…
+      expect(revision.summary).toMatch(new RegExp(`^${revision.counts.total} findings? vs v1\\.0\\.0`));
+      // …then the class of finding this stop adds, when it adds any.
+      if (revision.stepCounts.total > 0) expect(revision.summary).toContain("+");
+    }
+  });
+
+  it("never labels a cumulative stop with a step-local count (the reported drift)", () => {
+    const final = timeline[timeline.length - 1];
+    // Regression: `v2.0-rc1 · 6 changes` sat directly above a 16-row table.
+    expect(final.counts.total).toBe(16);
+    expect(final.stepCounts.total).toBe(6);
+    expect(final.summary).toBe("16 findings vs v1.0.0 · +6 breaking");
   });
 });

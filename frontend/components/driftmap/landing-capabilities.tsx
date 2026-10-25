@@ -2,15 +2,16 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { DriftAudioSynth } from "@/lib/driftmap/audio-synth";
+import { CLASSIFICATION_CAVEAT } from "@/lib/driftmap/rules";
 import { useTiltCard } from "./use-tilt-card";
 
 /**
  * "Capabilities" bento grid.
  *
- * Ported from `#capabilities` in the Obsidian v2.5 "Spatial" reference build:
- * the 12-column bento, the animated wildcard-funnel Bézier diagram, the four-tier
- * risk taxonomy, the sheet's only Markdown preview, the local-first privacy card,
- * and the three-plane isometric contract stack with `selectIsoLayer` /
+ * Ported from `#capabilities` in the reference build: the 12-column bento, the
+ * animated wildcard-funnel Bézier diagram, the four-tier risk taxonomy, the
+ * sheet's only Markdown preview, the local-first privacy card, and the
+ * three-plane isometric contract stack with `selectIsoLayer` /
  * `toggleIsoExplode` interaction.
  */
 
@@ -123,8 +124,8 @@ function RiskTaxonomyCard() {
         </div>
         <h3 className="text-xl font-semibold text-white mb-2.5">Semantic drift classification</h3>
         <p className="text-sm text-[#9496A1] leading-relaxed mb-6">
-          Separates breaking changes (removed fields, narrowed types) from warnings (new nullability, required-to-optional
-          shifts), safe additions, and informational notes.
+          DriftMap classifies each drift as breaking (removed fields, narrowed types), warning (new nullability,
+          required-to-optional shifts), safe additions, or informational notes.
         </p>
       </div>
 
@@ -140,6 +141,7 @@ function RiskTaxonomyCard() {
             <span className="text-[#9496A1] text-[11px] text-right">{text}</span>
           </div>
         ))}
+        <p className="text-[10px] text-[#5E606E] leading-relaxed pt-1">{CLASSIFICATION_CAVEAT}</p>
       </div>
     </div>
   );
@@ -182,7 +184,7 @@ function IsometricStackCard({ onLaunchGraph }: { onLaunchGraph: () => void }) {
       <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
         <div className="lg:col-span-5 space-y-4">
           <div className="inline-flex flex-wrap items-center gap-2 px-2.5 py-1 rounded-md bg-sky-500/10 border border-sky-500/30 text-xs font-mono text-sky-300">
-            <span>3D SPATIAL ARCHITECTURE</span>
+            <span>3D ISOMETRIC ARCHITECTURE</span>
             <span className="text-white/25">·</span>
             <span>CLICK PLANE TO FOCUS</span>
           </div>
@@ -304,7 +306,7 @@ function IsometricStackCard({ onLaunchGraph }: { onLaunchGraph: () => void }) {
             >
               <div className="flex items-center justify-between gap-2 text-[10px] text-rose-300 border-b border-white/[0.08] pb-1.5">
                 <span className="font-semibold">PLANE 03 · CLASSIFIED SEMANTIC DIFF</span>
-                <span className="px-1.5 py-0.5 rounded bg-rose-500/15 border border-rose-500/30 text-rose-200 shrink-0">Compatibility verdict</span>
+                <span className="px-1.5 py-0.5 rounded bg-rose-500/15 border border-rose-500/30 text-rose-200 shrink-0">DriftMap classification</span>
               </div>
               <div className="space-y-1.5 my-auto text-[11px]">
                 <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded bg-rose-950/35 border border-rose-500/40">
@@ -318,7 +320,7 @@ function IsometricStackCard({ onLaunchGraph }: { onLaunchGraph: () => void }) {
               </div>
               <div className="text-[10px] text-[#9496A1] flex justify-between gap-2 pt-1 border-t border-white/[0.06]">
                 <span>PR report ready</span>
-                <span className="text-emerald-400 font-medium shrink-0">✓ Zero false formatting diffs</span>
+                <span className="text-[#9496A1] font-medium shrink-0">Heuristic classification, not a guarantee</span>
               </div>
             </div>
           </div>

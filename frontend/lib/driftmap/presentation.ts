@@ -6,6 +6,7 @@ import type {
   ContractNode,
   ContractSnapshot,
   DetectedStringFormat,
+  DiffSummary,
   InferredContract,
   JsonKind,
   JsonObject,
@@ -166,7 +167,24 @@ export interface TimelineRevision {
   index: number;
   version: string;
   fingerprint: string;
+  /**
+   * Human-readable label for this stop, e.g.
+   * `16 findings vs v1.0.0 · +6 breaking`.
+   *
+   * Both numbers are read off `changes` — the exact array the findings table
+   * renders — and the step mix is read off the difference between this stop and
+   * the previous one, so the label can never advertise a count the table
+   * disagrees with. See `summarizeRevision`.
+   */
   summary: string;
+  /**
+   * Findings at this stop, counted from `changes`. Identical to `diff.summary`
+   * by construction (`compare.ts` aggregates the same array) and kept on the
+   * revision so a consumer never has to re-tally the table.
+   */
+  counts: DiffSummary;
+  /** Findings this stop introduces relative to the previous stop. */
+  stepCounts: DiffSummary;
   /** Findings visible at this revision, cumulatively applied. */
   applied: readonly ContractChange[];
   /** The step this revision introduces relative to the previous one. */
@@ -183,16 +201,25 @@ export interface TimelineRevision {
   candidateContract: InferredContract;
 }
 
+/** Everything a revision knows before its position in the ladder is fixed. */
+type RevisionDraft = Omit<TimelineRevision, "summary" | "counts" | "stepCounts" | "tone" | "dotClass">;
+
 export const SEVERITY_STEPS: readonly ChangeSeverity[] = ["safe", "warning", "breaking"];
 
-const STEP_SUMMARY: Record<ChangeSeverity, string> = {
-  safe: "additive, backwards-compatible edits",
-  warning: "fields that became optional or nullable",
-  breaking: "fields removed, retyped, or newly required",
-  info: "no structural change",
-};
+function emptyCounts(): DiffSummary {
+  return { breaking: 0, warning: 0, safe: 0, info: 0, total: 0 };
+}
 
-function toneFor(counts: { breaking: number; warning: number; safe: number }): ChangeSeverity {
+function tallyChanges(changes: readonly ContractChange[]): DiffSummary {
+  const counts = emptyCounts();
+  for (const change of changes) {
+    counts[change.severity] += 1;
+    counts.total += 1;
+  }
+  return counts;
+}
+
+function toneFor(counts: DiffSummary): ChangeSeverity {
   if (counts.breaking > 0) return "breaking";
   if (counts.warning > 0) return "warning";
   if (counts.safe > 0) return "safe";
@@ -206,9 +233,40 @@ function dotClassFor(tone: ChangeSeverity): string {
   return "bg-sky-400";
 }
 
-function summarizeStep(step: ChangeSeverity, count: number): string {
-  if (count === 0) return "no further drift";
-  return `${count} ${count === 1 ? "change" : "changes"} · ${STEP_SUMMARY[step]}`;
+function plural(count: number, singular: string): string {
+  return `${count} ${singular}${count === 1 ? "" : "s"}`;
+}
+
+/** `6 breaking` or `8 breaking, 2 warning` — the severity mix of one step. */
+function severityMix(counts: DiffSummary): string {
+  const parts: string[] = [];
+  for (const severity of ["breaking", "warning", "safe", "info"] as const) {
+    if (counts[severity] > 0) parts.push(`${counts[severity]} ${severity}`);
+  }
+  return parts.join(", ");
+}
+
+/**
+ * Builds the timeline's stop label.
+ *
+ * The old label counted only the step's own delta, so a stop that showed
+ * `6 changes` sat directly above a findings table listing 16 rows. The label now
+ * names both quantities explicitly and derives both from the findings data:
+ *
+ *   - `<n> findings vs <baseline>` — what the table shows at this stop
+ *   - `+<n> <severity>` — what this stop adds over the previous one
+ */
+function summarizeRevision(counts: DiffSummary, stepCounts: DiffSummary, baselineVersion: string): string {
+  if (counts.total === 0) return "clean baseline · no findings";
+  const base = `${plural(counts.total, "finding")} vs ${baselineVersion}`;
+  if (stepCounts.total === 0) return base;
+  return `${base} · +${severityMix(stepCounts)}`;
+}
+
+/** Findings in `current` that the previous stop did not already report. */
+function onlyNew(previous: readonly ContractChange[], current: readonly ContractChange[]): ContractChange[] {
+  const seen = new Set(previous.map((change) => change.id));
+  return current.filter((change) => !seen.has(change.id));
 }
 
 /**
@@ -464,29 +522,20 @@ export function buildTimeline(
   const finalContract = inferContract([...candidateSamples]);
   const allChanges = compareContracts(baselineContract, finalContract, direction);
 
-  const revisions: TimelineRevision[] = [];
+  const revisions: RevisionDraft[] = [];
   const applied: ContractChange[] = [];
 
-  const push = (index: number, samples: PayloadSample[], delta: ContractChange[], step: ChangeSeverity | null) => {
+  const push = (index: number, samples: PayloadSample[], delta: ContractChange[]) => {
     const candidate = inferContract(samples);
     const changes = compareContracts(baselineContract, candidate, direction);
-    const counts = {
-      breaking: applied.filter((change) => change.severity === "breaking").length,
-      warning: applied.filter((change) => change.severity === "warning").length,
-      safe: applied.filter((change) => change.severity === "safe").length,
-    };
-    const tone = toneFor(counts);
     revisions.push({
       index,
       version: resolveVersion(versionPrefix, index, SEVERITY_STEPS.length),
       fingerprint: displayFingerprint(candidate) ?? "00000000",
-      summary: step ? summarizeStep(step, delta.length) : "clean baseline contract",
       applied: [...applied],
       delta,
       changes,
       diff: buildDiff("revision-0", `revision-${index}`, direction, changes),
-      dotClass: dotClassFor(tone),
-      tone,
       baselineSamples: baseline,
       candidateSamples: samples,
       baselineContract,
@@ -494,7 +543,7 @@ export function buildTimeline(
     });
   };
 
-  push(0, baseline, [], null);
+  push(0, baseline, []);
 
   SEVERITY_STEPS.forEach((severity, stepIndex) => {
     const stepChanges = allChanges.filter((change) => change.severity === severity);
@@ -502,15 +551,15 @@ export function buildTimeline(
     // its step is recorded as empty and dropped below rather than shown as a
     // revision that is byte-identical to the one before it.
     applied.push(...stepChanges);
-    push(stepIndex + 1, applyChanges(baseline, applied, candidateSamples), stepChanges, severity);
+    push(stepIndex + 1, applyChanges(baseline, applied, candidateSamples), stepChanges);
   });
 
   return reindexRevisions(revisions, versionPrefix);
 }
 
 /**
- * Removes consecutive revisions that infer the same contract and renumbers the
- * survivors.
+ * Removes consecutive revisions that infer the same contract, renumbers the
+ * survivors, and derives every label from the findings the survivors carry.
  *
  * The reference build always shows four stops because its data is authored to
  * fill them. Here the number of stops is a property of the payload pair: a pair
@@ -518,18 +567,35 @@ export function buildTimeline(
  * produces a single "clean baseline" stop. Versions are re-derived from the
  * surviving positions so the ladder still reads `v1.0.0 → v1.1.0 → v2.0-rc1`.
  */
-function reindexRevisions(revisions: TimelineRevision[], versionPrefix: string): TimelineRevision[] {
-  const kept: TimelineRevision[] = [];
+function reindexRevisions(revisions: readonly RevisionDraft[], versionPrefix: string): TimelineRevision[] {
+  const kept: RevisionDraft[] = [];
   for (const revision of revisions) {
     const previous = kept[kept.length - 1];
     if (previous && previous.candidateContract.fingerprint === revision.candidateContract.fingerprint) continue;
     kept.push(revision);
   }
-  return kept.map((revision, index) => ({
-    ...revision,
-    index,
-    version: resolveVersion(versionPrefix, index, kept.length - 1),
-  }));
+
+  const baselineVersion = `${versionPrefix}.0.0`;
+  const finalised: TimelineRevision[] = [];
+  kept.forEach((revision, index) => {
+    const previous = finalised[index - 1] ?? null;
+    // The findings table renders `changes`; count that same array here so the
+    // label and the rows underneath it can never disagree.
+    const counts = revision.diff.summary;
+    const stepCounts = previous ? tallyChanges(onlyNew(previous.changes, revision.changes)) : emptyCounts();
+    const tone = toneFor(counts);
+    finalised.push({
+      ...revision,
+      index,
+      version: resolveVersion(versionPrefix, index, kept.length - 1),
+      summary: summarizeRevision(counts, stepCounts, baselineVersion),
+      counts,
+      stepCounts,
+      tone,
+      dotClass: dotClassFor(tone),
+    });
+  });
+  return finalised;
 }
 
 /**

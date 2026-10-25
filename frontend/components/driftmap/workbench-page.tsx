@@ -426,6 +426,15 @@ export function WorkbenchPage() {
     }
   }, [active, mode, pendingAction, refresh]);
 
+  // The landing-page sample CTA enters the same real workbench with the bundled pair loaded.
+  const sampleRequested = searchParams.get("sample") === "1";
+  const sampleLoaded = useRef(false);
+  useEffect(() => {
+    if (!sampleRequested || !modeReady || loading || sampleLoaded.current || pendingAction) return;
+    sampleLoaded.current = true;
+    void loadSamplePair();
+  }, [sampleRequested, modeReady, loading, pendingAction, loadSamplePair]);
+
   const newWorkspace = useCallback(async () => {
     const name = window.prompt("Workspace name", "New contract workspace");
     if (!name?.trim()) return;
@@ -685,7 +694,7 @@ export function WorkbenchPage() {
           keywords: ["filter", tone],
           run: () => setSeverity(tone),
         })),
-      { id: "wb-tokens", title: "Inspect the Obsidian CSS design tokens", category: "Theme", shortcut: "T", keywords: ["tokens", "css", "theme"], run: () => openModal("tokens") },
+      { id: "wb-tokens", title: "Inspect the DriftMap CSS design tokens", category: "Theme", shortcut: "T", keywords: ["tokens", "css", "theme"], run: () => openModal("tokens") },
       { id: "wb-shortcuts", title: "Show keyboard shortcuts", category: "Help", shortcut: "?", keywords: ["keyboard", "shortcuts", "help"], run: () => openModal("shortcuts") },
     ],
     [counts, drawerOpen, setCenterMode, formatEditors, runInferAndCompare, loadSamplePair, swapSides, copyMarkdown, exportWorkspaceJSON, setDrawerOpen, openModal],
@@ -836,14 +845,19 @@ function activeRevisionSeverity(revision: import("@/lib/driftmap/presentation").
 /**
  * Adapter so a list of stored snapshots satisfies `TimelineRevision` for the
  * scrubber. Only the display fields are populated; the scrubber never reads the
- * contract payload from these stops.
+ * contract payload from these stops. `counts` mirrors the empty `changes` list
+ * this adapter reports, because a stored-snapshot stop has no findings to count
+ * until it is selected and committed as the candidate.
  */
 function snapshotRevisionStops(snapshots: readonly ContractSnapshot[]): import("@/lib/driftmap/presentation").TimelineRevision[] {
+  const emptyCounts = { breaking: 0, warning: 0, safe: 0, info: 0, total: 0 };
   return snapshots.map((snapshot, index) => ({
     index,
     version: snapshot.versionLabel,
     fingerprint: "snapshot",
     summary: snapshot.sourceFileName ?? "stored snapshot",
+    counts: emptyCounts,
+    stepCounts: emptyCounts,
     applied: [],
     delta: [],
     changes: [],

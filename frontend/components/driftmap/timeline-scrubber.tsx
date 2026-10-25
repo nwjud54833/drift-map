@@ -10,6 +10,10 @@ import type { TimelineRevision } from "@/lib/driftmap/presentation";
  * array; here the four stops are real contracts the engine produced (see
  * `buildTimeline`), so dragging the slider morphs the comparison through
  * genuinely inferred revisions.
+ *
+ * Each node's count is `revision.counts`, which `reindexRevisions` derives from
+ * the same change list the findings table renders. Counting the step delta here
+ * instead is what once made a `6 changes` label sit above a 16-row table.
  */
 
 export function TimelineScrubber({

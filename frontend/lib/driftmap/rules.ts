@@ -2,7 +2,7 @@ import type { ChangeKind, ChangeSeverity, ContractDirection, ContractNode, Detec
 import { stringFormatLabel } from "@/lib/contract/formats";
 
 /**
- * Presentation vocabulary for the Obsidian v2.5 "Spatial" surface.
+ * Presentation vocabulary for the DriftMap surface.
  *
  * The reference build hard-codes severity labels and rule identifiers per
  * finding. This module derives the equivalent strings from the *real* engine's
@@ -14,6 +14,17 @@ import { stringFormatLabel } from "@/lib/contract/formats";
 
 const MISSING = "— missing";
 const ABSENT = "—";
+
+/**
+ * Shown wherever a severity word is presented as a result.
+ *
+ * `breaking` / `warning` / `safe` / `info` are the engine's heuristic
+ * compatibility *classification* of a drift, computed from the samples or
+ * OpenAPI document provided. They are not a guarantee that a deployed server
+ * behaves that way, so every surface that shows them says so in the same words.
+ */
+export const CLASSIFICATION_CAVEAT =
+  "Breaking, warning, safe and info are DriftMap's classifications of this drift, not a guarantee of runtime safety.";
 
 export function severityPillClass(severity: ChangeSeverity): string {
   if (severity === "breaking") return "pill-breaking";

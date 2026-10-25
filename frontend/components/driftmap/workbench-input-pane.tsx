@@ -32,20 +32,26 @@ export interface WorkbenchInputHandle {
 }
 
 type Side = "before" | "after";
-type ValidationState = { state: "empty" | "valid" | "invalid"; message: string };
+type ValidationState = {
+  state: "empty" | "valid" | "invalid";
+  message: string;
+  /** How many samples (or OpenAPI operations) this editor currently holds. */
+  count: number | null;
+  unit: "samples" | "operations";
+};
 
-const EMPTY: ValidationState = { state: "empty", message: "No document yet" };
+const EMPTY: ValidationState = { state: "empty", message: "No document yet", count: 0, unit: "samples" };
 
 function validate(text: string): ValidationState {
   if (!text.trim()) return EMPTY;
   const result = parseImportArtifact(text);
-  if (!result.ok) return { state: "invalid", message: result.message };
+  if (!result.ok) return { state: "invalid", message: result.message, count: null, unit: "samples" };
   if (result.format === "openapi") {
     const operations = result.artifact.format === "openapi" ? result.artifact.contract.operations.length : 0;
-    return { state: "valid", message: `✓ OpenAPI 3.0 · ${operations} operation${operations === 1 ? "" : "s"}` };
+    return { state: "valid", message: `✓ OpenAPI 3.0 · ${operations} operation${operations === 1 ? "" : "s"}`, count: operations, unit: "operations" };
   }
   const samples = result.artifact.format === "samples" ? result.artifact.samples.length : 0;
-  return { state: "valid", message: `✓ Valid JSON · ${samples} sample${samples === 1 ? "" : "s"}` };
+  return { state: "valid", message: `✓ Valid JSON · ${samples} sample${samples === 1 ? "" : "s"}`, count: samples, unit: "samples" };
 }
 
 export interface WorkbenchInputPaneProps {
@@ -108,6 +114,15 @@ export const WorkbenchInputPane = forwardRef<WorkbenchInputHandle, WorkbenchInpu
 
     return (
       <div className="lg:col-span-4 bg-[#060608] flex flex-col divide-y divide-white/[0.08] min-w-0">
+        {/* Coverage note, next to the documents that drive inference. */}
+        <div className="px-4 py-2 bg-[#0A0A0D]">
+          <p className="text-[10px] font-mono text-[#5E606E] leading-relaxed">
+            <span className="text-[#9496A1] font-medium">Sample coverage:</span> the inferred contract only describes fields
+            that appear in at least one sample. A field absent from every sample cannot be inferred, and adding more samples
+            improves coverage.
+          </p>
+        </div>
+
         <EditorBlock
           side="before"
           dotClass="bg-white/60"
@@ -180,6 +195,16 @@ function EditorBlock({
           <label htmlFor={editorId} className="text-xs font-mono uppercase tracking-wider text-white font-medium truncate">
             {label}
           </label>
+          <span
+            title={`${side === "before" ? "Baseline" : "Candidate"} document size, as currently typed`}
+            className={`shrink-0 font-mono text-[10px] px-1.5 py-0.5 rounded border ${
+              validation.count === null
+                ? "bg-rose-500/10 text-rose-300 border-rose-500/30"
+                : "bg-white/[0.05] text-[#9496A1] border-white/[0.08]"
+            }`}
+          >
+            {validation.count === null ? "—" : `${validation.count} ${validation.unit}`}
+          </span>
         </div>
         <span
           aria-live="polite"
