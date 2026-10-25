@@ -60,6 +60,25 @@ workspace, snapshot, sample, and diff operations use the configured server and
 PostgreSQL database. The project does not require an API key for these user
 flows.
 
+## Data handling
+
+Sample payloads are user data and may contain PII. Behavior to be aware of:
+
+- Workspace JSON exports produced in **cloud mode are redacted by default**:
+  sample values are omitted, observed examples in the inferred contract are
+  cleared, and OpenAPI documents are replaced by a redaction notice. The export
+  carries a top-level `sampleValuesRedacted: true` flag. Exports produced in
+  **local mode keep full fidelity** (unchanged unless a caller opts into
+  redaction via `buildWorkspaceExport`'s options).
+- The Markdown PR summary reports paths, kinds, severities, and explanations;
+  it does not embed sample values.
+- API writes are rate limited per signed-in user (and sign-in attempts per
+  client address) using an in-process counter. On serverless hosting each
+  instance counts independently, so this is a per-instance stopgap rather than
+  a global limit; a shared store is needed for a deployment-wide guarantee.
+- API request bodies are capped at 4 MB in transit and each payload document
+  at 2 MB (the same ceiling the client enforces) before parsing.
+
 ## Architecture
 
 ```text

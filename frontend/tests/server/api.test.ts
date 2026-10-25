@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/auth", () => ({ auth: vi.fn() }));
 
-import { MAX_API_BODY_BYTES, readJsonBody } from "@/lib/server/api";
+import { MAX_API_BODY_BYTES, assertDocumentBudget, readJsonBody } from "@/lib/server/api";
+import { MAX_IMPORT_BYTES } from "@/lib/contract/parse";
 
 describe("API JSON body limits", () => {
   it("parses a bounded JSON body", async () => {
@@ -30,5 +31,17 @@ describe("API JSON body limits", () => {
     await expect(readJsonBody(request)).rejects.toThrow("Request body is too large.");
     expect(pulls).toBe(2);
     expect(cancelled).toBe(true);
+  });
+});
+
+describe("per-document budget", () => {
+  it("accepts a document under the client import cap", () => {
+    expect(() => assertDocumentBudget({ payloads: [{ note: "small" }] }, "The document")).not.toThrow();
+  });
+
+  it("rejects a document larger than the 2 MB client cap before the engine sees it", () => {
+    const oversized = "x".repeat(MAX_IMPORT_BYTES + 1024);
+    expect(() => assertDocumentBudget({ payloads: [{ note: oversized }] }, "The document")).toThrow(RangeError);
+    expect(() => assertDocumentBudget({ payloads: [{ note: oversized }] }, "The document")).toThrow(/2 MB document limit/);
   });
 });

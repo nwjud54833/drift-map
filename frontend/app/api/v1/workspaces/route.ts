@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { apiError, readJsonBody, requireAuthenticatedUser } from "@/lib/server/api";
+import { apiError, readJsonBody, requireAuthenticatedUser, tooManyRequests } from "@/lib/server/api";
+import { checkRateLimit, WRITE_RATE_LIMIT } from "@/lib/server/rate-limit";
 import { prisma } from "@/lib/db/prisma";
 import { workspaceCreateSchema } from "@/lib/server/contracts";
 
@@ -17,6 +18,8 @@ export async function GET() {
 export async function POST(request: Request) {
   const authResult = await requireAuthenticatedUser();
   if (!authResult.ok) return authResult.response;
+  const limit = checkRateLimit("v1:workspaces:post", authResult.userId, WRITE_RATE_LIMIT.limit, WRITE_RATE_LIMIT.windowMs);
+  if (!limit.allowed) return tooManyRequests(limit.retryAfterSeconds);
   let data: ReturnType<typeof workspaceCreateSchema.parse>;
   try {
     const parsed = workspaceCreateSchema.safeParse(await readJsonBody(request));

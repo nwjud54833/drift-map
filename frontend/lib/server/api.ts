@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { MAX_IMPORT_BYTES } from "@/lib/contract/parse";
 
 export const MAX_API_BODY_BYTES = 4 * 1024 * 1024;
 export const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -26,6 +27,24 @@ export async function requireAuthenticatedUser(): Promise<{ ok: true; userId: st
 
 export function apiError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
+}
+
+export function tooManyRequests(retryAfterSeconds: number) {
+  return NextResponse.json(
+    { error: "Too many requests. Please try again shortly." },
+    { status: 429, headers: { "Retry-After": String(retryAfterSeconds) } },
+  );
+}
+
+/**
+ * Enforces the same per-document ceiling the client applies
+ * (`MAX_IMPORT_BYTES`, 2 MB) before a payload reaches the engine. The
+ * transport cap (`MAX_API_BODY_BYTES`) stays at 4 MB because the diff
+ * endpoint carries up to two documents in one request.
+ */
+export function assertDocumentBudget(value: unknown, label: string): void {
+  const bytes = new TextEncoder().encode(JSON.stringify(value)).byteLength;
+  if (bytes > MAX_IMPORT_BYTES) throw new RangeError(`${label} exceeds the ${MAX_IMPORT_BYTES / 1024 / 1024} MB document limit.`);
 }
 
 export async function readJsonBody(request: Request): Promise<unknown> {
