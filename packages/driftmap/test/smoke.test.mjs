@@ -23,10 +23,10 @@ const fixtures = join(
   "fixtures",
 );
 
-function run(args) {
-  // Force color off so assertions do not depend on ANSI escapes; the
+function run(args, color = "never") {
+  // Default to color off so assertions do not depend on ANSI escapes; the
   // environment is never a TTY under node:test.
-  return spawnSync(process.execPath, [cli, ...args, "--color", "never"], {
+  return spawnSync(process.execPath, [cli, ...args, "--color", color], {
     encoding: "utf8",
   });
 }
@@ -40,6 +40,16 @@ test("pair1 fixture pair is breaking (exit 1)", () => {
   const r = run(["compare", join(fixtures, "pair1-baseline.json"), join(fixtures, "pair1-candidate.json")]);
   assert.equal(r.status, 1);
   assert.match(r.stdout, /RESULT: FAIL \(exit 1\)/);
+});
+
+test("--color=always emits ANSI roles and --color=never emits none", () => {
+  const args = ["compare", join(fixtures, "pair1-baseline.json"), join(fixtures, "pair1-candidate.json")];
+  const colored = run(args, "always");
+  assert.equal(colored.status, 1);
+  assert.match(colored.stdout, /\u001b\[91m\[!!\]/);
+  assert.match(colored.stdout, /\u001b\[1;91mRESULT: FAIL \(exit 1\)/);
+  const plain = run(args, "never");
+  assert.doesNotMatch(plain.stdout, /\u001b\[/);
 });
 
 test("--fail-on off turns a breaking pair into exit 0", () => {

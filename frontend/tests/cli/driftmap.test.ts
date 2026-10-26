@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import { parseCliArguments, resolveColors, runCompare, USAGE } from "@/bin/driftmap";
 import type { CompareOptions } from "@/bin/driftmap";
+import { ANSI_CODES } from "@/bin/colors";
 import { buildDiff, compareContracts } from "@/lib/contract/compare";
 import { buildMarkdownReportFromDiff } from "@/lib/contract/export";
 import { inferContract } from "@/lib/contract/infer";
@@ -330,8 +331,22 @@ describe("color handling", () => {
     delete process.env.NO_COLOR;
   });
 
-  it("uses no ANSI codes without a TTY or with NO_COLOR set", () => {
+  it("keeps the palette on standard foreground, bold, and dim SGR codes", () => {
+    expect(ANSI_CODES).toEqual({
+      verdictFail: "\u001b[1;91m",
+      verdictPass: "\u001b[1;92m",
+      breaking: "\u001b[91m",
+      warning: "\u001b[93m",
+      safe: "\u001b[32m",
+      info: "\u001b[96m",
+      pointer: "\u001b[1;97m",
+      dim: "\u001b[2m",
+    });
+  });
+
+  it("uses no ANSI codes with --color=never, without a TTY, or with NO_COLOR set", () => {
     expect(process.stdout.isTTY).not.toBe(true);
+    expect(ANSI_ESCAPE.test(runCompare(options({ ...pair1, color: "never" })).output)).toBe(false);
     process.env.NO_COLOR = "1";
     expect(ANSI_ESCAPE.test(runCompare(options({ ...pair1, color: "auto" })).output)).toBe(false);
     delete process.env.NO_COLOR;
@@ -357,6 +372,92 @@ describe("color handling", () => {
   it("keeps JSON output free of ANSI codes even with --color=always", () => {
     const outcome = runCompare(options({ ...pair1, format: "json", color: "always" }));
     expect(ANSI_ESCAPE.test(outcome.output)).toBe(false);
+  });
+
+  it("colors each severity marker and heading with its role", () => {
+    const breaking = runCompare(options({ ...pair1, color: "always" })).output;
+    expect(breaking).toContain(`${ANSI_CODES.breaking}[!!]`);
+    expect(breaking).toContain(`${ANSI_CODES.breaking}BREAKING`);
+
+    const warning = runCompare(options({ ...openapi, color: "always" })).output;
+    expect(warning).toContain(`${ANSI_CODES.warning}[~ ]`);
+    expect(warning).toContain(`${ANSI_CODES.warning}WARNING`);
+
+    const dir = mkdtempSync(path.join(tmpdir(), "driftmap-colors-"));
+    try {
+      const baseline = path.join(dir, "baseline.json");
+      const candidate = path.join(dir, "candidate.json");
+      writeFileSync(baseline, JSON.stringify([{ orderId: "o1", giftWrap: true, items: [{ sku: "A" }] }]));
+      writeFileSync(candidate, JSON.stringify([
+        { orderId: "o1", note: "hi", giftWrap: true, items: [{ sku: "A" }] },
+        { orderId: "o2", items: [{ sku: "A" }] },
+      ]));
+      const rest = runCompare(options({ baselinePath: baseline, candidatePath: candidate, failOn: "off", color: "always" })).output;
+      expect(rest).toContain(`${ANSI_CODES.safe}[ok]`);
+      expect(rest).toContain(`${ANSI_CODES.safe}SAFE`);
+      expect(rest).toContain(`${ANSI_CODES.info}[i ]`);
+      expect(rest).toContain(`${ANSI_CODES.info}INFO`);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("colors the verdict and summary counts by severity", () => {
+    const fail = runCompare(options({ ...pair1, color: "always" })).output;
+    expect(fail).toContain(`${ANSI_CODES.verdictFail}RESULT: FAIL (exit 1)`);
+    expect(fail).toContain(`${ANSI_CODES.breaking}1 breaking`);
+
+    const pass = runCompare(options({ ...pair2, failOn: "off", color: "always" })).output;
+    expect(pass).toContain(`${ANSI_CODES.verdictPass}RESULT: PASS (exit 0)`);
+    expect(pass).toContain(`${ANSI_CODES.warning}2 warning`);
+  });
+
+  it("colors the pointer column and dims the header rows", () => {
+    const outcome = runCompare(options({ ...pair1, color: "always" })).output;
+    const lines = outcome.split("\n");
+    expect(outcome).toContain(`${ANSI_CODES.pointer}/customer/id`);
+    expect(lines[0]).toContain(ANSI_CODES.dim);
+    expect(lines[1]).toContain(ANSI_CODES.dim);
+    const columnHeader = lines.find((line) => line.includes("POINTER"));
+    expect(columnHeader).toBeDefined();
+    expect(columnHeader).toContain(ANSI_CODES.dim);
+    expect(columnHeader).toContain("CHANGE");
+    expect(columnHeader).toContain("BEFORE");
+    expect(columnHeader).toContain("AFTER");
+  });
+
+  it("dims absent/missing types except a missing AFTER in a breaking group", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "driftmap-type-colors-"));
+    try {
+      const removedBaseline = path.join(dir, "removed-baseline.json");
+      const removedCandidate = path.join(dir, "removed-candidate.json");
+      writeFileSync(removedBaseline, JSON.stringify({ id: "1", name: "x", tag: "t" }));
+      writeFileSync(removedCandidate, JSON.stringify({ id: "1", tag: "t" }));
+      const removed = runCompare(options({ baselinePath: removedBaseline, candidatePath: removedCandidate, color: "always" })).output;
+      expect(removed).toContain(`${ANSI_CODES.breaking}missing`);
+
+      const addedBaseline = path.join(dir, "added-baseline.json");
+      const addedCandidate = path.join(dir, "added-candidate.json");
+      writeFileSync(addedBaseline, JSON.stringify({ id: "1" }));
+      writeFileSync(addedCandidate, JSON.stringify({ id: "1", note: "x" }));
+      const added = runCompare(options({ baselinePath: addedBaseline, candidatePath: addedCandidate, color: "always" })).output;
+      expect(added).toContain(`${ANSI_CODES.dim}absent`);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps every visible line within 80 columns with color on and off", () => {
+    const plain = runCompare(options({ ...openapi, color: "never" })).output;
+    const colored = runCompare(options({ ...openapi, color: "always" })).output;
+    expect(stripAnsi(colored)).toBe(plain);
+    for (const output of [plain, colored]) {
+      for (const line of output.split("\n")) {
+        expect([...stripAnsi(line)].length).toBeLessThanOrEqual(80);
+      }
+    }
+    const coloredLines = colored.split("\n");
+    expect(coloredLines.some((line) => line.length > stripAnsi(line).length)).toBe(true);
   });
 });
 
