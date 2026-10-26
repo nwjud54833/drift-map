@@ -1,4 +1,5 @@
 # --- Environment / secrets ---
+.npmrc
 .env
 .env.local
 .env.*.local
