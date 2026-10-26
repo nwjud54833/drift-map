@@ -5,7 +5,7 @@
 // Run `npm run build` first (the test script does not auto-build).
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -30,6 +30,11 @@ function run(args) {
     encoding: "utf8",
   });
 }
+
+test("dist/cli.js keeps the node shebang as its first line", () => {
+  const firstLine = readFileSync(cli, "utf8").split("\n")[0];
+  assert.equal(firstLine, "#!/usr/bin/env node");
+});
 
 test("pair1 fixture pair is breaking (exit 1)", () => {
   const r = run(["compare", join(fixtures, "pair1-baseline.json"), join(fixtures, "pair1-candidate.json")]);
