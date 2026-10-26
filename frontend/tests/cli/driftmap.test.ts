@@ -1,10 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { parseCliArguments, runCompare, USAGE } from "@/bin/driftmap";
+import { parseCliArguments, resolveColors, runCompare, USAGE } from "@/bin/driftmap";
 import type { CompareOptions } from "@/bin/driftmap";
 import { buildDiff, compareContracts } from "@/lib/contract/compare";
 import { buildMarkdownReportFromDiff } from "@/lib/contract/export";
@@ -13,18 +13,27 @@ import { parseImportArtifact } from "@/lib/workbench/import-artifact";
 
 const fixturesDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures");
 const fixture = (name: string) => path.join(fixturesDir, name);
+const pair1 = { baselinePath: fixture("pair1-baseline.json"), candidatePath: fixture("pair1-candidate.json") };
+const pair2 = { baselinePath: fixture("pair2-baseline.json"), candidatePath: fixture("pair2-candidate.json") };
+const openapi = { baselinePath: fixture("openapi-baseline.json"), candidatePath: fixture("openapi-candidate.json") };
 
 function options(overrides: Partial<CompareOptions> = {}): CompareOptions {
   return {
-    baselinePath: fixture("pair1-baseline.json"),
-    candidatePath: fixture("pair1-candidate.json"),
+    baselinePath: pair1.baselinePath,
+    candidatePath: pair1.candidatePath,
     direction: "response",
     failOn: "breaking",
     format: "text",
     outPath: null,
+    quiet: false,
+    verbose: false,
+    color: "never",
     ...overrides,
   };
 }
+
+const ANSI_ESCAPE = /\u001b\[/;
+const stripAnsi = (line: string) => line.replace(/\u001b\[[0-9;]*m/g, "");
 
 describe("parseCliArguments", () => {
   it("accepts a full valid invocation", () => {
@@ -34,6 +43,9 @@ describe("parseCliArguments", () => {
       "--fail-on", "warning",
       "--format", "json",
       "--out", "drift.md",
+      "--quiet",
+      "--verbose",
+      "--color", "always",
     ]);
     expect(parsed.ok).toBe(true);
     if (!parsed.ok) return;
@@ -44,6 +56,9 @@ describe("parseCliArguments", () => {
       failOn: "warning",
       format: "json",
       outPath: "drift.md",
+      quiet: true,
+      verbose: true,
+      color: "always",
     });
   });
 
@@ -55,6 +70,9 @@ describe("parseCliArguments", () => {
     expect(parsed.options.failOn).toBe("breaking");
     expect(parsed.options.format).toBe("text");
     expect(parsed.options.outPath).toBeNull();
+    expect(parsed.options.quiet).toBe(false);
+    expect(parsed.options.verbose).toBe(false);
+    expect(parsed.options.color).toBe("auto");
   });
 
   it("treats --help as a valid no-op invocation", () => {
@@ -96,81 +114,73 @@ describe("parseCliArguments", () => {
     expect(parsed.ok).toBe(false);
     if (parsed.ok) return;
     expect(parsed.message).toContain("--direction must be one of");
+
+    const color = parseCliArguments(["compare", "a.json", "b.json", "--color", "rgb"]);
+    expect(color.ok).toBe(false);
+    if (color.ok) return;
+    expect(color.message).toContain("--color must be one of auto, always, never");
   });
 });
 
-describe("runCompare exit codes", () => {
+describe("runCompare exit codes and verdicts", () => {
   it("exits 1 when a breaking finding meets the default threshold", () => {
     const outcome = runCompare(options({ failOn: "breaking" }));
     expect(outcome.exitCode).toBe(1);
   });
 
   it("exits 0 for a warning-only pair when the threshold is breaking", () => {
-    const outcome = runCompare(options({
-      baselinePath: fixture("pair2-baseline.json"),
-      candidatePath: fixture("pair2-candidate.json"),
-      failOn: "breaking",
-    }));
+    const outcome = runCompare(options({ ...pair2, failOn: "breaking" }));
     expect(outcome.exitCode).toBe(0);
   });
 
   it("exits 1 for a warning-only pair when the threshold is warning", () => {
-    const outcome = runCompare(options({
-      baselinePath: fixture("pair2-baseline.json"),
-      candidatePath: fixture("pair2-candidate.json"),
-      failOn: "warning",
-    }));
+    const outcome = runCompare(options({ ...pair2, failOn: "warning" }));
     expect(outcome.exitCode).toBe(1);
   });
 
   it("always exits 0 with --fail-on off, but still exits 2 on a parse error", () => {
-    const clean = runCompare(options({
-      baselinePath: fixture("pair2-baseline.json"),
-      candidatePath: fixture("pair2-candidate.json"),
-      failOn: "off",
-    }));
+    const clean = runCompare(options({ ...pair2, failOn: "off" }));
     expect(clean.exitCode).toBe(0);
 
-    const broken = runCompare(options({
-      baselinePath: fixture("invalid.json"),
-      failOn: "off",
-    }));
+    const broken = runCompare(options({ baselinePath: fixture("invalid.json"), failOn: "off" }));
     expect(broken.exitCode).toBe(2);
   });
 
   it("exits 1 when an OpenAPI comparison has a breaking schema change", () => {
-    const outcome = runCompare(options({
-      baselinePath: fixture("openapi-baseline.json"),
-      candidatePath: fixture("openapi-candidate.json"),
-    }));
+    const outcome = runCompare(options({ ...openapi }));
     expect(outcome.exitCode).toBe(1);
   });
+
+  for (const [failOn, baselinePaths, candidatePaths] of [
+    ["breaking", pair2.baselinePath, pair2.candidatePath],
+    ["warning", pair2.baselinePath, pair2.candidatePath],
+    ["off", pair2.baselinePath, pair2.candidatePath],
+  ] as const) {
+    it(`renders a verdict that matches the exit code for --fail-on ${failOn}`, () => {
+      const outcome = runCompare(options({ baselinePath: baselinePaths, candidatePath: candidatePaths, failOn }));
+      const match = /RESULT: (PASS|FAIL) \(exit (\d)\)$/m.exec(outcome.output);
+      expect(match).not.toBeNull();
+      const expected = outcome.exitCode === 1 ? "FAIL" : "PASS";
+      expect(match![1]).toBe(expected);
+      expect(Number(match![2])).toBe(outcome.exitCode);
+    });
+  }
 });
 
 describe("input-type detection", () => {
   it("treats a single JSON object as one payload sample", () => {
-    const outcome = runCompare(options());
-    expect(outcome.output).toContain("pair1-baseline.json · 1 sample");
+    const outcome = runCompare(options({ ...pair1, verbose: true }));
+    expect(outcome.output).toContain("baseline samples: 1 · candidate samples: 1");
   });
 
   it("treats a JSON array as multiple payload samples", () => {
-    const outcome = runCompare(options({
-      baselinePath: fixture("pair2-baseline.json"),
-      candidatePath: fixture("pair2-candidate.json"),
-      failOn: "warning",
-      format: "text",
-    }));
-    expect(outcome.output).toContain("pair2-baseline.json · 2 samples");
+    const outcome = runCompare(options({ ...pair2, verbose: true }));
+    expect(outcome.output).toContain("baseline samples: 2 · candidate samples: 2");
   });
 
-  it("routes OpenAPI 3.0 JSON documents through the OpenAPI parser", () => {
-    const outcome = runCompare(options({
-      baselinePath: fixture("openapi-baseline.json"),
-      candidatePath: fixture("openapi-candidate.json"),
-      format: "text",
-    }));
-    expect(outcome.output).toContain(baselineDescription(fixture("openapi-baseline.json")));
-    expect(outcome.output).toContain("BREAKING (1)");
+  it("routes OpenAPI documents through the OpenAPI parser (no payload samples)", () => {
+    const outcome = runCompare(options({ ...openapi, verbose: true }));
+    expect(outcome.output).toContain("baseline samples: none (OpenAPI) · candidate samples: none (OpenAPI)");
   });
 
   it("detects OpenAPI 3.0 YAML by content, not extension", () => {
@@ -179,34 +189,43 @@ describe("input-type detection", () => {
       candidatePath: fixture("openapi-baseline.json"),
     }));
     expect(outcome.exitCode).toBe(0);
-    expect(outcome.output).toContain("No contract drift detected between the two inputs.");
+    expect(outcome.output).toContain("RESULT: PASS (exit 0)");
+  });
+
+  it("parses BOM-prefixed input (PowerShell 5.1 default)", () => {
+    expect(readFileSync(fixture("pair1-baseline-bom.json"), "utf8").startsWith("﻿")).toBe(true);
+    const withBom = runCompare(options({ baselinePath: fixture("pair1-baseline-bom.json") }));
+    const withoutBom = runCompare(options());
+    expect(withBom.exitCode).toBe(1);
+    // The header line echoes the file names; everything else must be identical.
+    const tail = (output: string) => output.split("\n").slice(1).join("\n");
+    expect(tail(withBom.output)).toBe(tail(withoutBom.output));
+  });
+
+  it("reports missing files as a clear error", () => {
+    const outcome = runCompare(options({ baselinePath: fixture("does-not-exist.json") }));
+    expect(outcome.exitCode).toBe(2);
+    const [errorLine, hintLine] = outcome.output.split("\n");
+    expect(errorLine).toContain("error: Unable to read baseline:");
+    expect(hintLine).toContain("hint:");
   });
 
   it("reports invalid JSON as a clear error, not a stack trace", () => {
     const outcome = runCompare(options({ baselinePath: fixture("invalid.json") }));
     expect(outcome.exitCode).toBe(2);
-    expect(outcome.output).toContain("Unable to parse JSON");
+    expect(outcome.output.startsWith("error: baseline: Unable to parse JSON")).toBe(true);
+    expect(outcome.output).toContain("hint: fix the file's JSON syntax");
     expect(outcome.output).not.toContain("\n    at ");
   });
 
   it("rejects OpenAPI 3.1 documents with a clear error", () => {
-    const outcome = runCompare(options({
-      baselinePath: fixture("openapi-31.json"),
-      candidatePath: fixture("openapi-31.json"),
-    }));
+    const outcome = runCompare(options({ baselinePath: fixture("openapi-31.json"), candidatePath: fixture("openapi-31.json") }));
     expect(outcome.exitCode).toBe(2);
     expect(outcome.output).toContain("OpenAPI 3.1 is not supported yet");
+    expect(outcome.output).toContain("hint: convert the document to OpenAPI 3.0");
   });
 
-  it("reports missing files as a clear error", () => {
-    const missing = fixture("does-not-exist.json");
-    const outcome = runCompare(options({ baselinePath: missing }));
-    expect(outcome.exitCode).toBe(2);
-    expect(outcome.output).toContain("Unable to read baseline");
-    expect(outcome.output).not.toContain("at ");
-  });
-
-  it("enforces the shared 2 MB input cap", () => {
+  it("enforces the shared 2 MB input cap with a clear error", () => {
     const dir = mkdtempSync(path.join(tmpdir(), "driftmap-cap-"));
     try {
       const oversized = path.join(dir, "oversized.json");
@@ -214,27 +233,134 @@ describe("input-type detection", () => {
       expect(statSync(oversized).size).toBeGreaterThan(2 * 1024 * 1024);
       const outcome = runCompare(options({ baselinePath: oversized }));
       expect(outcome.exitCode).toBe(2);
-      expect(outcome.output).toContain("2 MB");
+      expect(outcome.output).toContain("error: baseline is");
+      expect(outcome.output).toContain("hint: trim the payload or export fewer samples");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
   });
 });
 
-describe("output formats", () => {
-  it("renders a text summary grouped by severity, with pointers, rules and before/after types", () => {
-    const outcome = runCompare(options({
-      baselinePath: fixture("pair2-baseline.json"),
-      candidatePath: fixture("pair2-candidate.json"),
-      failOn: "warning",
-      format: "text",
-    }));
-    expect(outcome.output).toContain("WARNING (2)");
-    expect(outcome.output).toContain("/fulfilment · RULE_OPTIONAL_FIELD_ADDED");
-    expect(outcome.output).toContain("absent → string");
-    expect(outcome.exitCode).toBe(1);
+describe("text presentation", () => {
+  const GOLDEN = [
+    "driftmap compare  pair1-baseline.json → pair1-candidate.json",
+    "response · fail on breaking",
+    "  1 breaking   0 warning   0 safe   0 info        RESULT: FAIL (exit 1)",
+    "",
+    "  [!!] BREAKING (1)",
+    "    POINTER       CHANGE        BEFORE  AFTER",
+    "    /customer/id  Type changed  string  number",
+  ].join("\n");
+
+  it("matches the golden layout for the pair1 defaults", () => {
+    const outcome = runCompare(options({ ...pair1 }));
+    expect(outcome.output).toBe(GOLDEN);
   });
 
+  it("omits empty severity groups", () => {
+    const outcome = runCompare(options({ ...pair1 }));
+    expect(outcome.output).toContain("[!!] BREAKING (1)");
+    expect(outcome.output).not.toContain("WARNING");
+    expect(outcome.output).not.toContain("SAFE");
+    expect(outcome.output).not.toContain("INFO (");
+  });
+
+  it("shows the human change label, not the rule ID, by default", () => {
+    const outcome = runCompare(options({ ...pair1 }));
+    expect(outcome.output).toContain("Type changed");
+    expect(outcome.output).not.toContain("RULE_WIRE_TYPE_CHANGED");
+  });
+
+  it("renders severity groups in order with pointers sorted inside each group", () => {
+    const outcome = runCompare(options({ ...openapi }));
+    const breakingIndex = outcome.output.indexOf("[!!] BREAKING (1)");
+    const warningIndex = outcome.output.indexOf("[~ ] WARNING (1)");
+    expect(breakingIndex).toBeGreaterThan(0);
+    expect(warningIndex).toBeGreaterThan(breakingIndex);
+    expect(outcome.output).toContain("Response schema changed");
+  });
+
+  it("shows the [ok] safe and [i ] info markers when those groups have findings", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "driftmap-safe-"));
+    try {
+      const baseline = path.join(dir, "baseline.json");
+      const candidate = path.join(dir, "candidate.json");
+      writeFileSync(baseline, JSON.stringify([{ orderId: "o1", giftWrap: true, items: [{ sku: "A" }] }]));
+      writeFileSync(candidate, JSON.stringify([
+        { orderId: "o1", note: "hi", giftWrap: true, items: [{ sku: "A" }] },
+        { orderId: "o2", items: [{ sku: "A" }] },
+      ]));
+      const outcome = runCompare(options({ baselinePath: baseline, candidatePath: candidate, failOn: "off" }));
+      expect(outcome.output).toContain("[ok] SAFE (1)");
+      expect(outcome.output).toContain("[i ] INFO (1)");
+      expect(outcome.output).toContain("Optional field added");
+      expect(outcome.output).toContain("Required became optional");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("truncates long pointers from the left with … without exceeding 80 columns", () => {
+    const outcome = runCompare(options({ ...openapi }));
+    for (const line of outcome.output.split("\n")) {
+      expect([...stripAnsi(line)].length).toBeLessThanOrEqual(80);
+    }
+    expect(outcome.output).toContain("…");
+  });
+
+  it("--quiet prints exactly one plain verdict line", () => {
+    for (const paths of [pair1, pair2]) {
+      const outcome = runCompare(options({ ...paths, quiet: true, color: "always" }));
+      expect(outcome.output.split("\n").filter((line) => line.length > 0).length).toBe(1);
+      expect(outcome.output).toMatch(/^RESULT: (PASS|FAIL) \(exit [012]\)$/);
+      expect(ANSI_ESCAPE.test(outcome.output)).toBe(false);
+    }
+  });
+
+  it("--verbose shows raw RULE_* IDs and sample counts", () => {
+    const outcome = runCompare(options({ ...pair1, verbose: true }));
+    expect(outcome.output).toContain("RULE_WIRE_TYPE_CHANGED");
+    expect(outcome.output).toContain("baseline samples: 1 · candidate samples: 1");
+    expect(outcome.output).toContain("Type changed");
+  });
+});
+
+describe("color handling", () => {
+  afterEach(() => {
+    delete process.env.NO_COLOR;
+  });
+
+  it("uses no ANSI codes without a TTY or with NO_COLOR set", () => {
+    expect(process.stdout.isTTY).not.toBe(true);
+    process.env.NO_COLOR = "1";
+    expect(ANSI_ESCAPE.test(runCompare(options({ ...pair1, color: "auto" })).output)).toBe(false);
+    delete process.env.NO_COLOR;
+    // No TTY under the test runner: auto resolves to plain even without NO_COLOR.
+    expect(ANSI_ESCAPE.test(runCompare(options({ ...pair1, color: "auto" })).output)).toBe(false);
+  });
+
+  it("--color=always emits ANSI codes even when piped", () => {
+    const outcome = runCompare(options({ ...pair1, color: "always" }));
+    expect(ANSI_ESCAPE.test(outcome.output)).toBe(true);
+    process.env.NO_COLOR = "1";
+    // An explicit --color=always overrides the environment.
+    expect(ANSI_ESCAPE.test(runCompare(options({ ...pair1, color: "always" })).output)).toBe(true);
+  });
+
+  it("resolveColors honours the mode matrix", () => {
+    process.env.NO_COLOR = "1";
+    expect(resolveColors("never")).toBe(false);
+    expect(resolveColors("auto")).toBe(false);
+    expect(resolveColors("always")).toBe(true);
+  });
+
+  it("keeps JSON output free of ANSI codes even with --color=always", () => {
+    const outcome = runCompare(options({ ...pair1, format: "json", color: "always" }));
+    expect(ANSI_ESCAPE.test(outcome.output)).toBe(false);
+  });
+});
+
+describe("output formats", () => {
   it("renders the documented stable JSON shape exactly", () => {
     const outcome = runCompare(options({ format: "json" }));
     expect(JSON.parse(outcome.output)).toEqual({
@@ -276,17 +402,12 @@ describe("output formats", () => {
     expect(outcome.output).toBe(expected);
   });
 
-  it("documents the usage text", () => {
+  it("documents the usage text with the new flags", () => {
     expect(USAGE).toContain("driftmap compare <baseline> <candidate>");
     expect(USAGE).toContain("--fail-on <breaking|warning|off>");
+    expect(USAGE).toContain("--quiet");
+    expect(USAGE).toContain("--verbose");
+    expect(USAGE).toContain("--color <auto|always|never>");
     expect(USAGE).toContain("Exit codes:");
   });
 });
-
-function baselineDescription(baselinePath: string): string {
-  const artifact = parseImportArtifact(readFileSync(baselinePath, "utf8"), { source: "file" });
-  if (!artifact.ok) return "";
-  const value = artifact.artifact;
-  if (value.format !== "openapi") return "";
-  return `OpenAPI ${value.contract.version} · ${value.contract.operations.length} operations`;
-}
