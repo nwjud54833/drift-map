@@ -5,7 +5,7 @@
 // Run `npm run build` first (the test script does not auto-build).
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -34,6 +34,18 @@ function run(args, color = "never") {
 test("dist/cli.js keeps the node shebang as its first line", () => {
   const firstLine = readFileSync(cli, "utf8").split("\n")[0];
   assert.equal(firstLine, "#!/usr/bin/env node");
+});
+
+test("both executable names ship and point at the bundled CLI", () => {
+  const manifest = JSON.parse(readFileSync(join(here, "..", "package.json"), "utf8"));
+  assert.deepEqual(manifest.bin, {
+    driftmap: "dist/cli.js",
+    "driftmap-cli": "dist/cli.js",
+  });
+  // Both names must resolve to the file that is actually published.
+  for (const target of Object.values(manifest.bin)) {
+    assert.equal(existsSync(join(here, "..", target)), true, `${target} is missing`);
+  }
 });
 
 test("pair1 fixture pair is breaking (exit 1)", () => {

@@ -369,9 +369,46 @@ describe("color handling", () => {
     expect(resolveColors("always")).toBe(true);
   });
 
+  it("--color=auto turns color ON for a TTY with NO_COLOR unset", () => {
+    // The test runner is never a TTY, so stand in for a real terminal (Windows
+    // Terminal, PowerShell, or any VT-capable console) to exercise the
+    // positive half of the auto rule.
+    const original = Object.getOwnPropertyDescriptor(process.stdout, "isTTY");
+    try {
+      Object.defineProperty(process.stdout, "isTTY", { value: true, configurable: true });
+      delete process.env.NO_COLOR;
+      expect(resolveColors("auto")).toBe(true);
+      expect(ANSI_ESCAPE.test(runCompare(options({ ...pair1, color: "auto" })).output)).toBe(true);
+
+      // NO_COLOR still wins over an auto-detected TTY.
+      process.env.NO_COLOR = "1";
+      expect(resolveColors("auto")).toBe(false);
+      expect(ANSI_ESCAPE.test(runCompare(options({ ...pair1, color: "auto" })).output)).toBe(false);
+    } finally {
+      delete process.env.NO_COLOR;
+      if (original) Object.defineProperty(process.stdout, "isTTY", original);
+      else delete (process.stdout as { isTTY?: boolean }).isTTY;
+    }
+  });
+
   it("keeps JSON output free of ANSI codes even with --color=always", () => {
     const outcome = runCompare(options({ ...pair1, format: "json", color: "always" }));
     expect(ANSI_ESCAPE.test(outcome.output)).toBe(false);
+  });
+
+  it("keeps Markdown output free of ANSI codes and still valid with --color=always", () => {
+    const always = runCompare(options({ ...pair2, format: "markdown", color: "always" }));
+    const never = runCompare(options({ ...pair2, format: "markdown", color: "never" }));
+    expect(ANSI_ESCAPE.test(always.output)).toBe(false);
+    // Color mode never leaks into the report: both modes emit the same bytes.
+    expect(always.output).toBe(never.output);
+    // Still parseable Markdown: the document heading, its sections, and the
+    // per-change definition list the report generator emits.
+    expect(always.output).toMatch(/^# Contract Drift Report$/m);
+    expect(always.output).toMatch(/^## Summary$/m);
+    expect(always.output).toMatch(/^## Changes$/m);
+    expect(always.output).toMatch(/^### WARNING · `/m);
+    expect(always.output).toMatch(/^- \*\*Change:\*\* /m);
   });
 
   it("colors each severity marker and heading with its role", () => {
