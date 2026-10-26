@@ -1,6 +1,6 @@
 {
   "name": "driftmap-cli",
-  "version": "0.1.0",
+  "version": "0.1.3",
   "description": "Detect API drift by comparing live API samples against an inferred or OpenAPI contract. See the full docs at the repo homepage.",
   "bin": {
     "driftmap": "dist/cli.js",

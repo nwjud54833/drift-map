@@ -4,8 +4,9 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { parseCliArguments, resolveColors, runCompare, USAGE } from "@/bin/driftmap";
+import { CLI_VERSION, parseCliArguments, resolveColors, runCompare, USAGE } from "@/bin/driftmap";
 import type { CompareOptions } from "@/bin/driftmap";
+import { ANSI_CODES } from "@/bin/colors";
 import { buildDiff, compareContracts } from "@/lib/contract/compare";
 import { buildMarkdownReportFromDiff } from "@/lib/contract/export";
 import { inferContract } from "@/lib/contract/infer";
@@ -158,11 +159,12 @@ describe("runCompare exit codes and verdicts", () => {
   ] as const) {
     it(`renders a verdict that matches the exit code for --fail-on ${failOn}`, () => {
       const outcome = runCompare(options({ baselinePath: baselinePaths, candidatePath: candidatePaths, failOn }));
-      const match = /RESULT: (PASS|FAIL) \(exit (\d)\)$/m.exec(outcome.output);
+      // The verdict word opens the summary line; the exit code closes the report.
+      const match = /^ {2}(PASS|FAIL)\b/m.exec(outcome.output);
       expect(match).not.toBeNull();
       const expected = outcome.exitCode === 1 ? "FAIL" : "PASS";
       expect(match![1]).toBe(expected);
-      expect(Number(match![2])).toBe(outcome.exitCode);
+      expect(outcome.output).toContain(`Exit ${outcome.exitCode} · `);
     });
   }
 });
@@ -189,7 +191,8 @@ describe("input-type detection", () => {
       candidatePath: fixture("openapi-baseline.json"),
     }));
     expect(outcome.exitCode).toBe(0);
-    expect(outcome.output).toContain("RESULT: PASS (exit 0)");
+    expect(outcome.output).toMatch(/^ {2}PASS\b/m);
+    expect(outcome.output).toContain("Exit 0 · ");
   });
 
   it("parses BOM-prefixed input (PowerShell 5.1 default)", () => {
@@ -197,9 +200,9 @@ describe("input-type detection", () => {
     const withBom = runCompare(options({ baselinePath: fixture("pair1-baseline-bom.json") }));
     const withoutBom = runCompare(options());
     expect(withBom.exitCode).toBe(1);
-    // The header line echoes the file names; everything else must be identical.
-    const tail = (output: string) => output.split("\n").slice(1).join("\n");
-    expect(tail(withBom.output)).toBe(tail(withoutBom.output));
+    // The summary echoes the file names; everything else must be identical.
+    const normalize = (output: string) => output.replace(/pair1-baseline(-bom)?\.json/g, "BASELINE");
+    expect(normalize(withBom.output)).toBe(normalize(withoutBom.output));
   });
 
   it("reports missing files as a clear error", () => {
@@ -242,14 +245,19 @@ describe("input-type detection", () => {
 });
 
 describe("text presentation", () => {
+  const RULE = "─".repeat(56);
+  // The complete plain-text layout for the pair1 defaults. The rest of this
+  // block asserts one property of it each, rather than restating the page.
   const GOLDEN = [
-    "driftmap compare  pair1-baseline.json → pair1-candidate.json",
-    "response · fail on breaking",
-    "  1 breaking   0 warning   0 safe   0 info        RESULT: FAIL (exit 1)",
+    `  driftmap ${CLI_VERSION} · compare`,
+    `  ${RULE}`,
+    "  pair1-baseline.json → pair1-candidate.json · response",
+    "  FAIL   1 breaking · 0 warning · 0 safe · 0 info",
     "",
-    "  [!!] BREAKING (1)",
-    "    POINTER       CHANGE        BEFORE  AFTER",
-    "    /customer/id  Type changed  string  number",
+    "  Breaking (1)",
+    "    /customer/id  Type changed  string → number",
+    "",
+    "  Exit 1 · use --fail-on off to report without failing",
   ].join("\n");
 
   it("matches the golden layout for the pair1 defaults", () => {
@@ -257,12 +265,28 @@ describe("text presentation", () => {
     expect(outcome.output).toBe(GOLDEN);
   });
 
-  it("omits empty severity groups", () => {
+  it("prints the version packages/driftmap/package.json declares", () => {
+    // vitest.config.ts injects the same value esbuild injects at build time, so
+    // this fails if the manifest, the bundle, and the tests ever disagree.
+    expect(CLI_VERSION).toMatch(/^\d+\.\d+\.\d+/);
     const outcome = runCompare(options({ ...pair1 }));
-    expect(outcome.output).toContain("[!!] BREAKING (1)");
-    expect(outcome.output).not.toContain("WARNING");
-    expect(outcome.output).not.toContain("SAFE");
-    expect(outcome.output).not.toContain("INFO (");
+    expect(outcome.output.split("\n")[0]).toBe(`  driftmap ${CLI_VERSION} · compare`);
+  });
+
+  it("shows only the severity groups that have findings", () => {
+    const outcome = runCompare(options({ ...pair1 }));
+    expect(outcome.output).toContain("Breaking (1)");
+    expect(outcome.output).not.toContain("Warning (");
+    expect(outcome.output).not.toContain("Safe (");
+    expect(outcome.output).not.toContain("Info (");
+  });
+
+  it("drops the old [!!] / [~ ] / [i ] / [ok] severity markers", () => {
+    const outcome = runCompare(options({ ...pair1 }));
+    expect(outcome.output).not.toContain("[!!]");
+    expect(outcome.output).not.toContain("[~ ]");
+    expect(outcome.output).not.toContain("[i ]");
+    expect(outcome.output).not.toContain("[ok]");
   });
 
   it("shows the human change label, not the rule ID, by default", () => {
@@ -273,14 +297,14 @@ describe("text presentation", () => {
 
   it("renders severity groups in order with pointers sorted inside each group", () => {
     const outcome = runCompare(options({ ...openapi }));
-    const breakingIndex = outcome.output.indexOf("[!!] BREAKING (1)");
-    const warningIndex = outcome.output.indexOf("[~ ] WARNING (1)");
+    const breakingIndex = outcome.output.indexOf("Breaking (1)");
+    const warningIndex = outcome.output.indexOf("Warning (1)");
     expect(breakingIndex).toBeGreaterThan(0);
     expect(warningIndex).toBeGreaterThan(breakingIndex);
     expect(outcome.output).toContain("Response schema changed");
   });
 
-  it("shows the [ok] safe and [i ] info markers when those groups have findings", () => {
+  it("uses sentence-case group words across every severity", () => {
     const dir = mkdtempSync(path.join(tmpdir(), "driftmap-safe-"));
     try {
       const baseline = path.join(dir, "baseline.json");
@@ -291,8 +315,8 @@ describe("text presentation", () => {
         { orderId: "o2", items: [{ sku: "A" }] },
       ]));
       const outcome = runCompare(options({ baselinePath: baseline, candidatePath: candidate, failOn: "off" }));
-      expect(outcome.output).toContain("[ok] SAFE (1)");
-      expect(outcome.output).toContain("[i ] INFO (1)");
+      expect(outcome.output).toContain("Safe (1)");
+      expect(outcome.output).toContain("Info (1)");
       expect(outcome.output).toContain("Optional field added");
       expect(outcome.output).toContain("Required became optional");
     } finally {
@@ -300,12 +324,21 @@ describe("text presentation", () => {
     }
   });
 
-  it("truncates long pointers from the left with … without exceeding 80 columns", () => {
+  it("truncates long pointers from the left without exceeding 80 columns", () => {
     const outcome = runCompare(options({ ...openapi }));
     for (const line of outcome.output.split("\n")) {
       expect([...stripAnsi(line)].length).toBeLessThanOrEqual(80);
     }
     expect(outcome.output).toContain("…");
+  });
+
+  it("ends with a one-line footer carrying the exit code and one hint", () => {
+    const failed = runCompare(options({ ...pair1 })).output.split("\n");
+    expect(failed[failed.length - 1]).toBe("  Exit 1 · use --fail-on off to report without failing");
+    const passed = runCompare(options({ ...pair2, failOn: "off" })).output.split("\n");
+    expect(passed[passed.length - 1]).toBe("  Exit 0 · set --fail-on breaking to let findings fail the run");
+    // The footer never restates the summary above it.
+    expect(failed[failed.length - 1]).not.toContain("breaking");
   });
 
   it("--quiet prints exactly one plain verdict line", () => {
@@ -317,11 +350,11 @@ describe("text presentation", () => {
     }
   });
 
-  it("--verbose shows raw RULE_* IDs and sample counts", () => {
+  it("--verbose swaps the human label for the raw RULE_* ID and adds sample counts", () => {
     const outcome = runCompare(options({ ...pair1, verbose: true }));
     expect(outcome.output).toContain("RULE_WIRE_TYPE_CHANGED");
+    expect(outcome.output).not.toContain("Type changed");
     expect(outcome.output).toContain("baseline samples: 1 · candidate samples: 1");
-    expect(outcome.output).toContain("Type changed");
   });
 });
 
@@ -330,8 +363,22 @@ describe("color handling", () => {
     delete process.env.NO_COLOR;
   });
 
-  it("uses no ANSI codes without a TTY or with NO_COLOR set", () => {
+  it("keeps the palette on standard foreground, bold, and dim SGR codes", () => {
+    expect(ANSI_CODES).toEqual({
+      verdictFail: "\u001b[1;91m",
+      verdictPass: "\u001b[1;92m",
+      breaking: "\u001b[91m",
+      warning: "\u001b[93m",
+      safe: "\u001b[32m",
+      info: "\u001b[96m",
+      pointer: "\u001b[1;97m",
+      dim: "\u001b[2m",
+    });
+  });
+
+  it("uses no ANSI codes with --color=never, without a TTY, or with NO_COLOR set", () => {
     expect(process.stdout.isTTY).not.toBe(true);
+    expect(ANSI_ESCAPE.test(runCompare(options({ ...pair1, color: "never" })).output)).toBe(false);
     process.env.NO_COLOR = "1";
     expect(ANSI_ESCAPE.test(runCompare(options({ ...pair1, color: "auto" })).output)).toBe(false);
     delete process.env.NO_COLOR;
@@ -354,9 +401,149 @@ describe("color handling", () => {
     expect(resolveColors("always")).toBe(true);
   });
 
+  it("--color=auto turns color ON for a TTY with NO_COLOR unset", () => {
+    // The test runner is never a TTY, so stand in for a real terminal (Windows
+    // Terminal, PowerShell, or any VT-capable console) to exercise the
+    // positive half of the auto rule.
+    const original = Object.getOwnPropertyDescriptor(process.stdout, "isTTY");
+    try {
+      Object.defineProperty(process.stdout, "isTTY", { value: true, configurable: true });
+      delete process.env.NO_COLOR;
+      expect(resolveColors("auto")).toBe(true);
+      expect(ANSI_ESCAPE.test(runCompare(options({ ...pair1, color: "auto" })).output)).toBe(true);
+
+      // NO_COLOR still wins over an auto-detected TTY.
+      process.env.NO_COLOR = "1";
+      expect(resolveColors("auto")).toBe(false);
+      expect(ANSI_ESCAPE.test(runCompare(options({ ...pair1, color: "auto" })).output)).toBe(false);
+    } finally {
+      delete process.env.NO_COLOR;
+      if (original) Object.defineProperty(process.stdout, "isTTY", original);
+      else delete (process.stdout as { isTTY?: boolean }).isTTY;
+    }
+  });
+
   it("keeps JSON output free of ANSI codes even with --color=always", () => {
     const outcome = runCompare(options({ ...pair1, format: "json", color: "always" }));
     expect(ANSI_ESCAPE.test(outcome.output)).toBe(false);
+  });
+
+  it("keeps Markdown output free of ANSI codes and still valid with --color=always", () => {
+    const always = runCompare(options({ ...pair2, format: "markdown", color: "always" }));
+    const never = runCompare(options({ ...pair2, format: "markdown", color: "never" }));
+    expect(ANSI_ESCAPE.test(always.output)).toBe(false);
+    // Color mode never leaks into the report: both modes emit the same bytes.
+    expect(always.output).toBe(never.output);
+    // Still parseable Markdown: the document heading, its sections, and the
+    // per-change definition list the report generator emits.
+    expect(always.output).toMatch(/^# Contract Drift Report$/m);
+    expect(always.output).toMatch(/^## Summary$/m);
+    expect(always.output).toMatch(/^## Changes$/m);
+    expect(always.output).toMatch(/^### WARNING · `/m);
+    expect(always.output).toMatch(/^- \*\*Change:\*\* /m);
+  });
+
+  it("colors each severity group heading with its role", () => {
+    const breaking = runCompare(options({ ...pair1, color: "always" })).output;
+    expect(breaking).toContain(`${ANSI_CODES.breaking}Breaking (1)`);
+
+    const warning = runCompare(options({ ...openapi, color: "always" })).output;
+    expect(warning).toContain(`${ANSI_CODES.warning}Warning (1)`);
+
+    const dir = mkdtempSync(path.join(tmpdir(), "driftmap-colors-"));
+    try {
+      const baseline = path.join(dir, "baseline.json");
+      const candidate = path.join(dir, "candidate.json");
+      writeFileSync(baseline, JSON.stringify([{ orderId: "o1", giftWrap: true, items: [{ sku: "A" }] }]));
+      writeFileSync(candidate, JSON.stringify([
+        { orderId: "o1", note: "hi", giftWrap: true, items: [{ sku: "A" }] },
+        { orderId: "o2", items: [{ sku: "A" }] },
+      ]));
+      const rest = runCompare(options({ baselinePath: baseline, candidatePath: candidate, failOn: "off", color: "always" })).output;
+      expect(rest).toContain(`${ANSI_CODES.safe}Safe (1)`);
+      expect(rest).toContain(`${ANSI_CODES.info}Info (1)`);
+      // Info is a real role of its own, not the dim secondary style.
+      expect(rest).not.toContain(`${ANSI_CODES.dim}Info`);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("makes the verdict the only bold element of the summary, and colors the counts", () => {
+    const fail = runCompare(options({ ...pair1, color: "always" })).output;
+    const failSummary = fail.split("\n")[3];
+    expect(failSummary).toContain(`${ANSI_CODES.verdictFail}FAIL`);
+    expect(failSummary).toContain(`${ANSI_CODES.breaking}1 breaking`);
+    // Counts keep their severity color but never a bold/bright role, so nothing
+    // competes with the verdict word for the eye.
+    expect(failSummary).not.toContain(`${ANSI_CODES.verdictFail}1 breaking`);
+    for (const role of ["verdictFail", "verdictPass", "pointer"] as const) {
+      const expected = role === "verdictFail" ? 1 : 0;
+      expect(failSummary.split(ANSI_CODES[role]).length - 1).toBe(expected);
+    }
+
+    const pass = runCompare(options({ ...pair2, failOn: "off", color: "always" })).output;
+    const passSummary = pass.split("\n")[3];
+    expect(passSummary).toContain(`${ANSI_CODES.verdictPass}PASS`);
+    expect(passSummary).toContain(`${ANSI_CODES.warning}2 warning`);
+    expect(passSummary.split(ANSI_CODES.verdictPass).length - 1).toBe(1);
+  });
+
+  it("colors the pointer column and dims the header, separator, and footer", () => {
+    const outcome = runCompare(options({ ...pair1, color: "always" })).output;
+    const lines = outcome.split("\n");
+    expect(outcome).toContain(`${ANSI_CODES.pointer}/customer/id`);
+    expect(lines[0]).toContain(ANSI_CODES.dim);
+    expect(lines[1]).toContain(ANSI_CODES.dim);
+    expect(lines[2]).toContain(ANSI_CODES.dim);
+    expect(lines[lines.length - 1]).toContain(ANSI_CODES.dim);
+  });
+
+  it("dims absent/missing types except a missing AFTER in a breaking group", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "driftmap-type-colors-"));
+    try {
+      const removedBaseline = path.join(dir, "removed-baseline.json");
+      const removedCandidate = path.join(dir, "removed-candidate.json");
+      writeFileSync(removedBaseline, JSON.stringify({ id: "1", name: "x", tag: "t" }));
+      writeFileSync(removedCandidate, JSON.stringify({ id: "1", tag: "t" }));
+      const removed = runCompare(options({ baselinePath: removedBaseline, candidatePath: removedCandidate, color: "always" })).output;
+      expect(removed).toContain(`${ANSI_CODES.breaking}missing`);
+
+      const addedBaseline = path.join(dir, "added-baseline.json");
+      const addedCandidate = path.join(dir, "added-candidate.json");
+      writeFileSync(addedBaseline, JSON.stringify({ id: "1" }));
+      writeFileSync(addedCandidate, JSON.stringify({ id: "1", note: "x" }));
+      const added = runCompare(options({ baselinePath: addedBaseline, candidatePath: addedCandidate, color: "always" })).output;
+      expect(added).toContain(`${ANSI_CODES.dim}absent`);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps every visible line within 80 columns for both fixture pairs, color on and off", () => {
+    for (const paths of [pair1, pair2, openapi]) {
+      const plain = runCompare(options({ ...paths, color: "never" })).output;
+      const colored = runCompare(options({ ...paths, color: "always" })).output;
+      // Color is purely additive: stripping it reproduces the plain bytes.
+      expect(stripAnsi(colored)).toBe(plain);
+      expect(plain.split("\n").some((line) => line.length > 0)).toBe(true);
+      for (const output of [plain, colored]) {
+        for (const line of output.split("\n")) {
+          expect([...stripAnsi(line)].length).toBeLessThanOrEqual(80);
+        }
+      }
+      // And the escapes really were there to strip.
+      expect(colored.split("\n").some((line) => line.length > stripAnsi(line).length)).toBe(true);
+    }
+  });
+
+  it("keeps every visible line within 80 columns with --verbose", () => {
+    for (const paths of [pair1, pair2, openapi]) {
+      const outcome = runCompare(options({ ...paths, verbose: true, color: "never" }));
+      for (const line of outcome.output.split("\n")) {
+        expect([...line].length).toBeLessThanOrEqual(80);
+      }
+    }
   });
 });
 
