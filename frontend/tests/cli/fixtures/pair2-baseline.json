@@ -1,0 +1,14 @@
+[
+  {
+    "orderId": "ord-2001",
+    "status": "paid",
+    "customer": { "email": "ada@example.com" },
+    "items": [{ "sku": "TS-M", "quantity": 2 }]
+  },
+  {
+    "orderId": "ord-2002",
+    "status": "pending",
+    "customer": { "email": "grace@example.com" },
+    "items": [{ "sku": "TS-L", "quantity": 1 }]
+  }
+]
