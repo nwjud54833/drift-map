@@ -25,6 +25,8 @@ import type { ChangeSeverity, ContractChange, ContractDirection, ContractNode, D
 import { ruleIdFor } from "@/lib/driftmap/rules";
 import { parseImportArtifact } from "@/lib/workbench/import-artifact";
 
+import { createPaint, type ColorRole, type Paint } from "./colors";
+
 export type FailOn = "breaking" | "warning" | "off";
 export type OutputFormat = "text" | "json" | "markdown";
 export type ColorMode = "auto" | "always" | "never";
@@ -243,21 +245,6 @@ export interface CompareOutcome {
  * Text presentation
  * ======================================================================== */
 
-type PaletteKey = "red" | "yellow" | "green" | "dim";
-type ColorFn = (text: string) => string;
-type Palette = Record<PaletteKey, ColorFn>;
-
-/** ANSI color codes are an enhancement only; every marker also exists plain. */
-function palette(useColor: boolean): Palette {
-  if (!useColor) return { red: identity, yellow: identity, green: identity, dim: identity };
-  const wrap = (code: string): ColorFn => (text) => `\u001b[${code}m${text}\u001b[0m`;
-  return { red: wrap("31"), yellow: wrap("33"), green: wrap("32"), dim: wrap("2") };
-}
-
-function identity(text: string): string {
-  return text;
-}
-
 /**
  * Colors enable only for --color=always (forced), or for --color=auto when
  * stdout is a TTY and NO_COLOR is unset.
@@ -270,17 +257,19 @@ export function resolveColors(mode: ColorMode): boolean {
 
 const SEVERITIES: readonly ChangeSeverity[] = ["breaking", "warning", "safe", "info"];
 
+type SeverityColorRole = Extract<ColorRole, "breaking" | "warning" | "safe" | "info">;
+
 interface SeverityStyle {
   marker: string;
-  color: PaletteKey;
+  role: SeverityColorRole;
   word: string;
 }
 
 const SEVERITY_STYLES: Readonly<Record<ChangeSeverity, SeverityStyle>> = {
-  breaking: { marker: "[!!]", color: "red", word: "BREAKING" },
-  warning: { marker: "[~ ]", color: "yellow", word: "WARNING" },
-  safe: { marker: "[ok]", color: "green", word: "SAFE" },
-  info: { marker: "[i ]", color: "dim", word: "INFO" },
+  breaking: { marker: "[!!]", role: "breaking", word: "BREAKING" },
+  warning: { marker: "[~ ]", role: "warning", word: "WARNING" },
+  safe: { marker: "[ok]", role: "safe", word: "SAFE" },
+  info: { marker: "[i ]", role: "info", word: "INFO" },
 };
 
 const MAX_LINE_WIDTH = 80;
@@ -342,10 +331,15 @@ function groupRows(changes: readonly ContractChange[], options: CompareOptions):
   return groups;
 }
 
-function renderGroup(group: GroupRows, useColor: boolean, verbose: boolean): string[] {
-  const paint = palette(useColor);
+function typeColorRole(text: string, side: "before" | "after", severity: ChangeSeverity): ColorRole | null {
+  if (text === "missing" && side === "after" && severity === "breaking") return "breaking";
+  if (text === "absent" || text === "missing") return "dim";
+  return null;
+}
+
+function renderGroup(group: GroupRows, paint: Paint, verbose: boolean): string[] {
   const lines: string[] = [];
-  lines.push(`  ${group.marker} ${paint[group.color](group.word)} (${group.rows.length})`);
+  lines.push(`  ${paint(group.role, group.marker)} ${paint(group.role, group.word)} (${group.rows.length})`);
 
   let pointerCol = "POINTER".length;
   let changeCol = "CHANGE".length;
@@ -379,30 +373,34 @@ function renderGroup(group: GroupRows, useColor: boolean, verbose: boolean): str
   const header = verbose
     ? `${"POINTER".padEnd(pointerCol)}${" ".repeat(GUTTER)}${"CHANGE".padEnd(changeCol)}${" ".repeat(GUTTER)}${"RULE".padEnd(ruleCol)}${" ".repeat(GUTTER)}${"BEFORE".padEnd(beforeCol)}${" ".repeat(GUTTER)}AFTER`
     : `${"POINTER".padEnd(pointerCol)}${" ".repeat(GUTTER)}${"CHANGE".padEnd(changeCol)}${" ".repeat(GUTTER)}${"BEFORE".padEnd(beforeCol)}${" ".repeat(GUTTER)}AFTER`;
-  lines.push(`${" ".repeat(ROW_INDENT)}${header}`);
+  lines.push(`${" ".repeat(ROW_INDENT)}${paint("dim", header)}`);
 
   for (const row of group.rows) {
-    const pointer = truncateFromLeft(row.pointer, pointerCol).padEnd(pointerCol);
+    const pointer = paint("pointer", truncateFromLeft(row.pointer, pointerCol).padEnd(pointerCol));
     const cells = [row.label.padEnd(changeCol)];
     if (verbose) {
       cells.push(truncateFromLeft(row.rule, ruleCol).padEnd(ruleCol));
     }
-    cells.push(row.before.padEnd(beforeCol), row.after);
+    const beforeRole = typeColorRole(row.before, "before", group.severity);
+    const before = row.before.padEnd(beforeCol);
+    cells.push(beforeRole ? paint(beforeRole, before) : before);
+    const afterRole = typeColorRole(row.after, "after", group.severity);
+    cells.push(afterRole ? paint(afterRole, row.after) : row.after);
     lines.push(`${" ".repeat(ROW_INDENT)}${pointer}${" ".repeat(GUTTER)}${cells.join(" ".repeat(GUTTER))}`);
   }
   return lines;
 }
 
-function countLine(summary: DiffSummary, paint: Palette): string {
+function countLine(summary: DiffSummary, paint: Paint): string {
   const items: string[] = [];
-  const pairs: { count: number; word: string; color: PaletteKey }[] = [
-    { count: summary.breaking, word: "breaking", color: "red" },
-    { count: summary.warning, word: "warning", color: "yellow" },
-    { count: summary.safe, word: "safe", color: "green" },
-    { count: summary.info, word: "info", color: "dim" },
+  const pairs: { count: number; word: string; role: SeverityColorRole }[] = [
+    { count: summary.breaking, word: "breaking", role: "breaking" },
+    { count: summary.warning, word: "warning", role: "warning" },
+    { count: summary.safe, word: "safe", role: "safe" },
+    { count: summary.info, word: "info", role: "info" },
   ];
-  for (const { count, word, color } of pairs) {
-    items.push(paint[color](`${count} ${word}`));
+  for (const { count, word, role } of pairs) {
+    items.push(paint(role, `${count} ${word}`));
   }
   return items.join("   ");
 }
@@ -422,19 +420,20 @@ function renderText(report: TextReport, useColor: boolean): string {
     // Scripts consume this; keep it plain even with --color=always.
     return verdictLine(report.exitCode);
   }
-  const paint = palette(useColor);
+  const paint = createPaint(useColor);
   const files = truncateFromLeft(basename(options.baselinePath), 40) + " \u2192 " + truncateFromLeft(basename(options.candidatePath), 40);
   const lines = [
-    `driftmap compare  ${files}`,
-    `${options.direction} · fail on ${options.failOn}`,
+    paint("dim", `driftmap compare  ${files}`),
+    paint("dim", `${options.direction} · fail on ${options.failOn}`),
   ];
   if (options.verbose) {
     lines.push(`  baseline samples: ${baseline.samples ?? "none (OpenAPI)"} · candidate samples: ${candidate.samples ?? "none (OpenAPI)"}`);
   }
-  lines.push(`  ${countLine(summary, paint)}        ${report.exitCode === 1 ? paint.red("RESULT: FAIL (exit 1)") : paint.green(verdictLine(0))}`);
+  const verdictRole: ColorRole = report.exitCode === 1 ? "verdictFail" : "verdictPass";
+  lines.push(`  ${countLine(summary, paint)}        ${paint(verdictRole, verdictLine(report.exitCode))}`);
 
   for (const group of groupRows(report.changes, options)) {
-    lines.push("", ...renderGroup(group, useColor, options.verbose));
+    lines.push("", ...renderGroup(group, paint, options.verbose));
   }
   return lines.join("\n");
 }
