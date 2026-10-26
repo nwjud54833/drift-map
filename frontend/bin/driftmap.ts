@@ -45,7 +45,7 @@ export type ParseResult =
   | { ok: true; options: CompareOptions; help: boolean }
   | { ok: false; message: string };
 
-export const USAGE = `Usage: driftmap compare <baseline> <candidate> [options]
+export const USAGE = `Usage: driftmap-cli compare <baseline> <candidate> [options]
 
 Compare two JSON payloads, arrays of payload samples, or OpenAPI 3.0 documents
 (JSON or YAML). The input type is detected from file contents, not extensions.
@@ -59,6 +59,8 @@ Options:
   --verbose                             Show raw RULE_* IDs and sample counts (text format)
   --color <auto|always|never>           When to colorize (default: auto; colors need a TTY and NO_COLOR unset)
   --help                                Show this help
+
+Installed commands: driftmap-cli, driftmap
 
 Exit codes:
   0  no findings at or above the --fail-on level
@@ -142,10 +144,10 @@ export function parseCliArguments(argv: string[]): ParseResult {
 
   const [command, baselinePath, candidatePath, ...extra] = parsed.positionals;
   if (command !== "compare") {
-    return { ok: false, message: `Unknown command "${command ?? ""}". Usage: driftmap compare <baseline> <candidate>.` };
+    return { ok: false, message: `Unknown command "${command ?? ""}". Usage: driftmap-cli compare <baseline> <candidate>.` };
   }
   if (!baselinePath || !candidatePath) {
-    return { ok: false, message: "Provide exactly two file paths: driftmap compare <baseline> <candidate>." };
+    return { ok: false, message: "Provide exactly two file paths: driftmap-cli compare <baseline> <candidate>." };
   }
   if (extra.length > 0) {
     return { ok: false, message: `Unexpected extra argument "${extra[0]}". Provide exactly two file paths.` };

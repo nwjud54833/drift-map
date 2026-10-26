@@ -403,7 +403,8 @@ describe("output formats", () => {
   });
 
   it("documents the usage text with the new flags", () => {
-    expect(USAGE).toContain("driftmap compare <baseline> <candidate>");
+    expect(USAGE).toContain("driftmap-cli compare <baseline> <candidate>");
+    expect(USAGE).toContain("Installed commands: driftmap-cli, driftmap");
     expect(USAGE).toContain("--fail-on <breaking|warning|off>");
     expect(USAGE).toContain("--quiet");
     expect(USAGE).toContain("--verbose");
