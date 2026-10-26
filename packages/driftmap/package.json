@@ -1,0 +1,42 @@
+{
+  "name": "driftmap-cli",
+  "version": "0.1.0",
+  "description": "Detect API drift by comparing live API samples against an inferred or OpenAPI contract. See the full docs at the repo homepage.",
+  "bin": {
+    "driftmap": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nwjud54833/drift-map.git",
+    "directory": "packages/driftmap"
+  },
+  "homepage": "https://github.com/nwjud54833/drift-map#readme",
+  "bugs": {
+    "url": "https://github.com/nwjud54833/drift-map/issues"
+  },
+  "keywords": [
+    "api",
+    "openapi",
+    "contract",
+    "drift",
+    "cli",
+    "testing"
+  ],
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node --test test/smoke.test.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.27.2"
+  },
+  "type": "module"
+}
