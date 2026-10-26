@@ -27,6 +27,16 @@ import { parseImportArtifact } from "@/lib/workbench/import-artifact";
 
 import { createPaint, type ColorRole, type Paint } from "./colors";
 
+/**
+ * The version shown in the header. `packages/driftmap/build.mjs` (esbuild) and
+ * `frontend/vitest.config.ts` both inject it from
+ * `packages/driftmap/package.json`, so the published bundle, the tests, and the
+ * manifest cannot drift apart. Running the source with neither of them (plain
+ * tsx) falls back to the dev marker rather than throwing.
+ */
+declare const __DRIFTMAP_VERSION__: string;
+export const CLI_VERSION: string = typeof __DRIFTMAP_VERSION__ === "string" ? __DRIFTMAP_VERSION__ : "0.0.0-dev";
+
 export type FailOn = "breaking" | "warning" | "off";
 export type OutputFormat = "text" | "json" | "markdown";
 export type ColorMode = "auto" | "always" | "never";
@@ -259,22 +269,26 @@ const SEVERITIES: readonly ChangeSeverity[] = ["breaking", "warning", "safe", "i
 
 type SeverityColorRole = Extract<ColorRole, "breaking" | "warning" | "safe" | "info">;
 
-interface SeverityStyle {
-  marker: string;
-  role: SeverityColorRole;
-  word: string;
-}
-
-const SEVERITY_STYLES: Readonly<Record<ChangeSeverity, SeverityStyle>> = {
-  breaking: { marker: "[!!]", role: "breaking", word: "BREAKING" },
-  warning: { marker: "[~ ]", role: "warning", word: "WARNING" },
-  safe: { marker: "[ok]", role: "safe", word: "SAFE" },
-  info: { marker: "[i ]", role: "info", word: "INFO" },
+/**
+ * Sentence-case group headings. The CLI dropped the old [!!] / [~ ] / [i ]
+ * markers: a colored heading and its count already carry the severity, and the
+ * markers were only noise to scan past.
+ */
+const SEVERITY_WORDS: Readonly<Record<ChangeSeverity, string>> = {
+  breaking: "Breaking",
+  warning: "Warning",
+  safe: "Safe",
+  info: "Info",
 };
 
 const MAX_LINE_WIDTH = 80;
-const GUTTER = 2;
+/** The decorative box-drawing rule under the header line. */
+const RULE_WIDTH = 56;
+const BASE_INDENT = 2;
 const ROW_INDENT = 4;
+const GUTTER = 2;
+/** The separator between the known type and the incoming type. */
+const ARROW = " → ";
 
 function truncateFromLeft(text: string, width: number): string {
   if (text.length <= width) return text;
@@ -307,13 +321,15 @@ export function verdictLine(exitCode: number): string {
   return `RESULT: ${exitCode === 1 ? "FAIL" : "PASS"} (exit ${exitCode})`;
 }
 
-interface GroupRows extends SeverityStyle {
+interface Group {
   severity: ChangeSeverity;
+  word: string;
+  role: SeverityColorRole;
   rows: { pointer: string; label: string; before: string; after: string; rule: string }[];
 }
 
-function groupRows(changes: readonly ContractChange[], options: CompareOptions): GroupRows[] {
-  const groups: GroupRows[] = [];
+function groupRows(changes: readonly ContractChange[], options: CompareOptions): Group[] {
+  const groups: Group[] = [];
   for (const severity of SEVERITIES) {
     const group = changes.filter((change) => change.severity === severity);
     if (group.length === 0) continue;
@@ -326,7 +342,7 @@ function groupRows(changes: readonly ContractChange[], options: CompareOptions):
         after: nodeType(change.after, "candidate"),
         rule: ruleOf(change, options.direction),
       }));
-    groups.push({ ...SEVERITY_STYLES[severity], severity, rows });
+    groups.push({ severity, word: SEVERITY_WORDS[severity], role: severity, rows });
   }
   return groups;
 }
@@ -335,74 +351,6 @@ function typeColorRole(text: string, side: "before" | "after", severity: ChangeS
   if (text === "missing" && side === "after" && severity === "breaking") return "breaking";
   if (text === "absent" || text === "missing") return "dim";
   return null;
-}
-
-function renderGroup(group: GroupRows, paint: Paint, verbose: boolean): string[] {
-  const lines: string[] = [];
-  lines.push(`  ${paint(group.role, group.marker)} ${paint(group.role, group.word)} (${group.rows.length})`);
-
-  let pointerCol = "POINTER".length;
-  let changeCol = "CHANGE".length;
-  let beforeCol = "BEFORE".length;
-  let afterCol = "AFTER".length;
-  let ruleCol = verbose ? "RULE".length : 0;
-  for (const row of group.rows) {
-    pointerCol = Math.max(pointerCol, row.pointer.length);
-    changeCol = Math.max(changeCol, row.label.length);
-    beforeCol = Math.max(beforeCol, row.before.length);
-    afterCol = Math.max(afterCol, row.after.length);
-    if (verbose) ruleCol = Math.max(ruleCol, row.rule.length);
-  }
-
-  // The change label and the types are never truncated. The pointer and (when
-  // verbose) the RULE_* column share the remaining width: the pointer keeps up
-  // to half the slack, the RULE column takes the rest, and both truncate from
-  // the left when shorter than their maximum.
-  const shared = Math.max(2, MAX_LINE_WIDTH - (ROW_INDENT + changeCol + beforeCol + afterCol + GUTTER * (3 + (verbose ? 1 : 0))));
-  const ruleMax = ruleCol;
-  const pointerMax = pointerCol;
-  if (verbose) {
-    const pointerShare = Math.max(1, Math.floor(shared / 2));
-    pointerCol = Math.min(pointerMax, pointerShare);
-    ruleCol = Math.min(ruleMax, Math.max(1, shared - pointerCol));
-    pointerCol = Math.min(pointerMax, Math.max(1, shared - ruleCol));
-  } else {
-    pointerCol = Math.min(pointerMax, Math.max(1, shared));
-  }
-
-  const header = verbose
-    ? `${"POINTER".padEnd(pointerCol)}${" ".repeat(GUTTER)}${"CHANGE".padEnd(changeCol)}${" ".repeat(GUTTER)}${"RULE".padEnd(ruleCol)}${" ".repeat(GUTTER)}${"BEFORE".padEnd(beforeCol)}${" ".repeat(GUTTER)}AFTER`
-    : `${"POINTER".padEnd(pointerCol)}${" ".repeat(GUTTER)}${"CHANGE".padEnd(changeCol)}${" ".repeat(GUTTER)}${"BEFORE".padEnd(beforeCol)}${" ".repeat(GUTTER)}AFTER`;
-  lines.push(`${" ".repeat(ROW_INDENT)}${paint("dim", header)}`);
-
-  for (const row of group.rows) {
-    const pointer = paint("pointer", truncateFromLeft(row.pointer, pointerCol).padEnd(pointerCol));
-    const cells = [row.label.padEnd(changeCol)];
-    if (verbose) {
-      cells.push(truncateFromLeft(row.rule, ruleCol).padEnd(ruleCol));
-    }
-    const beforeRole = typeColorRole(row.before, "before", group.severity);
-    const before = row.before.padEnd(beforeCol);
-    cells.push(beforeRole ? paint(beforeRole, before) : before);
-    const afterRole = typeColorRole(row.after, "after", group.severity);
-    cells.push(afterRole ? paint(afterRole, row.after) : row.after);
-    lines.push(`${" ".repeat(ROW_INDENT)}${pointer}${" ".repeat(GUTTER)}${cells.join(" ".repeat(GUTTER))}`);
-  }
-  return lines;
-}
-
-function countLine(summary: DiffSummary, paint: Paint): string {
-  const items: string[] = [];
-  const pairs: { count: number; word: string; role: SeverityColorRole }[] = [
-    { count: summary.breaking, word: "breaking", role: "breaking" },
-    { count: summary.warning, word: "warning", role: "warning" },
-    { count: summary.safe, word: "safe", role: "safe" },
-    { count: summary.info, word: "info", role: "info" },
-  ];
-  for (const { count, word, role } of pairs) {
-    items.push(paint(role, `${count} ${word}`));
-  }
-  return items.join("   ");
 }
 
 interface TextReport {
@@ -414,27 +362,79 @@ interface TextReport {
   changes: ContractChange[];
 }
 
+/**
+ * The whole plain-text layout: header, summary block, one block per severity
+ * that has findings, then a one-line footer. This is the only function that
+ * decides how a text report is arranged.
+ */
 function renderText(report: TextReport, useColor: boolean): string {
   const { options, baseline, candidate, summary } = report;
   if (options.quiet) {
     // Scripts consume this; keep it plain even with --color=always.
     return verdictLine(report.exitCode);
   }
-  const paint = createPaint(useColor);
-  const files = truncateFromLeft(basename(options.baselinePath), 40) + " \u2192 " + truncateFromLeft(basename(options.candidatePath), 40);
-  const lines = [
-    paint("dim", `driftmap compare  ${files}`),
-    paint("dim", `${options.direction} · fail on ${options.failOn}`),
-  ];
+
+  const paint: Paint = createPaint(useColor);
+  const pad = " ".repeat(BASE_INDENT);
+  const lines: string[] = [];
+
+  // Header: tool, version, command - one line, no art.
+  lines.push(paint("dim", `${pad}driftmap ${CLI_VERSION} · compare`));
+  lines.push(paint("dim", `${pad}${"─".repeat(RULE_WIDTH)}`));
+
+  // Summary: the two file names, then the verdict and the counts. Only the
+  // verdict word is bold/bright; the counts keep their severity color but are
+  // never bold, so nothing competes with PASS/FAIL for the eye.
+  const suffix = ` · ${options.direction}`;
+  const nameCol = Math.max(8, Math.floor((MAX_LINE_WIDTH - BASE_INDENT - suffix.length - ARROW.length) / 2));
+  const files = `${truncateFromLeft(basename(options.baselinePath), nameCol)}${ARROW}${truncateFromLeft(basename(options.candidatePath), nameCol)}`;
+  lines.push(paint("dim", `${pad}${files}${suffix}`));
+
+  const failed = report.exitCode === 1;
+  const verdictRole: ColorRole = failed ? "verdictFail" : "verdictPass";
+  const counts = SEVERITIES.map((severity) => paint(severity, `${summary[severity]} ${severity}`)).join(" · ");
+  lines.push(`${pad}${paint(verdictRole, failed ? "FAIL" : "PASS")}   ${counts}`);
+
   if (options.verbose) {
-    lines.push(`  baseline samples: ${baseline.samples ?? "none (OpenAPI)"} · candidate samples: ${candidate.samples ?? "none (OpenAPI)"}`);
+    lines.push(paint("dim", `${pad}baseline samples: ${baseline.samples ?? "none (OpenAPI)"} · candidate samples: ${candidate.samples ?? "none (OpenAPI)"}`));
   }
-  const verdictRole: ColorRole = report.exitCode === 1 ? "verdictFail" : "verdictPass";
-  lines.push(`  ${countLine(summary, paint)}        ${paint(verdictRole, verdictLine(report.exitCode))}`);
 
   for (const group of groupRows(report.changes, options)) {
-    lines.push("", ...renderGroup(group, paint, options.verbose));
+    // Columns are sized per group, so a short block stays tight instead of
+    // inheriting the widest pointer in the whole report. --verbose swaps the
+    // human label for the raw RULE_* ID rather than adding a column: four
+    // columns leave no room for the pointer inside 80 columns, and
+    // left-truncating a RULE_* ID would eat the part that names the change.
+    const describe = (row: Group["rows"][number]) => (options.verbose ? row.rule : row.label);
+    const labelCol = Math.max(...group.rows.map((row) => describe(row).length));
+    const typeCol = Math.max(...group.rows.map((row) => `${row.before}${ARROW}${row.after}`.length));
+    const pointerMax = Math.max(...group.rows.map((row) => row.pointer.length));
+    // A row is indent + pointer + GUTTER + cells joined by GUTTER, i.e. the
+    // indent, the pointer, both cell widths, and one GUTTER per cell.
+    const slack = Math.max(1, MAX_LINE_WIDTH - (ROW_INDENT + labelCol + typeCol + GUTTER * 2));
+    // The label and the types are never truncated; a long pointer truncates
+    // from the left, so its tail - the field that actually changed - survives.
+    const pointerCol = Math.max(1, Math.min(pointerMax, slack));
+
+    lines.push("", `${pad}${paint(group.role, `${group.word} (${group.rows.length})`)}`);
+    for (const row of group.rows) {
+      const pointer = paint("pointer", truncateFromLeft(row.pointer, pointerCol).padEnd(pointerCol));
+      const beforeRole = typeColorRole(row.before, "before", group.severity);
+      const afterRole = typeColorRole(row.after, "after", group.severity);
+      const before = beforeRole ? paint(beforeRole, row.before) : row.before;
+      const after = afterRole ? paint(afterRole, row.after) : row.after;
+      const cells = [describe(row).padEnd(labelCol), `${before}${ARROW}${after}`];
+      lines.push(`${" ".repeat(ROW_INDENT)}${pointer}${" ".repeat(GUTTER)}${cells.join(" ".repeat(GUTTER))}`);
+    }
   }
+
+  // Footer: the exit code and exactly one hint. It never restates the summary.
+  const hint = failed
+    ? "use --fail-on off to report without failing"
+    : options.failOn === "off" && report.changes.length > 0
+      ? "set --fail-on breaking to let findings fail the run"
+      : "no findings at or above the --fail-on level";
+  lines.push("", paint("dim", `${pad}Exit ${report.exitCode} · ${hint}`));
   return lines.join("\n");
 }
 

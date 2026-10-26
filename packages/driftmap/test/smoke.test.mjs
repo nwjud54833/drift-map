@@ -51,15 +51,15 @@ test("both executable names ship and point at the bundled CLI", () => {
 test("pair1 fixture pair is breaking (exit 1)", () => {
   const r = run(["compare", join(fixtures, "pair1-baseline.json"), join(fixtures, "pair1-candidate.json")]);
   assert.equal(r.status, 1);
-  assert.match(r.stdout, /RESULT: FAIL \(exit 1\)/);
+  assert.match(r.stdout, /^ {2}FAIL\b/m);
 });
 
 test("--color=always emits ANSI roles and --color=never emits none", () => {
   const args = ["compare", join(fixtures, "pair1-baseline.json"), join(fixtures, "pair1-candidate.json")];
   const colored = run(args, "always");
   assert.equal(colored.status, 1);
-  assert.match(colored.stdout, /\u001b\[91m\[!!\]/);
-  assert.match(colored.stdout, /\u001b\[1;91mRESULT: FAIL \(exit 1\)/);
+  assert.match(colored.stdout, /\u001b\[91mBreaking \(1\)/);
+  assert.match(colored.stdout, /\u001b\[1;91mFAIL/);
   const plain = run(args, "never");
   assert.doesNotMatch(plain.stdout, /\u001b\[/);
 });
@@ -67,7 +67,7 @@ test("--color=always emits ANSI roles and --color=never emits none", () => {
 test("--fail-on off turns a breaking pair into exit 0", () => {
   const r = run(["compare", "--fail-on", "off", join(fixtures, "pair1-baseline.json"), join(fixtures, "pair1-candidate.json")]);
   assert.equal(r.status, 0);
-  assert.match(r.stdout, /RESULT: PASS \(exit 0\)/);
+  assert.match(r.stdout, /^ {2}PASS\b/m);
 });
 
 for (const side of ["pair1", "pair2"]) {
@@ -84,4 +84,19 @@ test("invalid JSON input is a usage error (exit 2)", () => {
   const r = run(["compare", bad, join(fixtures, "pair1-candidate.json")]);
   assert.equal(r.status, 2);
   assert.match(r.stdout, /^error: /m);
+});
+
+test("the shipped bundle prints its manifest version and stays within 80 columns", () => {
+  const manifest = JSON.parse(readFileSync(join(here, "..", "package.json"), "utf8"));
+  const stripAnsi = (line) => line.replace(/\u001b\[[0-9;]*m/g, "");
+  for (const side of ["pair1", "pair2"]) {
+    for (const color of ["never", "always"]) {
+      const r = run(["compare", join(fixtures, side + "-baseline.json"), join(fixtures, side + "-candidate.json"), "--fail-on", "off"], color);
+      const lines = r.stdout.replace(/\n$/, "").split("\n");
+      assert.equal(stripAnsi(lines[0]), `  driftmap ${manifest.version} \u00b7 compare`);
+      for (const line of lines) {
+        assert.ok(stripAnsi(line).length <= 80, `line over 80 columns: ${JSON.stringify(line)}`);
+      }
+    }
+  }
 });
