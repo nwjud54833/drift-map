@@ -21,6 +21,7 @@ await build({
   alias: {
     "@": frontend,
   },
+  nodePaths: [join(here, "node_modules")],
   tsconfig: join(frontend, "tsconfig.json"),
   legalComments: "none",
 });

@@ -36,7 +36,9 @@
     "test": "node --test test/smoke.test.mjs"
   },
   "devDependencies": {
-    "esbuild": "^0.27.2"
+    "esbuild": "^0.27.2",
+    "js-yaml": "4.3.2",
+    "zod": "4.6.5"
   },
   "type": "module"
 }
