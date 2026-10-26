@@ -2,10 +2,14 @@
 
 Command-line tool that detects API drift by comparing two JSON payloads (or OpenAPI 3.0 documents) inferred against each other as contracts. It is the CLI's presentation of the DriftMap engine; the full documentation lives in the repo: <https://github.com/nwjud54833/drift-map>.
 
+> The name `driftmap` on npm belongs to an unrelated project. Install and run `driftmap-cli`.
+
 ## Install
 
+Requires Node.js 20 or newer.
+
 ```sh
-npx driftmap compare baseline.json candidate.json
+npx driftmap-cli compare baseline.json candidate.json
 ```
 
 or add it to a project:
@@ -17,16 +21,16 @@ npm install --save-dev driftmap-cli
 ## Quick start
 
 ```sh
-driftmap compare order_v1.json order_v2.json
-driftmap compare --fail-on warning openapi-a.json samples.json
-driftmap compare --format json order_v1.json order_v2.json > diff.json
+npx driftmap-cli compare order_v1.json order_v2.json
+npx driftmap-cli compare --fail-on warning openapi-a.json samples.json
+npx driftmap-cli compare --format json order_v1.json order_v2.json > diff.json
 ```
 
 Detect breaking changes between two payload snapshots or OpenAPI 3.0 (JSON or YAML) specs. Compare result as text, JSON, or Markdown.
 
 ## Flags
 
-- `--direction` `request|response` — which side the payloads describe
+- `--direction` `request|response|event` — which side the payloads describe
 - `--fail-on` `breaking|warning|off` — threshold for the exit code (default `breaking`)
 - `--format` `text|json|markdown` — output format (default `text`)
 - `--out` — write the report to a file instead of stdout
