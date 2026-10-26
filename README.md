@@ -52,6 +52,59 @@ configuration, but can be set explicitly. Do not configure `TEST_DATABASE_URL`
 in Vercel. The build runs Prisma Client generation and `next build`; it does
 not apply database migrations.
 
+## Command line
+
+A small local wrapper around the contract engine is available from this checkout
+(`driftmap` compares two files without opening the workbench):
+
+```bash
+npx tsx frontend/bin/driftmap.ts compare <baseline> <candidate> [options]
+```
+
+Each input is a file path holding a JSON payload, a JSON array of payload
+samples, or an OpenAPI 3.0 document (JSON or YAML). The input type is detected
+from the file contents, not the extension.
+
+### Flags
+
+| Flag | Values | Default |
+| --- | --- | --- |
+| `--direction` | `response`, `request`, `event` | `response` |
+| `--fail-on` | `breaking`, `warning`, `off` | `breaking` |
+| `--format` | `text`, `json`, `markdown` | `text` |
+| `--out <file>` | file path | print to stdout |
+
+`--format json` emits a stable shape: `{ summary: { breaking, warning, safe, info }, changes: [{ pointer, kind, severity, rule, before, after }] }`.
+
+### Exit codes
+
+| Code | Meaning |
+| --- | --- |
+| `0` | No findings at or above the `--fail-on` level |
+| `1` | Findings met the `--fail-on` level |
+| `2` | Usage error, unreadable file, invalid JSON, or unsupported spec version |
+
+Inputs are capped at 2 MB per file. `--fail-on off` always exits `0` unless the
+arguments or the files themselves are unusable.
+
+The CLI is not yet published to npm; run it with `npx tsx` from a checkout of
+this repository.
+
+### Example: pre-deploy check in a shell script
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+# The spec you promised last deploy vs. the spec candidate you are about to ship.
+npx tsx frontend/bin/driftmap.ts compare   specs/orders-api@1.0.0.json   specs/orders-api@1.1.0.json   --direction response   --fail-on breaking   --format text
+
+echo "No breaking contract drift; safe to deploy."
+```
+
+The script fails (exit `1`) before deploy when the candidate has breaking
+drift.
+
 ## Privacy
 
 In local mode, JSON payloads and workspaces are stored in browser IndexedDB and
