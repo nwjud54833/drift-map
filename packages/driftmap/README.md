@@ -18,6 +18,8 @@ or add it to a project:
 npm install --save-dev driftmap-cli
 ```
 
+Installing the package also provides a second command, `driftmap`, with the same behavior as `driftmap-cli`. The npm name `driftmap` belongs to an unrelated package, so install `driftmap-cli` exactly.
+
 ## Quick start
 
 ```sh
