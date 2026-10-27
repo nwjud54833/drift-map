@@ -54,12 +54,14 @@ not apply database migrations.
 
 ## Command line
 
-A small local wrapper around the contract engine is available from this checkout
-(`driftmap` compares two files without opening the workbench):
+The CLI compares two files without opening the workbench. The package is
+published on npm as `driftmap-cli`:
 
 ```bash
-npx tsx frontend/bin/driftmap.ts compare <baseline> <candidate> [options]
+npx driftmap-cli@latest compare <before.json> <after.json>
 ```
+
+> **Install `driftmap-cli` exactly.** The npm name `driftmap` belongs to a different, unrelated package.
 
 Each input is a file path holding a JSON payload, a JSON array of payload
 samples, or an OpenAPI 3.0 document (JSON or YAML). The input type is detected
@@ -73,8 +75,11 @@ from the file contents, not the extension.
 | `--fail-on` | `breaking`, `warning`, `off` | `breaking` |
 | `--format` | `text`, `json`, `markdown` | `text` |
 | `--out <file>` | file path | print to stdout |
+| `--verbose` | (no value) | off |
 
 `--format json` emits a stable shape: `{ summary: { breaking, warning, safe, info }, changes: [{ pointer, kind, severity, rule, before, after }] }`.
+
+`--verbose` includes raw `RULE_*` identifiers and sample counts in the text report.
 
 ### Exit codes
 
@@ -87,8 +92,9 @@ from the file contents, not the extension.
 Inputs are capped at 2 MB per file. `--fail-on off` always exits `0` unless the
 arguments or the files themselves are unusable.
 
-The CLI is not yet published to npm; run it with `npx tsx` from a checkout of
-this repository.
+The package is published on npm as `driftmap-cli`. Run it with
+`npx driftmap-cli@latest compare <before.json> <after.json>`, or add it to a
+project with `npm install --save-dev driftmap-cli`.
 
 ### Example: pre-deploy check in a shell script
 
@@ -97,7 +103,7 @@ this repository.
 set -euo pipefail
 
 # The spec you promised last deploy vs. the spec candidate you are about to ship.
-npx tsx frontend/bin/driftmap.ts compare   specs/orders-api@1.0.0.json   specs/orders-api@1.1.0.json   --direction response   --fail-on breaking   --format text
+npx driftmap-cli@latest compare   specs/orders-api@1.0.0.json   specs/orders-api@1.1.0.json   --direction response   --fail-on breaking   --format text
 
 echo "No breaking contract drift; safe to deploy."
 ```
