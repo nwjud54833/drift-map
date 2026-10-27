@@ -3,9 +3,9 @@
  * `driftmap` — compare two JSON payloads or OpenAPI 3.0 documents from the
  * command line, wrapping the same contract engine the web workbench uses.
  *
- * Run from a checkout with tsx (the package is not published to npm yet):
+ * Install: npm install -g driftmap-cli
  *
- *   npx tsx frontend/bin/driftmap.ts compare baseline.json candidate.json
+ * Run:     driftmap-cli compare baseline.json candidate.json
  *
  * Imports only the pure engine modules (`lib/contract/*`, the workbench's
  * content-sniffing `parseImportArtifact`, and the `ruleIdFor` vocabulary).
