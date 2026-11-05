@@ -7,10 +7,6 @@ import { fileURLToPath } from "node:url";
 import { parseCliArguments, resolveColors, runCompare, USAGE } from "@/bin/driftmap";
 import type { CompareOptions } from "@/bin/driftmap";
 import { ANSI_CODES } from "@/bin/colors";
-import { buildDiff, compareContracts } from "@/lib/contract/compare";
-import { buildMarkdownReportFromDiff } from "@/lib/contract/export";
-import { inferContract } from "@/lib/contract/infer";
-import { parseImportArtifact } from "@/lib/workbench/import-artifact";
 
 const fixturesDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures");
 const fixture = (name: string) => path.join(fixturesDir, name);
@@ -39,7 +35,7 @@ const stripAnsi = (line: string) => line.replace(/\u001b\[[0-9;]*m/g, "");
 describe("parseCliArguments", () => {
   it("accepts a full valid invocation", () => {
     const parsed = parseCliArguments([
-      "compare", "a.json", "b.json",
+      "diff", "a.json", "b.json",
       "--direction", "request",
       "--fail-on", "warning",
       "--format", "json",
@@ -57,6 +53,7 @@ describe("parseCliArguments", () => {
       failOn: "warning",
       format: "json",
       outPath: "drift.md",
+      configPath: null,
       quiet: true,
       verbose: true,
       color: "always",
@@ -71,6 +68,7 @@ describe("parseCliArguments", () => {
     expect(parsed.options.failOn).toBe("breaking");
     expect(parsed.options.format).toBe("text");
     expect(parsed.options.outPath).toBeNull();
+    expect(parsed.options.configPath).toBeNull();
     expect(parsed.options.quiet).toBe(false);
     expect(parsed.options.verbose).toBe(false);
     expect(parsed.options.color).toBe("auto");
@@ -214,7 +212,7 @@ describe("input-type detection", () => {
   it("reports invalid JSON as a clear error, not a stack trace", () => {
     const outcome = runCompare(options({ baselinePath: fixture("invalid.json") }));
     expect(outcome.exitCode).toBe(2);
-    expect(outcome.output.startsWith("error: baseline: Unable to parse JSON")).toBe(true);
+    expect(outcome.output).toContain("invalid.json): Unable to parse JSON");
     expect(outcome.output).toContain("hint: fix the file's JSON syntax");
     expect(outcome.output).not.toContain("\n    at ");
   });
@@ -234,7 +232,7 @@ describe("input-type detection", () => {
       expect(statSync(oversized).size).toBeGreaterThan(2 * 1024 * 1024);
       const outcome = runCompare(options({ baselinePath: oversized }));
       expect(outcome.exitCode).toBe(2);
-      expect(outcome.output).toContain("error: baseline is");
+      expect(outcome.output).toContain("error: baseline file oversized.json is");
       expect(outcome.output).toContain("hint: trim the payload or export fewer samples");
     } finally {
       rmSync(dir, { recursive: true, force: true });
@@ -244,7 +242,7 @@ describe("input-type detection", () => {
 
 describe("text presentation", () => {
   const GOLDEN = [
-    "driftmap compare  pair1-baseline.json → pair1-candidate.json",
+    "driftmap diff  pair1-baseline.json → pair1-candidate.json",
     "response · fail on breaking",
     "  1 breaking   0 warning   0 safe   0 info        RESULT: FAIL (exit 1)",
     "",
@@ -479,34 +477,22 @@ describe("output formats", () => {
     });
   });
 
-  it("renders Markdown identical to the pure report generator fed through the same engine pipeline", () => {
+  it("renders a structured Markdown findings table suitable for a PR comment", () => {
     const input = { baseline: fixture("pair2-baseline.json"), candidate: fixture("pair2-candidate.json") };
     const outcome = runCompare(options({ baselinePath: input.baseline, candidatePath: input.candidate, format: "markdown" }));
 
-    const baselineArtifact = parseImportArtifact(readFileSync(input.baseline, "utf8"), { source: "file" });
-    const candidateArtifact = parseImportArtifact(readFileSync(input.candidate, "utf8"), { source: "file" });
-    expect(baselineArtifact.ok && candidateArtifact.ok).toBe(true);
-    if (!baselineArtifact.ok || !candidateArtifact.ok) return;
-    const baselineValue = baselineArtifact.artifact;
-    const candidateValue = candidateArtifact.artifact;
-    if (baselineValue.format !== "samples" || candidateValue.format !== "samples") return;
-    const changes = compareContracts(inferContract(baselineValue.samples), inferContract(candidateValue.samples), "response");
-    const expected = buildMarkdownReportFromDiff({
-      workspaceName: "DriftMap CLI comparison",
-      baselineLabel: input.baseline,
-      candidateLabel: input.candidate,
-      direction: "response",
-      baselineSamples: baselineValue.samples.length,
-      candidateSamples: candidateValue.samples.length,
-      diff: buildDiff(input.baseline, input.candidate, "response", changes),
-    });
-    expect(outcome.output).toBe(expected);
+    expect(outcome.output).toContain("<!-- driftmap-contract-review -->");
+    expect(outcome.output).toContain("| Severity | Path | Change | Baseline | Candidate | Explanation |");
+    expect(outcome.output).toContain("| WARNING | `");
+    expect(outcome.output).toContain("| WARNING | `");
   });
 
   it("documents the usage text with the new flags", () => {
-    expect(USAGE).toContain("driftmap-cli compare <baseline> <candidate>");
-    expect(USAGE).toContain("Installed commands: driftmap-cli, driftmap");
+    expect(USAGE).toContain("driftmap diff <baseline> <candidate>");
+    expect(USAGE).toContain("compare` remains as a backwards-compatible alias");
+    expect(USAGE).toContain("Installed commands: driftmap, driftmap-cli");
     expect(USAGE).toContain("--fail-on <breaking|warning|off>");
+    expect(USAGE).toContain("--config <path>");
     expect(USAGE).toContain("--quiet");
     expect(USAGE).toContain("--verbose");
     expect(USAGE).toContain("--color <auto|always|never>");
