@@ -100,27 +100,48 @@ exposure assessment, not a claim that the dependencies are fixed.
 | PostgreSQL integration suite | Not run in this pass; separate test URL absent from process | N/A |
 | Live browser sign-in/workspace/import workflow | Not yet tested on this release | N/A |
 
-## Release notes
-
 ## Release readiness refresh — 2026-11-05
 
-The app dependencies were updated to Next.js 15.5.29 and Zod 4.6.6 to clear the
-critical Next.js and high-severity Zod advisories reported by the prior lockfile.
-The current full `npm audit` reports 3 high and 6 moderate findings; the
-production-only audit reports 3 high findings, all through Prisma 6.19.3,
-`@prisma/config`, and `deepmerge-ts`. npm offers Prisma 7.10.1 as the fix, which
-is a major upgrade and has not been applied. The older audit snapshot above is
-historical; do not treat its counts as current.
+The frontend is upgraded to Prisma and `@prisma/client` 7.10.1, using the
+required Prisma 7 generated client output and Neon driver adapter. `prisma.config.ts`
+loads local `.env.local` values for CLI work while preserving environment
+overrides. The schema validates and the client generates with a dummy local URL;
+no migrations were applied to a database.
 
-Fresh checks on 2026-11-05: lint passed, typecheck passed, 295 frontend tests
-passed, the Next.js production build passed, and the CLI/Action package suite
-passed 17 tests. These checks do not include a live browser OAuth/database
-workflow, a deployed GitHub pull request, or a production Vercel verification.
+`npm audit --omit=dev` now reports **0 vulnerabilities**. The full
+`npm audit` reports **0 high/critical, 6 moderate** findings, all in
+TypeScript-ESLint development tooling (`minimatch`); npm's suggested fix would
+downgrade the parser to 6.15.0, so it was not applied. The previous audit
+counts and Prisma 6 assessment above are historical.
 
-The app has therefore not completed customer-launch verification. Before
-production sales, resolve or explicitly accept the Prisma tooling advisories,
-verify OAuth and database persistence against the intended deployment, and run
-the GitHub Action on a real pull request with least-privilege token permissions.
+Auth.js uses Google OAuth with database sessions. Its default session cookie is
+HttpOnly, SameSite=Lax, and Secure on HTTPS deployments; development HTTP uses
+the documented non-Secure default. The session callback exposes only the user
+ID in addition to Auth.js's default user fields. The OAuth scopes are limited
+to `openid email profile`; this app does not request Google API refresh tokens
+or implement access-token refresh. Production OAuth still requires a live
+provider round-trip to verify callback URLs and configured secrets.
+
+API JSON bodies are streamed and capped at 4 MiB. The new
+`npm run verify:db-auth` script requires an independently verified dedicated
+test database, writes a disposable user/session/workspace, round-trips a 1 MiB
+JSON snapshot, and deletes the test user in `finally`. Its fail-closed behavior
+was verified. The script and existing database integration suite were not run against a live database because
+`TEST_DATABASE_URL` and the explicit non-production confirmation are absent in
+this session. Production migrations were not applied.
+
+The new `.github/workflows/test-driftmap-action.yml` runs the Action on PRs
+targeting `test-driftmap-action`, asserts the breaking fixture's exit code and
+Markdown table, and checks the safe fixture through the built CLI. It is prepared for dogfooding
+against the checked-out PR revision; it has not yet run on a hosted GitHub PR.
+
+Fresh local checks: Prisma validation and generation passed; lint, typecheck,
+295 frontend tests, production build, and 17 CLI/Action tests passed after the
+Prisma 7 migration. OAuth, database integration against the dedicated test
+database, hosted Action dogfooding, and production Vercel verification remain
+deployment gates.
+
+## Release notes
 
 Include the Prisma schema and all five migrations, server/API/auth/persistence
 code, OpenAPI importer and comparison engine, Workbench and UI, required SVG
