@@ -102,6 +102,26 @@ exposure assessment, not a claim that the dependencies are fixed.
 
 ## Release notes
 
+## Release readiness refresh — 2026-11-05
+
+The app dependencies were updated to Next.js 15.5.29 and Zod 4.6.6 to clear the
+critical Next.js and high-severity Zod advisories reported by the prior lockfile.
+The current full `npm audit` reports 3 high and 6 moderate findings; the
+production-only audit reports 3 high findings, all through Prisma 6.19.3,
+`@prisma/config`, and `deepmerge-ts`. npm offers Prisma 7.10.1 as the fix, which
+is a major upgrade and has not been applied. The older audit snapshot above is
+historical; do not treat its counts as current.
+
+Fresh checks on 2026-11-05: lint passed, typecheck passed, 295 frontend tests
+passed, the Next.js production build passed, and the CLI/Action package suite
+passed 17 tests. These checks do not include a live browser OAuth/database
+workflow, a deployed GitHub pull request, or a production Vercel verification.
+
+The app has therefore not completed customer-launch verification. Before
+production sales, resolve or explicitly accept the Prisma tooling advisories,
+verify OAuth and database persistence against the intended deployment, and run
+the GitHub Action on a real pull request with least-privilege token permissions.
+
 Include the Prisma schema and all five migrations, server/API/auth/persistence
 code, OpenAPI importer and comparison engine, Workbench and UI, required SVG
 logos, package manifests and lockfile, fixtures, hermetic/integration tests and

@@ -131,7 +131,9 @@ The domain engine covers JSON parsing, normalized JSON-pointer paths, array wild
 - OpenAPI 3.1 and Swagger 2.0 are not supported. External `$ref` URLs are rejected.
 - Imports are capped at 2 MB; schema comparison is deterministic heuristic guidance, not a guarantee that deployed servers conform to their specifications.
 - Local IndexedDB data is not automatically synchronized with cloud workspaces.
-- Collaboration and CI integration are not implemented.
+- Multi-user collaboration is not implemented. Pull request gating is available
+  through the composite GitHub Action in `action.yml`; see
+  `packages/driftmap/README.md` for its setup requirements.
 
 ## License
 
