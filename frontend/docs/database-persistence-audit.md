@@ -141,6 +141,75 @@ Prisma 7 migration. OAuth, database integration against the dedicated test
 database, hosted Action dogfooding, and production Vercel verification remain
 deployment gates.
 
+## Automated launch gate execution — 2026-11-06
+
+### Non-production database and auth verification
+
+The verification script requires `TEST_DATABASE_URL` plus
+`DRIFTMAP_TEST_DATABASE_CONFIRMATION=I_VERIFIED_EMPTY_NON_PRODUCTION`. It
+normalizes the URL to the `driftmap_test` schema and rejects a URL whose host,
+port, and database match `DATABASE_URL`. It creates a disposable user through
+the Auth.js Prisma adapter, persists and reads a session, round-trips a 1 MiB
+snapshot, updates and queries a workspace, then deletes the user in `finally`.
+
+This gate was **not run**. Neither test environment variable is present in the
+shell, `.env.local` contains the app `DATABASE_URL` and is intentionally not a
+test target, `neonctl` is unavailable, and no Neon API credential/config was
+found. No database connection or migration was attempted. To run it against a
+dedicated, empty, non-production database (verified in Neon Console and
+different from the app database), set this PowerShell one-liner in the
+workspace session:
+
+```powershell
+$env:TEST_DATABASE_URL='<dedicated non-production PostgreSQL URL>'; $env:DRIFTMAP_TEST_DATABASE_CONFIRMATION='I_VERIFIED_EMPTY_NON_PRODUCTION'
+```
+
+Then use that test URL for `npx prisma migrate deploy` and run
+`npx tsx scripts/verify-db-auth.ts` from `frontend/`. Prisma CLI reads
+`DATABASE_URL`, so point it at the explicitly selected test URL only for the
+migration command, then remove that process override before the smoke script;
+the script reloads the app URL from `.env.local` so its same-database guard
+remains effective:
+
+```powershell
+$env:DATABASE_URL = $env:TEST_DATABASE_URL
+npx prisma migrate deploy
+Remove-Item Env:DATABASE_URL
+npx tsx scripts/verify-db-auth.ts
+```
+
+The DB round-trip and migration application remain pending.
+
+### Hosted GitHub Action
+
+PR #8 was opened from `feat/cli-dark-theme` to temporary target branch
+`test-driftmap-action`. Hosted run **42091412924** completed with conclusion
+`success` on head `0af957a5bbd8b65fdba5721917b7aa41eb4bd4a4`:
+[run details and logs](https://github.com/nwjud54833/drift-map/actions/runs/42091412924).
+The breaking report contained the `BREAKING` Markdown row and exit code 1; the
+safe-case CLI gate returned exit code 0. Its original fixture had only one
+candidate sample, so the output classified the addition as `WARNING`, not
+`SAFE`. I corrected the fixture to include an absent-field sample and added an
+explicit `SAFE` row assertion in commits `19e5cfd`, `8fae784`, and `d975004`.
+That corrected assertion was locally verified, but no subsequent hosted run
+was captured. Therefore the hosted Action gate is **partially verified**: the
+Action and breaking report passed on GitHub, while the final SAFE classification
+assertion still needs a hosted run. PRs #8, #9, and #10 were closed, and the
+temporary `test-driftmap-action` remote branch was deleted.
+
+### Local Google OAuth readiness
+
+Presence checks (values not displayed) found `AUTH_SECRET`, `AUTH_GOOGLE_ID`,
+and `AUTH_GOOGLE_SECRET` in `frontend/.env.local`; `frontend/.env` is absent.
+The local production server is running as PID 17980. Its sign-in route returned
+HTTP 200 at [http://localhost:3000/signin](http://localhost:3000/signin).
+Complete the interactive Google sign-in and workspace sync in the browser; no
+OAuth callback or live workspace flow was completed by this run.
+
+Temporary PRs and target branch cleanup are complete. The local server remains
+available for the interactive sign-in step. Production deployment was not
+performed.
+
 ## Release notes
 
 Include the Prisma schema and all five migrations, server/API/auth/persistence
