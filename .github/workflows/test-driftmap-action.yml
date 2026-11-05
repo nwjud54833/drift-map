@@ -3,14 +3,6 @@ name: DriftMap Action dogfood
 on:
   pull_request:
     branches: [test-driftmap-action]
-    paths:
-      - "packages/driftmap/test/fixtures/action/**"
-      - "packages/driftmap/**"
-      - "frontend/bin/driftmap.ts"
-      - "frontend/lib/contract/**"
-      - "action.yml"
-      - "action/**"
-      - ".github/workflows/test-driftmap-action.yml"
 
 permissions:
   contents: read
