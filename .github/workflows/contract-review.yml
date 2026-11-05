@@ -1,0 +1,34 @@
+name: API contract review
+
+on:
+  pull_request:
+    paths:
+      - "openapi.yaml"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  contract-review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Prepare the base contract
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if git show "$BASE_SHA:openapi.yaml" > "$RUNNER_TEMP/openapi-baseline.yaml" 2>/dev/null; then
+            :
+          else
+            printf '%s\n' '{"openapi":"3.0.0","info":{"title":"Baseline","version":"0"},"paths":{}}' > "$RUNNER_TEMP/openapi-baseline.yaml"
+          fi
+      - name: Review contract compatibility
+        uses: ./
+        with:
+          baseline-path: ${{ runner.temp }}/openapi-baseline.yaml
+          candidate-path: openapi.yaml
+          fail-on: breaking
+          github-token: ${{ secrets.GITHUB_TOKEN }}

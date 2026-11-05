@@ -13,7 +13,8 @@
  *   `npx vitest run tests/integration`.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { Prisma, PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@/generated/prisma/client";
+import { PrismaNeon } from "@prisma/adapter-neon";
 import { parsePayloadText } from "@/lib/contract/parse";
 import { inferContract } from "@/lib/contract/infer";
 import { compareContracts, buildDiff } from "@/lib/contract/compare";
@@ -34,7 +35,7 @@ if (!process.env.RUN_DB_TESTS) {
     throw new Error("RUN_DB_TESTS=1 requires TEST_DATABASE_URL (see tests/integration/setup-db.mjs).");
   }
 
-  const prisma = new PrismaClient({ datasources: { db: { url: process.env.TEST_DATABASE_URL } } });
+  const prisma = new PrismaClient({ adapter: new PrismaNeon({ connectionString: process.env.TEST_DATABASE_URL! }) });
   let getWorkspaces: typeof import("@/app/api/v1/workspaces/route").GET;
   let postWorkspace: typeof import("@/app/api/v1/workspaces/route").POST;
   let getWorkspace: typeof import("@/app/api/v1/workspaces/[workspaceId]/route").GET;

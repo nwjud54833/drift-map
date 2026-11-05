@@ -6,10 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import { parseCliArguments, resolveColors, runCompare, USAGE } from "@/bin/driftmap";
 import type { CompareOptions } from "@/bin/driftmap";
-import { buildDiff, compareContracts } from "@/lib/contract/compare";
-import { buildMarkdownReportFromDiff } from "@/lib/contract/export";
-import { inferContract } from "@/lib/contract/infer";
-import { parseImportArtifact } from "@/lib/workbench/import-artifact";
+import { ANSI_CODES } from "@/bin/colors";
 
 const fixturesDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures");
 const fixture = (name: string) => path.join(fixturesDir, name);
@@ -38,7 +35,7 @@ const stripAnsi = (line: string) => line.replace(/\u001b\[[0-9;]*m/g, "");
 describe("parseCliArguments", () => {
   it("accepts a full valid invocation", () => {
     const parsed = parseCliArguments([
-      "compare", "a.json", "b.json",
+      "diff", "a.json", "b.json",
       "--direction", "request",
       "--fail-on", "warning",
       "--format", "json",
@@ -56,6 +53,7 @@ describe("parseCliArguments", () => {
       failOn: "warning",
       format: "json",
       outPath: "drift.md",
+      configPath: null,
       quiet: true,
       verbose: true,
       color: "always",
@@ -70,6 +68,7 @@ describe("parseCliArguments", () => {
     expect(parsed.options.failOn).toBe("breaking");
     expect(parsed.options.format).toBe("text");
     expect(parsed.options.outPath).toBeNull();
+    expect(parsed.options.configPath).toBeNull();
     expect(parsed.options.quiet).toBe(false);
     expect(parsed.options.verbose).toBe(false);
     expect(parsed.options.color).toBe("auto");
@@ -213,7 +212,7 @@ describe("input-type detection", () => {
   it("reports invalid JSON as a clear error, not a stack trace", () => {
     const outcome = runCompare(options({ baselinePath: fixture("invalid.json") }));
     expect(outcome.exitCode).toBe(2);
-    expect(outcome.output.startsWith("error: baseline: Unable to parse JSON")).toBe(true);
+    expect(outcome.output).toContain("invalid.json): Unable to parse JSON");
     expect(outcome.output).toContain("hint: fix the file's JSON syntax");
     expect(outcome.output).not.toContain("\n    at ");
   });
@@ -233,7 +232,7 @@ describe("input-type detection", () => {
       expect(statSync(oversized).size).toBeGreaterThan(2 * 1024 * 1024);
       const outcome = runCompare(options({ baselinePath: oversized }));
       expect(outcome.exitCode).toBe(2);
-      expect(outcome.output).toContain("error: baseline is");
+      expect(outcome.output).toContain("error: baseline file oversized.json is");
       expect(outcome.output).toContain("hint: trim the payload or export fewer samples");
     } finally {
       rmSync(dir, { recursive: true, force: true });
@@ -243,7 +242,7 @@ describe("input-type detection", () => {
 
 describe("text presentation", () => {
   const GOLDEN = [
-    "driftmap compare  pair1-baseline.json → pair1-candidate.json",
+    "driftmap diff  pair1-baseline.json → pair1-candidate.json",
     "response · fail on breaking",
     "  1 breaking   0 warning   0 safe   0 info        RESULT: FAIL (exit 1)",
     "",
@@ -330,8 +329,22 @@ describe("color handling", () => {
     delete process.env.NO_COLOR;
   });
 
-  it("uses no ANSI codes without a TTY or with NO_COLOR set", () => {
+  it("keeps the palette on standard foreground, bold, and dim SGR codes", () => {
+    expect(ANSI_CODES).toEqual({
+      verdictFail: "\u001b[1;91m",
+      verdictPass: "\u001b[1;92m",
+      breaking: "\u001b[91m",
+      warning: "\u001b[93m",
+      safe: "\u001b[32m",
+      info: "\u001b[96m",
+      pointer: "\u001b[1;97m",
+      dim: "\u001b[2m",
+    });
+  });
+
+  it("uses no ANSI codes with --color=never, without a TTY, or with NO_COLOR set", () => {
     expect(process.stdout.isTTY).not.toBe(true);
+    expect(ANSI_ESCAPE.test(runCompare(options({ ...pair1, color: "never" })).output)).toBe(false);
     process.env.NO_COLOR = "1";
     expect(ANSI_ESCAPE.test(runCompare(options({ ...pair1, color: "auto" })).output)).toBe(false);
     delete process.env.NO_COLOR;
@@ -358,6 +371,92 @@ describe("color handling", () => {
     const outcome = runCompare(options({ ...pair1, format: "json", color: "always" }));
     expect(ANSI_ESCAPE.test(outcome.output)).toBe(false);
   });
+
+  it("colors each severity marker and heading with its role", () => {
+    const breaking = runCompare(options({ ...pair1, color: "always" })).output;
+    expect(breaking).toContain(`${ANSI_CODES.breaking}[!!]`);
+    expect(breaking).toContain(`${ANSI_CODES.breaking}BREAKING`);
+
+    const warning = runCompare(options({ ...openapi, color: "always" })).output;
+    expect(warning).toContain(`${ANSI_CODES.warning}[~ ]`);
+    expect(warning).toContain(`${ANSI_CODES.warning}WARNING`);
+
+    const dir = mkdtempSync(path.join(tmpdir(), "driftmap-colors-"));
+    try {
+      const baseline = path.join(dir, "baseline.json");
+      const candidate = path.join(dir, "candidate.json");
+      writeFileSync(baseline, JSON.stringify([{ orderId: "o1", giftWrap: true, items: [{ sku: "A" }] }]));
+      writeFileSync(candidate, JSON.stringify([
+        { orderId: "o1", note: "hi", giftWrap: true, items: [{ sku: "A" }] },
+        { orderId: "o2", items: [{ sku: "A" }] },
+      ]));
+      const rest = runCompare(options({ baselinePath: baseline, candidatePath: candidate, failOn: "off", color: "always" })).output;
+      expect(rest).toContain(`${ANSI_CODES.safe}[ok]`);
+      expect(rest).toContain(`${ANSI_CODES.safe}SAFE`);
+      expect(rest).toContain(`${ANSI_CODES.info}[i ]`);
+      expect(rest).toContain(`${ANSI_CODES.info}INFO`);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("colors the verdict and summary counts by severity", () => {
+    const fail = runCompare(options({ ...pair1, color: "always" })).output;
+    expect(fail).toContain(`${ANSI_CODES.verdictFail}RESULT: FAIL (exit 1)`);
+    expect(fail).toContain(`${ANSI_CODES.breaking}1 breaking`);
+
+    const pass = runCompare(options({ ...pair2, failOn: "off", color: "always" })).output;
+    expect(pass).toContain(`${ANSI_CODES.verdictPass}RESULT: PASS (exit 0)`);
+    expect(pass).toContain(`${ANSI_CODES.warning}2 warning`);
+  });
+
+  it("colors the pointer column and dims the header rows", () => {
+    const outcome = runCompare(options({ ...pair1, color: "always" })).output;
+    const lines = outcome.split("\n");
+    expect(outcome).toContain(`${ANSI_CODES.pointer}/customer/id`);
+    expect(lines[0]).toContain(ANSI_CODES.dim);
+    expect(lines[1]).toContain(ANSI_CODES.dim);
+    const columnHeader = lines.find((line) => line.includes("POINTER"));
+    expect(columnHeader).toBeDefined();
+    expect(columnHeader).toContain(ANSI_CODES.dim);
+    expect(columnHeader).toContain("CHANGE");
+    expect(columnHeader).toContain("BEFORE");
+    expect(columnHeader).toContain("AFTER");
+  });
+
+  it("dims absent/missing types except a missing AFTER in a breaking group", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "driftmap-type-colors-"));
+    try {
+      const removedBaseline = path.join(dir, "removed-baseline.json");
+      const removedCandidate = path.join(dir, "removed-candidate.json");
+      writeFileSync(removedBaseline, JSON.stringify({ id: "1", name: "x", tag: "t" }));
+      writeFileSync(removedCandidate, JSON.stringify({ id: "1", tag: "t" }));
+      const removed = runCompare(options({ baselinePath: removedBaseline, candidatePath: removedCandidate, color: "always" })).output;
+      expect(removed).toContain(`${ANSI_CODES.breaking}missing`);
+
+      const addedBaseline = path.join(dir, "added-baseline.json");
+      const addedCandidate = path.join(dir, "added-candidate.json");
+      writeFileSync(addedBaseline, JSON.stringify({ id: "1" }));
+      writeFileSync(addedCandidate, JSON.stringify({ id: "1", note: "x" }));
+      const added = runCompare(options({ baselinePath: addedBaseline, candidatePath: addedCandidate, color: "always" })).output;
+      expect(added).toContain(`${ANSI_CODES.dim}absent`);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps every visible line within 80 columns with color on and off", () => {
+    const plain = runCompare(options({ ...openapi, color: "never" })).output;
+    const colored = runCompare(options({ ...openapi, color: "always" })).output;
+    expect(stripAnsi(colored)).toBe(plain);
+    for (const output of [plain, colored]) {
+      for (const line of output.split("\n")) {
+        expect([...stripAnsi(line)].length).toBeLessThanOrEqual(80);
+      }
+    }
+    const coloredLines = colored.split("\n");
+    expect(coloredLines.some((line) => line.length > stripAnsi(line).length)).toBe(true);
+  });
 });
 
 describe("output formats", () => {
@@ -378,34 +477,22 @@ describe("output formats", () => {
     });
   });
 
-  it("renders Markdown identical to the pure report generator fed through the same engine pipeline", () => {
+  it("renders a structured Markdown findings table suitable for a PR comment", () => {
     const input = { baseline: fixture("pair2-baseline.json"), candidate: fixture("pair2-candidate.json") };
     const outcome = runCompare(options({ baselinePath: input.baseline, candidatePath: input.candidate, format: "markdown" }));
 
-    const baselineArtifact = parseImportArtifact(readFileSync(input.baseline, "utf8"), { source: "file" });
-    const candidateArtifact = parseImportArtifact(readFileSync(input.candidate, "utf8"), { source: "file" });
-    expect(baselineArtifact.ok && candidateArtifact.ok).toBe(true);
-    if (!baselineArtifact.ok || !candidateArtifact.ok) return;
-    const baselineValue = baselineArtifact.artifact;
-    const candidateValue = candidateArtifact.artifact;
-    if (baselineValue.format !== "samples" || candidateValue.format !== "samples") return;
-    const changes = compareContracts(inferContract(baselineValue.samples), inferContract(candidateValue.samples), "response");
-    const expected = buildMarkdownReportFromDiff({
-      workspaceName: "DriftMap CLI comparison",
-      baselineLabel: input.baseline,
-      candidateLabel: input.candidate,
-      direction: "response",
-      baselineSamples: baselineValue.samples.length,
-      candidateSamples: candidateValue.samples.length,
-      diff: buildDiff(input.baseline, input.candidate, "response", changes),
-    });
-    expect(outcome.output).toBe(expected);
+    expect(outcome.output).toContain("<!-- driftmap-contract-review -->");
+    expect(outcome.output).toContain("| Severity | Path | Change | Baseline | Candidate | Explanation |");
+    expect(outcome.output).toContain("| WARNING | `");
+    expect(outcome.output).toContain("| WARNING | `");
   });
 
   it("documents the usage text with the new flags", () => {
-    expect(USAGE).toContain("driftmap-cli compare <baseline> <candidate>");
-    expect(USAGE).toContain("Installed commands: driftmap-cli, driftmap");
+    expect(USAGE).toContain("driftmap diff <baseline> <candidate>");
+    expect(USAGE).toContain("compare` remains as a backwards-compatible alias");
+    expect(USAGE).toContain("Installed commands: driftmap, driftmap-cli");
     expect(USAGE).toContain("--fail-on <breaking|warning|off>");
+    expect(USAGE).toContain("--config <path>");
     expect(USAGE).toContain("--quiet");
     expect(USAGE).toContain("--verbose");
     expect(USAGE).toContain("--color <auto|always|never>");

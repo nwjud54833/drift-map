@@ -6,6 +6,7 @@
     "driftmap": "./bin/driftmap.ts"
   },
   "scripts": {
+    "postinstall": "prisma generate",
     "dev": "next dev --port 3000",
     "build": "prisma generate && next build",
     "start": "next start --port 3000",
@@ -14,20 +15,23 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "prisma:validate": "node --env-file-if-exists=.env.local ./node_modules/prisma/build/index.js validate",
-    "prisma:generate": "prisma generate"
+    "prisma:generate": "prisma generate",
+    "verify:db-auth": "tsx scripts/verify-db-auth.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.3",
-    "@prisma/client": "^6.19.3",
+    "@prisma/adapter-neon": "^7.10.1",
+    "@prisma/client": "^7.10.1",
     "@tanstack/react-query": "^5.104.0",
     "dexie": "^4.4.6",
+    "dotenv": "^18.0.9",
     "js-yaml": "^4.3.2",
     "lucide-react": "^1.52.0",
-    "next": "15.5.27",
+    "next": "^15.5.29",
     "next-auth": "^5.0.0-beta.32",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "zod": "^4.6.5",
+    "zod": "^4.6.6",
     "zustand": "^5.0.15"
   },
   "devDependencies": {
@@ -37,9 +41,11 @@
     "@types/node": "^24.5.2",
     "@types/react": "^19.1.13",
     "@types/react-dom": "^19.1.9",
-    "eslint": "^9.36.0",
-    "eslint-config-next": "^15.5.27",
-    "prisma": "^6.19.3",
+    "@typescript-eslint/eslint-plugin": "^8.72.1",
+    "@typescript-eslint/parser": "^8.72.1",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^15.5.29",
+    "prisma": "^7.10.1",
     "tailwindcss": "^4.1.13",
     "tsx": "^4.23.15",
     "typescript": "^5.9.2",

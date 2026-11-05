@@ -34,7 +34,8 @@
   ],
   "scripts": {
     "build": "node build.mjs",
-    "test": "node --test test/smoke.test.mjs"
+    "prepack": "npm run build",
+    "test": "npm run build && node --test"
   },
   "devDependencies": {
     "esbuild": "^0.27.2",

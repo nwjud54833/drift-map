@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { Prisma, type ChangeKind as PrismaChangeKind } from "@prisma/client";
+import { Prisma, type ChangeKind as PrismaChangeKind } from "@/generated/prisma/client";
 import { buildDiff, compareContracts } from "@/lib/contract/compare";
 import { OpenApiComparisonError } from "@/lib/contract/openapi";
 import { inferContract } from "@/lib/contract/infer";
