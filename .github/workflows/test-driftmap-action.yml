@@ -45,11 +45,12 @@ jobs:
       - name: Verify safe fixture passes the CLI gate
         id: safe
         continue-on-error: true
-        run: >-
-          node packages/driftmap/dist/cli.js diff
-          packages/driftmap/test/fixtures/action/safe-baseline.json
-          packages/driftmap/test/fixtures/action/safe-candidate.json
-          --fail-on breaking --format markdown
+        run: |
+          node packages/driftmap/dist/cli.js diff \
+            packages/driftmap/test/fixtures/action/safe-baseline.json \
+            packages/driftmap/test/fixtures/action/safe-candidate.json \
+            --fail-on breaking --format markdown > "$RUNNER_TEMP/safe-report.md"
+          grep -F '| SAFE |' "$RUNNER_TEMP/safe-report.md"
       - name: Assert expected gates
         env:
           BREAKING_OUTCOME: ${{ steps.breaking.outcome }}
