@@ -21,7 +21,9 @@ await build({
   alias: {
     "@": frontend,
   },
-  nodePaths: [join(here, "node_modules")],
+  // Dependencies are installed in this package for the composite GitHub
+  // Action. The frontend path supports building from the application repo.
+  nodePaths: [join(here, "node_modules"), join(frontend, "node_modules")],
   tsconfig: join(frontend, "tsconfig.json"),
   legalComments: "none",
 });

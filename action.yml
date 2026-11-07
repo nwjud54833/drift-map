@@ -1,0 +1,37 @@
+name: DriftMap contract review
+description: Compare API contracts and publish a sticky pull request findings report.
+inputs:
+  baseline-path:
+    description: Baseline JSON sample, glob, or OpenAPI 3.0 JSON/YAML file.
+    required: true
+  candidate-path:
+    description: Candidate JSON sample, glob, or OpenAPI 3.0 JSON/YAML file.
+    required: true
+  fail-on:
+    description: CI threshold (breaking or warning).
+    required: false
+    default: breaking
+  github-token:
+    description: "Token with pull-requests: write permission to create/update the report comment."
+    required: true
+  config-path:
+    description: Optional path to a DriftMap JSON rule override file.
+    required: false
+runs:
+  using: composite
+  steps:
+    - name: Build DriftMap CLI
+      shell: bash
+      run: |
+        npm ci --prefix "$GITHUB_ACTION_PATH/packages/driftmap"
+        npm run build --prefix "$GITHUB_ACTION_PATH/packages/driftmap"
+    - name: Compare contracts and update pull request comment
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      env:
+        DRIFTMAP_BASELINE_PATH: ${{ inputs.baseline-path }}
+        DRIFTMAP_CANDIDATE_PATH: ${{ inputs.candidate-path }}
+        DRIFTMAP_FAIL_ON: ${{ inputs.fail-on }}
+        DRIFTMAP_CONFIG_PATH: ${{ inputs.config-path }}
+        DRIFTMAP_GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: node "$GITHUB_ACTION_PATH/action/run.mjs"
