@@ -1,0 +1,10 @@
+{
+  "orderId": "ord-1042",
+  "total": 129.51,
+  "currency": "USD",
+  "customer": { "id": 7, "name": "Ada Lovelace", "email": "ada@example.com" },
+  "items": [
+    { "sku": "TS-M", "quantity": 2, "unitPrice": 39.99 },
+    { "sku": "TS-L", "quantity": 1, "unitPrice": 49.53 }
+  ]
+}

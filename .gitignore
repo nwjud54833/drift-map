@@ -1,4 +1,5 @@
 # --- Environment / secrets ---
+.npmrc
 .env
 .env.local
 .env.*.local
@@ -8,6 +9,7 @@
 # --- Node / Next.js ---
 node_modules/
 .next/
+frontend/generated/prisma/
 out/
 next-env.d.ts
 *.tsbuildinfo

@@ -1,0 +1,18 @@
+[
+  {
+    "orderId": "ord-2001",
+    "status": "paid",
+    "customer": { "email": "ada@example.com" },
+    "fulfilment": "express",
+    "giftMessage": "Happy birthday!",
+    "items": [{ "sku": "TS-M", "quantity": 2 }]
+  },
+  {
+    "orderId": "ord-2002",
+    "status": "pending",
+    "customer": { "email": "grace@example.com" },
+    "fulfilment": "standard",
+    "giftMessage": null,
+    "items": [{ "sku": "TS-L", "quantity": 1 }]
+  }
+]

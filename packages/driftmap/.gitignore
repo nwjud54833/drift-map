@@ -1,0 +1,4 @@
+# Build output and publish artifacts — rebuilt from frontend/ source by `npm run build`.
+dist/
+*.tgz
+node_modules/

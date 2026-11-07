@@ -1,0 +1,52 @@
+name: DriftMap Action dogfood
+
+on:
+  pull_request:
+    branches: [test-driftmap-action]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  dogfood:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and run Action against breaking fixture
+        id: breaking
+        continue-on-error: true
+        uses: ./
+        with:
+          baseline-path: packages/driftmap/test/fixtures/action/breaking-baseline.json
+          candidate-path: packages/driftmap/test/fixtures/action/breaking-candidate.json
+          fail-on: breaking
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Assert breaking Markdown report and exit code
+        run: |
+          set +e
+          node packages/driftmap/dist/cli.js diff \
+            packages/driftmap/test/fixtures/action/breaking-baseline.json \
+            packages/driftmap/test/fixtures/action/breaking-candidate.json \
+            --fail-on breaking --format markdown > "$RUNNER_TEMP/breaking-report.md"
+          result=$?
+          set -e
+          test "$result" -eq 1
+          grep -F '<!-- driftmap-contract-review -->' "$RUNNER_TEMP/breaking-report.md"
+          grep -F '| BREAKING |' "$RUNNER_TEMP/breaking-report.md"
+      - name: Verify safe fixture passes the CLI gate
+        id: safe
+        continue-on-error: true
+        run: |
+          node packages/driftmap/dist/cli.js diff \
+            packages/driftmap/test/fixtures/action/safe-baseline.json \
+            packages/driftmap/test/fixtures/action/safe-candidate.json \
+            --fail-on breaking --format markdown > "$RUNNER_TEMP/safe-report.md"
+          grep -F '| SAFE |' "$RUNNER_TEMP/safe-report.md"
+      - name: Assert expected gates
+        env:
+          BREAKING_OUTCOME: ${{ steps.breaking.outcome }}
+          SAFE_OUTCOME: ${{ steps.safe.outcome }}
+        run: |
+          test "$BREAKING_OUTCOME" = failure
+          test "$SAFE_OUTCOME" = success
