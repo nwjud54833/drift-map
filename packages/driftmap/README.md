@@ -55,7 +55,7 @@ permissions:
 
 steps:
   - uses: actions/checkout@v4
-  - uses: nwjud54833/drift-map@main
+  - uses: nwjud54833/drift-map@v2.5.0
     with:
       baseline-path: contracts/openapi-base.yaml
       candidate-path: contracts/openapi.yaml
