@@ -5,6 +5,12 @@ import { useState } from "react";
 export interface CIExportCredentials {
   baselineUrl: string;
   promoteToken: string;
+  badgeMarkdown: string;
+  revision: string;
+  pathCount: number;
+  lastPromotedAt: string | null;
+  commitSha: string | null;
+  actor: string | null;
   expiresAt: number;
 }
 
@@ -24,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: nwjud54833/drift-map@v2.5.4
+      - uses: nwjud54833/drift-map@v2.5.5
         with:
           baseline-path: \${{ secrets.DRIFTMAP_BASELINE_URL }}
           candidate-path: samples/*.json
@@ -43,6 +49,7 @@ async function copy(value: string, setCopied: (value: boolean) => void) {
 export function CIExportModal({ credentials, onClose }: { credentials: CIExportCredentials; onClose: () => void }) {
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [copiedToken, setCopiedToken] = useState(false);
+  const [copiedBadge, setCopiedBadge] = useState(false);
   const [copiedWorkflow, setCopiedWorkflow] = useState(false);
 
   return (
@@ -52,14 +59,19 @@ export function CIExportModal({ credentials, onClose }: { credentials: CIExportC
           <div>
             <p className="mb-1 font-mono text-[10px] uppercase tracking-[0.2em] text-sky-300">Team CI Cloud</p>
             <h2 id="ci-export-title" className="text-xl font-semibold text-white">Use this baseline in GitHub Actions</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-[#A4A5AE]">Save the read URL and promotion token as repository secrets. Anyone with these secrets can read or promote this workspace baseline.</p>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[#A4A5AE]">Save the read URL and promotion token as repository secrets. The separate badge token exposes only the status badge, not the baseline contract.</p>
           </div>
           <button type="button" onClick={onClose} className="rounded-lg px-2 py-1 text-[#A4A5AE] hover:bg-white/10 hover:text-white" aria-label="Close">✕</button>
         </div>
 
         <div className="space-y-5">
+          <div className="grid gap-3 rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 sm:grid-cols-2">
+            <div><p className="font-mono text-[10px] uppercase tracking-wider text-[#777985]">Current baseline revision</p><p className="mt-1 truncate font-mono text-sm text-white">{credentials.revision} · {credentials.pathCount} paths</p></div>
+            <div><p className="font-mono text-[10px] uppercase tracking-wider text-[#777985]">Last promoted</p><p className="mt-1 text-sm text-white">{credentials.lastPromotedAt ? new Date(credentials.lastPromotedAt).toLocaleString() : "Not promoted by CI yet"}</p>{credentials.commitSha && <p className="mt-1 font-mono text-[10px] text-[#8C8D98]">{credentials.commitSha.slice(0, 12)}{credentials.actor ? ` · ${credentials.actor}` : ""}</p>}</div>
+          </div>
           <CredentialBlock label="Secret: DRIFTMAP_BASELINE_URL" value={credentials.baselineUrl} copied={copiedUrl} onCopy={() => void copy(credentials.baselineUrl, setCopiedUrl)} />
           <CredentialBlock label="Secret: DRIFTMAP_PROMOTE_TOKEN" value={credentials.promoteToken} copied={copiedToken} onCopy={() => void copy(credentials.promoteToken, setCopiedToken)} />
+          <CredentialBlock label="README badge Markdown · token is badge-only" value={credentials.badgeMarkdown} copied={copiedBadge} onCopy={() => void copy(credentials.badgeMarkdown, setCopiedBadge)} copyLabel="Copy README Badge Markdown" copiedLabel="Badge Markdown Copied" />
           <div>
             <div className="mb-2 flex items-center justify-between gap-3">
               <label htmlFor="driftmap-workflow" className="font-mono text-xs text-[#D4D4DA]">.github/workflows/driftmap.yml</label>
@@ -74,12 +86,12 @@ export function CIExportModal({ credentials, onClose }: { credentials: CIExportC
   );
 }
 
-function CredentialBlock({ label, value, copied, onCopy }: { label: string; value: string; copied: boolean; onCopy: () => void }) {
+function CredentialBlock({ label, value, copied, onCopy, copyLabel, copiedLabel }: { label: string; value: string; copied: boolean; onCopy: () => void; copyLabel?: string; copiedLabel?: string }) {
   return (
     <div>
       <div className="mb-2 flex items-center justify-between gap-3">
         <label className="font-mono text-xs text-[#D4D4DA]">{label}</label>
-        <button type="button" onClick={onCopy} className="btn-geist-secondary rounded-md px-2.5 py-1 text-[11px] font-mono">{copied ? "Copied" : "Copy"}</button>
+        <button type="button" onClick={onCopy} className="btn-geist-secondary rounded-md px-2.5 py-1 text-[11px] font-mono">{copied ? (copiedLabel ?? "Copied") : (copyLabel ?? "Copy")}</button>
       </div>
       <input readOnly value={value} className="w-full rounded-lg border border-white/10 bg-[#07070A] px-3 py-2 font-mono text-xs text-[#D4D4DA]" aria-label={label} />
     </div>

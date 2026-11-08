@@ -3,7 +3,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 const TOKEN_AUDIENCE = "driftmap:workspace-baseline";
 const TOKEN_VERSION = "v1";
 const TOKEN_LIFETIME_SECONDS = 90 * 24 * 60 * 60;
-export type BaselineTokenScope = "read" | "promote";
+export type BaselineTokenScope = "read" | "promote" | "badge";
 
 export interface BaselineTokenClaims {
   userId: string;
@@ -68,7 +68,7 @@ export function verifyBaselineToken(
     if (claims.aud !== TOKEN_AUDIENCE && claims.aud !== "driftmap:workspace-baseline:read"
       || typeof claims.sub !== "string" || claims.sub.length === 0
       || claims.wid !== expectedWorkspaceId
-      || (scope !== "read" && scope !== "promote")
+      || (scope !== "read" && scope !== "promote" && scope !== "badge")
       || scope !== requiredScope
       || !Number.isSafeInteger(claims.iat) || !Number.isSafeInteger(claims.exp)
       || (claims.iat as number) > nowSeconds

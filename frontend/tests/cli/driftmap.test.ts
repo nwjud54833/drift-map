@@ -207,19 +207,28 @@ describe("hosted baseline fetching", () => {
   });
 
   it("promotes a candidate with a scoped bearer token and sanitizes failures", async () => {
+    const requests: Array<{ url: string; method?: string; headers?: HeadersInit; body?: unknown }> = [];
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      expect(String(input)).toBe(url);
-      if (init?.method === "GET") {
-        return new Response(JSON.stringify({ baseline: { versionLabel: "v1", contract: baselineContract, samples: baselineSamples.map((sample) => sample.value) } }), { status: 200 });
-      }
-      expect(init?.method).toBe("POST");
-      expect(new Headers(init?.headers).get("authorization")).toBe("Bearer promote-token");
-      expect(JSON.parse(String(init?.body))).toMatchObject({ document: expect.any(String) });
-      return new Response("{}", { status: 200 });
+      requests.push({ url: String(input), method: init?.method, headers: init?.headers, body: init?.body });
+      if (init?.method === "POST") return new Response("{}", { status: 200 });
+      return new Response(JSON.stringify({ baseline: { versionLabel: "v1", contract: baselineContract, samples: baselineSamples.map((sample) => sample.value) } }), { status: 200 });
     }) as unknown as typeof fetch;
-    const success = await promoteCandidate(url, pair1.candidatePath, fetchMock, "promote-token");
-    expect(success.exitCode).toBe(0);
-    expect(success.output).toContain("promoted");
+    const previousSha = process.env.GITHUB_SHA;
+    const previousActor = process.env.GITHUB_ACTOR;
+    process.env.GITHUB_SHA = "abcdef1234567";
+    process.env.GITHUB_ACTOR = "ci-bot";
+    try {
+      const success = await promoteCandidate(url, pair1.candidatePath, fetchMock, "promote-token");
+      expect(success.exitCode, `${success.output} requests=${JSON.stringify(requests)}`).toBe(0);
+      expect(success.output).toContain("promoted");
+      expect(requests.map((request) => request.method)).toEqual(["GET", "POST"]);
+      expect(requests[1].url).toBe(url);
+      expect(new Headers(requests[1].headers).get("authorization")).toBe("Bearer promote-token");
+      expect(JSON.parse(String(requests[1].body))).toMatchObject({ document: expect.any(String), commitSha: "abcdef1234567", actor: "ci-bot" });
+    } finally {
+      if (previousSha === undefined) delete process.env.GITHUB_SHA; else process.env.GITHUB_SHA = previousSha;
+      if (previousActor === undefined) delete process.env.GITHUB_ACTOR; else process.env.GITHUB_ACTOR = previousActor;
+    }
 
     const failingFetch = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => init?.method === "GET"
       ? new Response(JSON.stringify({ baseline: { versionLabel: "v1", contract: baselineContract, samples: baselineSamples.map((sample) => sample.value) } }), { status: 200 })

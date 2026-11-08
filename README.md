@@ -4,6 +4,9 @@ Contract Atlas is a local-first Next.js application for comparing real JSON payl
 
 [![View live DriftMap PR example](https://img.shields.io/badge/GitHub-View%20Live%20PR%20Example-8250df?logo=github)](https://github.com/nwjud54833/drift-map/pull/12)
 
+The signed-in Workbench CI panel can generate a workspace-scoped, badge-only
+README status badge and show the revision, path count, and last CI promotion.
+
 ## Routes
 
 - `/` — DriftMap-inspired product overview and interactive explanation

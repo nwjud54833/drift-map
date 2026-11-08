@@ -157,19 +157,38 @@ export function WorkbenchPage() {
     setCiExportLoading(true);
     try {
       const endpoint = `/api/v1/workspaces/${encodeURIComponent(active.id)}/baseline/token`;
-      const [readResponse, promoteResponse] = await Promise.all([
+      const [readResponse, promoteResponse, badgeResponse] = await Promise.all([
         fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ scope: "read" }) }),
         fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ scope: "promote" }) }),
+        fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ scope: "badge" }) }),
       ]);
-      if (!readResponse.ok || !promoteResponse.ok) throw new Error("Unable to issue CI tokens. Check the workspace baseline and sign-in session.");
-      const [readToken, promoteToken] = await Promise.all([
-        readResponse.json() as Promise<{ token: string; expiresAt: number }>,
-        promoteResponse.json() as Promise<{ token: string; expiresAt: number }>,
+      if (!readResponse.ok || !promoteResponse.ok || !badgeResponse.ok) throw new Error("Unable to issue CI tokens. Check the workspace baseline and sign-in session.");
+      type TokenResponse = {
+        token: string;
+        expiresAt: number;
+        baseline: { revision: string; pathCount: number; lastPromotedAt: string | null; commitSha: string | null; actor: string | null };
+      };
+      const [readToken, promoteToken, badgeToken] = await Promise.all([
+        readResponse.json() as Promise<TokenResponse>,
+        promoteResponse.json() as Promise<TokenResponse>,
+        badgeResponse.json() as Promise<TokenResponse>,
       ]);
       const endpointUrl = `https://driftmap.in/api/v1/workspaces/${encodeURIComponent(active.id)}/baseline`;
       const url = new URL(endpointUrl);
       url.searchParams.set("token", readToken.token);
-      setCiExport({ baselineUrl: url.toString(), promoteToken: promoteToken.token, expiresAt: Math.min(readToken.expiresAt, promoteToken.expiresAt) });
+      const badgeUrl = new URL(`https://driftmap.in/api/v1/workspaces/${encodeURIComponent(active.id)}/badge`);
+      badgeUrl.searchParams.set("token", badgeToken.token);
+      setCiExport({
+        baselineUrl: url.toString(),
+        promoteToken: promoteToken.token,
+        badgeMarkdown: `![DriftMap contract path count](${badgeUrl.toString()})`,
+        revision: badgeToken.baseline.revision,
+        pathCount: badgeToken.baseline.pathCount,
+        lastPromotedAt: badgeToken.baseline.lastPromotedAt,
+        commitSha: badgeToken.baseline.commitSha,
+        actor: badgeToken.baseline.actor,
+        expiresAt: Math.min(readToken.expiresAt, promoteToken.expiresAt, badgeToken.expiresAt),
+      });
     } catch (reason) {
       toast.error(reason instanceof Error ? reason.message : "Unable to prepare the GitHub Action configuration.");
     } finally {

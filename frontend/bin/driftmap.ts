@@ -841,13 +841,20 @@ export async function promoteCandidate(
   const comparison = await runCompareAsync({ baselinePath: baselineUrl, candidatePath, direction: "response", directionExplicit: false, failOn: "off", format: "json", outPath: null, configPath: null, quiet: true, verbose: false, color: "never" }, fetchImpl);
   if (!comparison.summary) return { exitCode: 2, output: errorBlock("Unable to compare the current baseline before promotion.") };
   url.search = "";
+  const commitSha = process.env.GITHUB_SHA?.trim();
+  const actor = process.env.GITHUB_ACTOR?.trim();
 
   let response: Response;
   try {
     response = await fetchImpl(url, {
       method: "POST",
       headers: { accept: "application/json", "content-type": "application/json", authorization: `Bearer ${token}` },
-      body: JSON.stringify({ document: raw, versionLabel: `main ${new Date().toISOString().slice(0, 10)}` }),
+      body: JSON.stringify({
+        document: raw,
+        versionLabel: `main ${new Date().toISOString().slice(0, 10)}`,
+        ...(commitSha && /^[0-9a-f]{7,64}$/i.test(commitSha) ? { commitSha } : {}),
+        ...(actor && /^[A-Za-z0-9_.\-[\]]{1,100}$/.test(actor) ? { actor } : {}),
+      }),
       redirect: "error",
       signal: AbortSignal.timeout(15_000),
     });

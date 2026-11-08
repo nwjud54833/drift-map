@@ -44,6 +44,14 @@ PR #11 from `feat/cli-dark-theme` to `test-driftmap-action` triggered [run 42393
 - Root metadata and a dynamic OpenGraph image provide an Obsidian high-contrast share card with all four semantic severity classes.
 - Local v2.5.4 verification passed: 327 frontend tests, 21 CLI/Action tests, lint, typecheck, Prisma validation, and production build. Production deployment health is checked after push.
 
+## v2.5.5 README badge and promotion audit
+
+- Added a cacheable SVG workspace badge endpoint. Badge tokens are scoped to the badge endpoint and cannot fetch baseline contract data; existing read tokens may also authorize the badge.
+- The Workbench CI modal copies README badge Markdown and displays the current revision, inferred path count, last promotion timestamp, commit SHA, and actor when available.
+- Promotion audit metadata is stored in the promoted snapshot's existing `notes` field, so this release requires no schema migration.
+- Local verification passed: Prisma schema validation, ESLint, TypeScript typecheck, production build, 331 frontend tests, and 21 CLI/Action tests.
+- Live production health, release tag, and GitHub Release are verified after deployment and recorded below.
+
 ## Database persistence and smoke test
 
 `frontend/scripts/verify-db-auth.ts` is ready for CI or pre-deploy execution against an explicitly selected, empty, non-production database. It verifies disposable user creation, session persistence, workspace create/update/query, and a 1 MiB JSON snapshot round-trip, then deletes the disposable user in `finally`. It requires `TEST_DATABASE_URL` and `DRIFTMAP_TEST_DATABASE_CONFIRMATION=I_VERIFIED_EMPTY_NON_PRODUCTION`.

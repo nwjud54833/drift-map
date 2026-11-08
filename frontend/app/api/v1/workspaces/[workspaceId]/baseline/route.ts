@@ -6,6 +6,7 @@ import { parseImportArtifact } from "@/lib/workbench/import-artifact";
 import type { StoredContract } from "@/lib/contract/types";
 import { z } from "zod";
 import { Prisma } from "@/generated/prisma/client";
+import { contractPathCount, encodeBaselinePromotionNotes } from "@/lib/server/baseline-audit";
 
 type Context = { params: Promise<{ workspaceId: string }> };
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
@@ -77,7 +78,12 @@ export async function GET(request: Request, context: Context) {
   }
 }
 
-const promoteBody = z.object({ document: z.string().min(1).max(2 * 1024 * 1024), versionLabel: z.string().trim().min(1).max(100).optional() }).strict();
+const promoteBody = z.object({
+  document: z.string().min(1).max(2 * 1024 * 1024),
+  versionLabel: z.string().trim().min(1).max(100).optional(),
+  commitSha: z.string().trim().regex(/^[0-9a-f]{7,64}$/i).optional(),
+  actor: z.string().trim().min(1).max(100).regex(/^[A-Za-z0-9_.\-[\]]+$/).optional(),
+}).strict();
 
 /** Atomically save a passing main-branch contract as the selected baseline. */
 export async function POST(request: Request, context: Context) {
@@ -98,6 +104,13 @@ export async function POST(request: Request, context: Context) {
 
   const contract: StoredContract = parsed.artifact.format === "openapi" ? parsed.artifact.contract : (await import("@/lib/contract/infer")).inferContract(parsed.artifact.samples);
   const payloadSamples = parsed.artifact.format === "samples" ? parsed.artifact.samples : [];
+  const promotedAt = new Date();
+  const promotionNotes = encodeBaselinePromotionNotes({
+    promotedAt: promotedAt.toISOString(),
+    pathCount: contractPathCount(contract),
+    ...(input.data.commitSha ? { commitSha: input.data.commitSha } : {}),
+    ...(input.data.actor ? { actor: input.data.actor } : {}),
+  });
   try {
     const result = await prisma.$transaction(async (tx) => {
       const workspace = await tx.workspace.findFirst({ where: { id: workspaceId, userId: claims.userId }, select: { id: true } });
@@ -106,7 +119,7 @@ export async function POST(request: Request, context: Context) {
         data: {
           workspaceId,
           versionLabel: input.data.versionLabel ?? `main ${new Date().toISOString().slice(0, 10)}`,
-          notes: "Automatically promoted from a passing main branch build.",
+          notes: promotionNotes,
           sourceFileName: null,
           contract: contract as unknown as Prisma.InputJsonValue,
           samples: payloadSamples.length ? { create: payloadSamples.map((sample) => ({ label: sample.label, source: "workspace_import" as const, capturedAt: new Date(sample.capturedAt), value: sample.value as unknown as Prisma.InputJsonValue })) } : undefined,
