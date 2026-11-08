@@ -369,6 +369,7 @@ export function SiteFooter({ onOpenWorkbench, onLaunchGraph }: {
           <a href={`${GITHUB_URL}#readme`} target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
             GitHub README ↗
           </a>
+          <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
         </nav>
       </div>
     </footer>

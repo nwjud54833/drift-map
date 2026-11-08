@@ -15,6 +15,7 @@ describe("search indexing routes", () => {
     expect(sitemap().map(({ url }) => url)).toEqual([
       "https://driftmap.in/",
       "https://driftmap.in/workbench",
+      "https://driftmap.in/privacy",
     ]);
   });
 });

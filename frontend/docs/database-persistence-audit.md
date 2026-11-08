@@ -92,6 +92,12 @@ PR #11 from `feat/cli-dark-theme` to `test-driftmap-action` triggered [run 42393
 - Release checks passed: lint, typecheck, production build, 357 frontend tests (34 files, including previously undiscovered TSX tests), and 22 CLI/Action tests.
 - Production `/api/health` returned HTTP 200, `db: connected`, version `2.5.11`, commit `77aa5f963cd1e3fa7a4bbfaa327e806a490e6d32`. The unauthenticated onboarding page redirected to sign-in (307), profile POST returned 401, and survey export returned 403.
 
+## v2.5.12 privacy and CLI onboarding
+
+- Added a public privacy policy that documents local-first processing, Google sign-in, cloud data storage, retention, and deletion requests.
+- Added a copyable `npx driftmap diff` quick-start box to the landing hero and a footer privacy link. The privacy page is included in the sitemap.
+- Production health and release verification are recorded after rollout.
+
 ## Database persistence and smoke test
 
 `frontend/scripts/verify-db-auth.ts` is ready for CI or pre-deploy execution against an explicitly selected, empty, non-production database. It verifies disposable user creation, session persistence, workspace create/update/query, and a 1 MiB JSON snapshot round-trip, then deletes the disposable user in `finally`. It requires `TEST_DATABASE_URL` and `DRIFTMAP_TEST_DATABASE_CONFIRMATION=I_VERIFIED_EMPTY_NON_PRODUCTION`.

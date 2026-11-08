@@ -24,7 +24,7 @@ describe("Workbench CI export", () => {
     expect(markup).toContain("abcdef123456");
     expect(markup).toContain("read.signed.value");
     expect(markup).toContain("promote.signed.value");
-    expect(markup).toContain("nwjud54833/drift-map@v2.5.11");
+    expect(markup).toContain("nwjud54833/drift-map@v2.5.12");
     expect(DRIFTMAP_GITHUB_WORKFLOW).toContain("secrets.DRIFTMAP_BASELINE_URL");
     expect(DRIFTMAP_GITHUB_WORKFLOW).toContain("promote-on-push: true");
   });

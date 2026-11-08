@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: nwjud54833/drift-map@v2.5.11
+      - uses: nwjud54833/drift-map@v2.5.12
         with:
           baseline-path: \${{ secrets.DRIFTMAP_BASELINE_URL }}
           candidate-path: samples/*.json

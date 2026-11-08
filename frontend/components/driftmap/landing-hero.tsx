@@ -15,6 +15,7 @@ import { CrosshairLattice, DriftTable, type DriftRow } from "./drift-table";
 import { EvidenceInspector } from "./evidence-inspector";
 import { HeroPerspectiveCanvas } from "./hero-perspective-canvas";
 import { TimelineBadges, TimelineScrubber } from "./timeline-scrubber";
+import { CliInstallSnippet } from "./cli-install-snippet";
 
 /**
  * Landing hero.
@@ -282,6 +283,10 @@ export function LandingHero() {
               </svg>
               <span>Copy design tokens (CSS)</span>
             </button>
+          </div>
+
+          <div className="mb-8 px-1 sm:px-0">
+            <CliInstallSnippet />
           </div>
 
           <div className="inline-flex flex-wrap items-center justify-center gap-y-2 gap-x-6 px-4 py-2 rounded-xl bg-[#0A0A0D]/90 border border-white/[0.06] text-xs font-mono text-[#9496A1] backdrop-blur-md">
