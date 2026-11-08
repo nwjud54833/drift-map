@@ -1,12 +1,15 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { parseCliArguments, resolveColors, runCompare, USAGE } from "@/bin/driftmap";
+import { displayBaselineInput, loadHostedBaseline, parseCliArguments, promoteCandidate, resolveColors, runCompare, runCompareAsync, USAGE, validateHostedBaselineUrl } from "@/bin/driftmap";
 import type { CompareOptions } from "@/bin/driftmap";
 import { ANSI_CODES } from "@/bin/colors";
+import { decodeReviewState } from "@/lib/workbench/review-link";
+import { inferContract } from "@/lib/contract/infer";
+import { parseImportArtifact } from "@/lib/workbench/import-artifact";
 
 const fixturesDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures");
 const fixture = (name: string) => path.join(fixturesDir, name);
@@ -19,6 +22,7 @@ function options(overrides: Partial<CompareOptions> = {}): CompareOptions {
     baselinePath: pair1.baselinePath,
     candidatePath: pair1.candidatePath,
     direction: "response",
+    directionExplicit: false,
     failOn: "breaking",
     format: "text",
     outPath: null,
@@ -50,6 +54,7 @@ describe("parseCliArguments", () => {
       baselinePath: "a.json",
       candidatePath: "b.json",
       direction: "request",
+      directionExplicit: true,
       failOn: "warning",
       format: "json",
       outPath: "drift.md",
@@ -87,6 +92,22 @@ describe("parseCliArguments", () => {
     expect(parseCliArguments([]).ok).toBe(false);
   });
 
+  it("accepts explicit --baseline and --candidate file-or-URL options", () => {
+    const url = "https://driftmap.in/api/v1/workspaces/6f9619ff-8b86-4d3a-a5a5-6d2a7e5b6c10/baseline";
+    const parsed = parseCliArguments(["diff", "--baseline", url, "--candidate", "candidate.json"]);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.options.baselinePath).toBe(url);
+    expect(parsed.options.candidatePath).toBe("candidate.json");
+  });
+
+  it("parses an optional HTTPS webhook notification URL", () => {
+    const url = "https://hooks.example.test/driftmap";
+    const parsed = parseCliArguments(["diff", "--baseline", "a.json", "--candidate", "b.json", "--webhook-url", url]);
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) expect(parsed.options.webhookUrl).toBe(url);
+  });
+
   it("rejects unknown flags with a usage error", () => {
     const parsed = parseCliArguments(["compare", "a.json", "b.json", "--wat"]);
     expect(parsed.ok).toBe(false);
@@ -118,6 +139,107 @@ describe("parseCliArguments", () => {
     expect(color.ok).toBe(false);
     if (color.ok) return;
     expect(color.message).toContain("--color must be one of auto, always, never");
+  });
+});
+
+describe("hosted baseline fetching", () => {
+  const url = "https://driftmap.in/api/v1/workspaces/6f9619ff-8b86-4d3a-a5a5-6d2a7e5b6c10/baseline";
+  const baselineArtifact = parseImportArtifact(readFileSync(pair1.baselinePath, "utf8"), { source: "file" });
+  if (!baselineArtifact.ok || !("samples" in baselineArtifact.artifact)) throw new Error("CLI test fixture must parse as samples.");
+  const baselineSamples = baselineArtifact.artifact.samples;
+  const baselineContract = inferContract(baselineSamples);
+
+  it("only accepts HTTPS DriftMap workspace baseline endpoints", () => {
+    expect(validateHostedBaselineUrl(url)?.hostname).toBe("driftmap.in");
+    expect(validateHostedBaselineUrl(url.replace("https:", "http:"))).toBeNull();
+    expect(validateHostedBaselineUrl(url.replace("driftmap.in", "example.com"))).toBeNull();
+    expect(validateHostedBaselineUrl(`${url}?token=secret`)?.hostname).toBe("driftmap.in");
+    expect(validateHostedBaselineUrl(`${url}?other=secret`)).toBeNull();
+  });
+
+  it("fetches a signed baseline and compares it with a local candidate", async () => {
+    const previousToken = process.env.DRIFTMAP_BASELINE_TOKEN;
+    process.env.DRIFTMAP_BASELINE_TOKEN = "ci-read-token";
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      expect(init?.method).toBe("GET");
+      expect(new Headers(init?.headers).get("authorization")).toBe("Bearer ci-read-token");
+      expect(init?.redirect).toBe("error");
+      return new Response(JSON.stringify({
+        baseline: {
+          versionLabel: "v1",
+          contract: baselineContract,
+          samples: baselineSamples.map((sample) => sample.value),
+        },
+      }), { status: 200, headers: { "content-type": "application/json" } });
+    }) as unknown as typeof fetch;
+
+    try {
+      const loaded = await loadHostedBaseline(url, fetchMock, "ci-read-token");
+      expect("error" in loaded).toBe(false);
+
+      const result = await runCompareAsync(options({ baselinePath: url, candidatePath: pair1.candidatePath, format: "markdown" }), fetchMock);
+      expect(result.exitCode).toBe(1);
+      expect(result.output).toContain("BREAKING");
+      expect(result.output).toContain("[Inspect full diff in DriftMap Workbench](https://driftmap.in/workbench?review=z.");
+      expect(result.output).not.toContain("ci-read-token");
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    } finally {
+      if (previousToken === undefined) delete process.env.DRIFTMAP_BASELINE_TOKEN;
+      else process.env.DRIFTMAP_BASELINE_TOKEN = previousToken;
+    }
+  });
+
+  it("returns a clear auth error without exposing endpoint response data", async () => {
+    const fetchMock = vi.fn(async () => new Response("private database details", { status: 401 })) as unknown as typeof fetch;
+    const loaded = await loadHostedBaseline(url, fetchMock, "invalid-token");
+    expect(loaded).toEqual({ error: "Hosted baseline access was denied. Set DRIFTMAP_BASELINE_TOKEN to a valid workspace read token." });
+  });
+
+  it("extracts a read token from the URL without sending it in the request URL", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      expect(String(input)).toBe(url);
+      expect(new Headers(init?.headers).get("authorization")).toBe("Bearer copied-token");
+      return new Response(JSON.stringify({ baseline: { versionLabel: "v1", contract: baselineContract, samples: baselineSamples.map((sample) => sample.value) } }), { status: 200 });
+    }) as unknown as typeof fetch;
+    const loaded = await loadHostedBaseline(`${url}?token=copied-token`, fetchMock, "");
+    expect("error" in loaded).toBe(false);
+    expect(displayBaselineInput(`${url}?token=copied-token`)).toBe(url);
+    const report = await runCompareAsync(options({ baselinePath: `${url}?token=copied-token`, format: "markdown" }), fetchMock);
+    expect(report.output).not.toContain("copied-token");
+    expect(report.output).toContain(url);
+  });
+
+  it("promotes a candidate with a scoped bearer token and sanitizes failures", async () => {
+    const requests: Array<{ url: string; method?: string; headers?: HeadersInit; body?: unknown }> = [];
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      requests.push({ url: String(input), method: init?.method, headers: init?.headers, body: init?.body });
+      if (init?.method === "POST") return new Response("{}", { status: 200 });
+      return new Response(JSON.stringify({ baseline: { versionLabel: "v1", contract: baselineContract, samples: baselineSamples.map((sample) => sample.value) } }), { status: 200 });
+    }) as unknown as typeof fetch;
+    const previousSha = process.env.GITHUB_SHA;
+    const previousActor = process.env.GITHUB_ACTOR;
+    process.env.GITHUB_SHA = "abcdef1234567";
+    process.env.GITHUB_ACTOR = "ci-bot";
+    try {
+      const success = await promoteCandidate(url, pair1.candidatePath, fetchMock, "promote-token");
+      expect(success.exitCode, `${success.output} requests=${JSON.stringify(requests)}`).toBe(0);
+      expect(success.output).toContain("promoted");
+      expect(requests.map((request) => request.method)).toEqual(["GET", "POST"]);
+      expect(requests[1].url).toBe(url);
+      expect(new Headers(requests[1].headers).get("authorization")).toBe("Bearer promote-token");
+      expect(JSON.parse(String(requests[1].body))).toMatchObject({ document: expect.any(String), commitSha: "abcdef1234567", actor: "ci-bot" });
+    } finally {
+      if (previousSha === undefined) delete process.env.GITHUB_SHA; else process.env.GITHUB_SHA = previousSha;
+      if (previousActor === undefined) delete process.env.GITHUB_ACTOR; else process.env.GITHUB_ACTOR = previousActor;
+    }
+
+    const failingFetch = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => init?.method === "GET"
+      ? new Response(JSON.stringify({ baseline: { versionLabel: "v1", contract: baselineContract, samples: baselineSamples.map((sample) => sample.value) } }), { status: 200 })
+      : new Response("private database detail", { status: 401 })) as unknown as typeof fetch;
+    const denied = await promoteCandidate(url, pair1.candidatePath, failingFetch, "bad-token");
+    expect(denied.exitCode).toBe(2);
+    expect(denied.output).toContain("Check DRIFTMAP_PROMOTE_TOKEN");
+    expect(denied.output).not.toContain("private database detail");
   });
 });
 
@@ -485,6 +607,40 @@ describe("output formats", () => {
     expect(outcome.output).toContain("| Severity | Path | Change | Baseline | Candidate | Explanation |");
     expect(outcome.output).toContain("| WARNING | `");
     expect(outcome.output).toContain("| WARNING | `");
+    expect(outcome.output).toContain("[Inspect full diff in DriftMap Workbench](https://driftmap.in/workbench?review=z.");
+  });
+
+  it("embeds a compressed, token-free Workbench deep link that restores the compared inputs", async () => {
+    const outcome = runCompare(options({ format: "markdown" }));
+    const match = /\[Inspect full diff in DriftMap Workbench\]\((https:\/\/driftmap\.in\/workbench\?review=[^)]+)\)/.exec(outcome.output);
+    expect(match).not.toBeNull();
+    const encoded = new URL(match![1]).searchParams.get("review");
+    expect(encoded).toMatch(/^z\./);
+    const preview = await decodeReviewState(encoded!);
+    expect(preview?.workspace.name).toBe("CLI contract review");
+    expect(preview?.baseline.samples[0]?.value).toMatchObject({ orderId: "ord-1042" });
+    expect(preview?.candidate.samples[0]?.value).toMatchObject({ orderId: "ord-1042" });
+  });
+
+  it("omits the deep link when the compressed review state exceeds the URL limit", () => {
+    const directory = mkdtempSync(path.join(tmpdir(), "driftmap-review-size-"));
+    const baselinePath = path.join(directory, "baseline.json");
+    const candidatePath = path.join(directory, "candidate.json");
+    const noisyText = (seed: number) => {
+      let value = seed >>> 0;
+      return Array.from({ length: 12_000 }, () => {
+        value = (Math.imul(value, 1664525) + 1013904223) >>> 0;
+        return (value % 36).toString(36);
+      }).join("");
+    };
+    writeFileSync(baselinePath, JSON.stringify({ id: "order-1", payload: noisyText(1) }));
+    writeFileSync(candidatePath, JSON.stringify({ id: "order-1", payload: noisyText(2) }));
+    try {
+      const outcome = runCompare(options({ baselinePath, candidatePath, format: "markdown" }));
+      expect(outcome.output).not.toContain("Inspect full diff in DriftMap Workbench");
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
   });
 
   it("documents the usage text with the new flags", () => {

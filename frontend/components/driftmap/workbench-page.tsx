@@ -45,6 +45,10 @@ import { WorkbenchInspector } from "./workbench-inspector";
 import { WorkbenchToolbar } from "./workbench-toolbar";
 import { WorkbenchDrawer } from "./workbench-drawer";
 import { WorkbenchEmptyState } from "./workbench-empty-state";
+import { CIExportModal, type CIExportCredentials } from "./ci-export-modal";
+import { ReviewLinkModal } from "./review-link-modal";
+import { buildReviewPayload, decodeReviewState, encodeReviewState, parseReviewPayload, type ReviewPreview } from "@/lib/workbench/review-link";
+import { getExampleDiffPreset, type ExampleDiffPresetId } from "@/lib/workbench/example-presets";
 
 type WorkbenchMode = "local" | "cloud";
 
@@ -62,6 +66,7 @@ const LIVE_TRAFFIC_INTERVAL_MS = 1350;
  */
 export function WorkbenchPage() {
   const searchParams = useSearchParams();
+  const reviewParam = searchParams.get("review");
   const { data: session, status: sessionStatus } = useSession();
 
   const centerMode = useSpatialUIStore((state) => state.centerMode);
@@ -97,6 +102,13 @@ export function WorkbenchPage() {
     direction: ContractDirection;
   } | null>(null);
   const [savedDiffStatus, setSavedDiffStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [ciExport, setCiExport] = useState<CIExportCredentials | null>(null);
+  const [ciExportLoading, setCiExportLoading] = useState(false);
+  const [reviewPreview, setReviewPreview] = useState<ReviewPreview | null>(null);
+  const [reviewStatus, setReviewStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [reviewShareUrl, setReviewShareUrl] = useState<string | null>(null);
+  const [reviewShareExpiry, setReviewShareExpiry] = useState<number | undefined>();
+  const [reviewShareLoading, setReviewShareLoading] = useState(false);
 
   const inputRef = useRef<WorkbenchInputHandle>(null);
   const centerRef = useRef<WorkbenchCenterHandle>(null);
@@ -115,6 +127,10 @@ export function WorkbenchPage() {
 
   const refresh = useCallback(async () => {
     if (!modeReady) return;
+    if (reviewParam) {
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       setError(null);
@@ -135,26 +151,136 @@ export function WorkbenchPage() {
     } finally {
       setLoading(false);
     }
-  }, [mode, modeReady]);
+  }, [mode, modeReady, reviewParam]);
 
   useEffect(() => { void refresh(); }, [refresh]);
+
+  useEffect(() => {
+    if (!reviewParam) {
+      setReviewStatus("idle");
+      setReviewPreview(null);
+      return;
+    }
+    let cancelled = false;
+    setReviewPreview(null);
+    setReviewStatus("loading");
+    void (async () => {
+      let preview: ReviewPreview | null = null;
+      if (reviewParam.startsWith("z.")) {
+        preview = await decodeReviewState(reviewParam);
+      } else {
+        const match = /^c\.([0-9a-f-]{36})\.([A-Za-z0-9_.-]{1,4096})$/i.exec(reviewParam);
+        if (match) {
+          const response = await fetch(`/api/v1/workspaces/${encodeURIComponent(match[1])}/review`, { headers: { authorization: `Bearer ${match[2]}`, accept: "application/json" }, cache: "no-store" });
+          if (response.ok) {
+            const body = await response.json() as { review?: unknown };
+            preview = parseReviewPayload(body.review);
+          }
+        }
+      }
+      if (cancelled) return;
+      setReviewPreview(preview);
+      setReviewStatus(preview ? "ready" : "error");
+      if (!preview) setError("This shared review link is invalid, expired, or too large to preview.");
+    })().catch(() => {
+      if (cancelled) return;
+      setReviewStatus("error");
+      setError("Unable to load this shared review link.");
+    });
+    return () => { cancelled = true; };
+  }, [reviewParam]);
 
   // Deep link: /workbench?view=graph
   useEffect(() => {
     if (searchParams.get("view") === "graph") setCenterMode("graph");
   }, [searchParams, setCenterMode]);
 
-  const active = workspaces.find((workspace) => workspace.id === activeId) ?? null;
-  const baseline = snapshots.find((snapshot) => snapshot.id === active?.baselineSnapshotId) ?? null;
-  const candidate = snapshots.find((snapshot) => snapshot.id === active?.candidateSnapshotId) ?? null;
+  const isReadOnlyReview = Boolean(reviewParam);
+  const active = reviewPreview?.workspace ?? (workspaces.find((workspace) => workspace.id === activeId) ?? null);
+  const baseline = reviewPreview?.baseline ?? (snapshots.find((snapshot) => snapshot.id === active?.baselineSnapshotId) ?? null);
+  const candidate = reviewPreview?.candidate ?? (snapshots.find((snapshot) => snapshot.id === active?.candidateSnapshotId) ?? null);
   const hasComparison = Boolean(baseline && candidate);
+
+  const shareReview = useCallback(async () => {
+    if (!active || !baseline || !candidate) {
+      toast.error("Load a baseline and candidate before sharing a review.");
+      return;
+    }
+    setReviewShareLoading(true);
+    try {
+      const url = new URL("/workbench", window.location.origin);
+      if (mode === "cloud" && sessionStatus === "authenticated" && !active.id.startsWith("review-")) {
+        const response = await fetch(`/api/v1/workspaces/${encodeURIComponent(active.id)}/baseline/token`, {
+          method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ scope: "review" }),
+        });
+        if (!response.ok) throw new Error("Sign in and save both workspace snapshots before creating a signed review link.");
+        const issued = await response.json() as { token: string; expiresAt: number };
+        url.searchParams.set("review", `c.${active.id}.${issued.token}`);
+        setReviewShareExpiry(issued.expiresAt);
+      } else {
+        const encoded = await encodeReviewState(buildReviewPayload(active, baseline, candidate));
+        url.searchParams.set("review", encoded);
+        setReviewShareExpiry(undefined);
+      }
+      if (url.toString().length > 8_000) throw new Error("The review link exceeds the supported URL size.");
+      setReviewShareUrl(url.toString());
+    } catch (reason) {
+      toast.error(reason instanceof Error ? reason.message : "Unable to prepare a review link.");
+    } finally {
+      setReviewShareLoading(false);
+    }
+  }, [active, baseline, candidate, mode, sessionStatus]);
+
+  const openCIExport = useCallback(async () => {
+    if (mode !== "cloud" || sessionStatus !== "authenticated" || !active?.baselineSnapshotId) return;
+    setCiExportLoading(true);
+    try {
+      const endpoint = `/api/v1/workspaces/${encodeURIComponent(active.id)}/baseline/token`;
+      const [readResponse, promoteResponse, badgeResponse] = await Promise.all([
+        fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ scope: "read" }) }),
+        fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ scope: "promote" }) }),
+        fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ scope: "badge" }) }),
+      ]);
+      if (!readResponse.ok || !promoteResponse.ok || !badgeResponse.ok) throw new Error("Unable to issue CI tokens. Check the workspace baseline and sign-in session.");
+      type TokenResponse = {
+        token: string;
+        expiresAt: number;
+        baseline: { revision: string; pathCount: number; lastPromotedAt: string | null; commitSha: string | null; actor: string | null };
+      };
+      const [readToken, promoteToken, badgeToken] = await Promise.all([
+        readResponse.json() as Promise<TokenResponse>,
+        promoteResponse.json() as Promise<TokenResponse>,
+        badgeResponse.json() as Promise<TokenResponse>,
+      ]);
+      const endpointUrl = `https://driftmap.in/api/v1/workspaces/${encodeURIComponent(active.id)}/baseline`;
+      const url = new URL(endpointUrl);
+      url.searchParams.set("token", readToken.token);
+      const badgeUrl = new URL(`https://driftmap.in/api/v1/workspaces/${encodeURIComponent(active.id)}/badge`);
+      badgeUrl.searchParams.set("token", badgeToken.token);
+      setCiExport({
+        baselineUrl: url.toString(),
+        promoteToken: promoteToken.token,
+        badgeMarkdown: `![DriftMap contract path count](${badgeUrl.toString()})`,
+        revision: badgeToken.baseline.revision,
+        pathCount: badgeToken.baseline.pathCount,
+        lastPromotedAt: badgeToken.baseline.lastPromotedAt,
+        commitSha: badgeToken.baseline.commitSha,
+        actor: badgeToken.baseline.actor,
+        expiresAt: Math.min(readToken.expiresAt, promoteToken.expiresAt, badgeToken.expiresAt),
+      });
+    } catch (reason) {
+      toast.error(reason instanceof Error ? reason.message : "Unable to prepare the GitHub Action configuration.");
+    } finally {
+      setCiExportLoading(false);
+    }
+  }, [active, mode, sessionStatus]);
   const direction: ContractDirection = active?.direction ?? "response";
   const sampleWarnings = useMemo(() => sampleWarningsForSnapshots(baseline, candidate), [baseline, candidate]);
 
   /* ---------- Comparison --------------------------------------------------- */
 
   const localChanges = useMemo(() => {
-    if (mode === "cloud" || !hasComparison) return { changes: [], error: null as string | null };
+    if ((mode === "cloud" && !reviewPreview) || !hasComparison) return { changes: [], error: null as string | null };
     try {
       return { changes: compareContracts(baseline!.contract, candidate!.contract, direction), error: null as string | null };
     } catch (reason) {
@@ -163,14 +289,14 @@ export function WorkbenchPage() {
         error: reason instanceof OpenApiComparisonError ? reason.message : "Unable to compare these contracts.",
       };
     }
-  }, [mode, hasComparison, baseline, candidate, direction]);
+  }, [mode, reviewPreview, hasComparison, baseline, candidate, direction]);
 
   useEffect(() => {
     if (mode === "local" && localChanges.error) setError(localChanges.error);
   }, [mode, localChanges.error]);
 
   useEffect(() => {
-    if (mode !== "cloud" || !active || !baseline || !candidate) {
+    if (reviewPreview || mode !== "cloud" || !active || !baseline || !candidate) {
       setSavedDiff(null);
       setSavedDiffStatus("idle");
       return;
@@ -197,7 +323,7 @@ export function WorkbenchPage() {
         setError(reason instanceof Error ? reason.message : "Unable to load the saved comparison.");
       });
     return () => { cancelled = true; };
-  }, [mode, active, baseline, candidate, direction]);
+  }, [reviewPreview, mode, active, baseline, candidate, direction]);
 
   const savedDiffMatches = Boolean(savedDiff)
     && savedDiff!.workspaceId === active?.id
@@ -206,8 +332,8 @@ export function WorkbenchPage() {
     && savedDiff!.direction === direction;
 
   const changes = useMemo(
-    () => (mode === "cloud" ? (savedDiffMatches ? savedDiff!.changes : []) : localChanges.changes),
-    [mode, savedDiffMatches, savedDiff, localChanges.changes],
+    () => (mode === "cloud" && !reviewPreview ? (savedDiffMatches ? savedDiff!.changes : []) : localChanges.changes),
+    [mode, reviewPreview, savedDiffMatches, savedDiff, localChanges.changes],
   );
 
   /* ---------- Timeline ----------------------------------------------------- */
@@ -224,12 +350,12 @@ export function WorkbenchPage() {
   );
 
   const snapshotRevisions = useMemo(
-    () => (hasComparison && snapshots.length > 1
-      ? snapshots
+    () => (hasComparison && (reviewPreview ? 2 : snapshots.length) > 1
+      ? (reviewPreview ? [reviewPreview.baseline, reviewPreview.candidate] : snapshots)
           .filter((snapshot) => snapshot.workspaceId === active?.id)
           .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
       : []),
-    [hasComparison, snapshots, active?.id],
+    [hasComparison, snapshots, reviewPreview, active?.id],
   );
 
   const usingSampleTimeline = sampleRevisions.length > 1;
@@ -247,6 +373,7 @@ export function WorkbenchPage() {
    */
   const scrubToRevision = useCallback(async (index: number) => {
     setRevisionIndex(index);
+    if (isReadOnlyReview) return;
     if (usingSampleTimeline) {
       DriftAudioSynth.playForSeverity(activeRevisionSeverity(sampleRevisions[index]));
       return;
@@ -262,7 +389,7 @@ export function WorkbenchPage() {
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Unable to switch the candidate snapshot.");
     }
-  }, [usingSampleTimeline, sampleRevisions, snapshotRevisions, active, mode]);
+  }, [isReadOnlyReview, usingSampleTimeline, sampleRevisions, snapshotRevisions, active, mode]);
 
   /* ---------- Findings ----------------------------------------------------- */
 
@@ -425,6 +552,66 @@ export function WorkbenchPage() {
       setPendingAction(null);
     }
   }, [active, mode, pendingAction, refresh]);
+
+  const loadExampleDiff = useCallback(async (presetId: ExampleDiffPresetId) => {
+    if (pendingAction) return;
+    const preset = getExampleDiffPreset(presetId);
+    const baselineArtifact = parseImportArtifact(preset.baseline, { yaml: preset.yaml, source: "fixture", fileName: `${preset.id}-baseline.${preset.yaml ? "yaml" : "json"}` });
+    const candidateArtifact = parseImportArtifact(preset.candidate, { yaml: preset.yaml, source: "fixture", fileName: `${preset.id}-candidate.${preset.yaml ? "yaml" : "json"}` });
+    if (!baselineArtifact.ok || !candidateArtifact.ok) {
+      toast.error("The selected example could not be parsed.");
+      return;
+    }
+
+    setPendingAction("example-diff");
+    try {
+      let workspace = active;
+      if (!workspace) {
+        workspace = mode === "cloud"
+          ? await createCloudWorkspace(preset.name, preset.direction)
+          : createWorkspace(preset.name, preset.direction);
+        if (mode === "local") await saveWorkspace(workspace);
+      } else if (workspace.direction !== preset.direction) {
+        workspace = mode === "cloud"
+          ? await updateCloudWorkspace(workspace.id, { direction: preset.direction })
+          : { ...workspace, direction: preset.direction, updatedAt: new Date().toISOString() };
+      }
+
+      const persist = async (artifact: ImportArtifact, side: "baseline" | "candidate", versionLabel: string, fileName: string) => {
+        if (mode === "cloud") {
+          return artifact.format === "openapi"
+            ? (await createCloudOpenApiSnapshot(workspace!.id, versionLabel, JSON.stringify(artifact.contract.document), fileName, side)).snapshot
+            : (await createCloudSnapshot(workspace!.id, versionLabel, artifact.samples, fileName, side)).snapshot;
+        }
+        return artifact.format === "openapi"
+          ? createOpenApiSnapshot(workspace!.id, artifact.contract, versionLabel, fileName)
+          : createSnapshot(workspace!.id, artifact.samples, versionLabel, fileName);
+      };
+
+      const baselineSnapshot = await persist(baselineArtifact.artifact, "baseline", preset.baselineLabel, `${preset.id}-baseline.${preset.yaml ? "yaml" : "json"}`);
+      const candidateSnapshot = await persist(candidateArtifact.artifact, "candidate", preset.candidateLabel, `${preset.id}-candidate.${preset.yaml ? "yaml" : "json"}`);
+      const updated: Workspace = {
+        ...workspace,
+        direction: preset.direction,
+        baselineSnapshotId: baselineSnapshot.id,
+        candidateSnapshotId: candidateSnapshot.id,
+        updatedAt: new Date().toISOString(),
+      };
+      if (mode === "local") await saveWorkspace(updated);
+      setSnapshots((current) => [...current.filter((snapshot) => snapshot.id !== baselineSnapshot.id && snapshot.id !== candidateSnapshot.id), baselineSnapshot, candidateSnapshot]);
+      setWorkspaces((current) => [updated, ...current.filter((item) => item.id !== updated.id)]);
+      setActiveId(updated.id);
+      setSeverity("all");
+      setQuery("");
+      setCenterMode("table");
+      toast.success(`${preset.name} loaded. Review the findings or create a read-only share link.`);
+    } catch (reason) {
+      if (mode === "cloud") await refresh();
+      setError(reason instanceof Error ? reason.message : "Unable to load the example contract diff.");
+    } finally {
+      setPendingAction(null);
+    }
+  }, [active, mode, pendingAction, refresh, setCenterMode]);
 
   const newWorkspace = useCallback(async () => {
     const name = window.prompt("Workspace name", "New contract workspace");
@@ -663,9 +850,7 @@ export function WorkbenchPage() {
 
   /* ---------- Command palette --------------------------------------------- */
 
-  useRegisteredCommands(
-    "workbench",
-    [
+  const workbenchCommands = isReadOnlyReview ? [] : [
       { id: "wb-graph", title: "Workbench: switch to 3D force graph view", category: "3D Graph", shortcut: "V G", keywords: ["3d", "graph", "force", "orbital"], run: () => setCenterMode("graph") },
       { id: "wb-table", title: "Workbench: switch to table grid view", category: "View", shortcut: "V T", keywords: ["table", "grid", "list"], run: () => setCenterMode("table") },
       { id: "wb-format", title: "Format the baseline and candidate JSON", category: "Workbench", keywords: ["format", "pretty", "json"], run: formatEditors },
@@ -687,8 +872,11 @@ export function WorkbenchPage() {
         })),
       { id: "wb-tokens", title: "Inspect the Obsidian CSS design tokens", category: "Theme", shortcut: "T", keywords: ["tokens", "css", "theme"], run: () => openModal("tokens") },
       { id: "wb-shortcuts", title: "Show keyboard shortcuts", category: "Help", shortcut: "?", keywords: ["keyboard", "shortcuts", "help"], run: () => openModal("shortcuts") },
-    ],
-    [counts, drawerOpen, setCenterMode, formatEditors, runInferAndCompare, loadSamplePair, swapSides, copyMarkdown, exportWorkspaceJSON, setDrawerOpen, openModal],
+  ];
+  useRegisteredCommands(
+    "workbench",
+    workbenchCommands,
+    [isReadOnlyReview, counts, drawerOpen, setCenterMode, formatEditors, runInferAndCompare, loadSamplePair, swapSides, copyMarkdown, exportWorkspaceJSON, setDrawerOpen, openModal],
   );
 
   const payloadBytesReported = useCallback((bytes: number) => setPayloadBytes(bytes), []);
@@ -697,7 +885,7 @@ export function WorkbenchPage() {
 
   return (
     <main id="view-workbench" className="relative z-10 flex-1 flex flex-col min-w-0">
-      <WorkbenchToolbar
+      {!isReadOnlyReview && <WorkbenchToolbar
         workspaces={workspaces}
         active={active}
         mode={mode}
@@ -710,12 +898,22 @@ export function WorkbenchPage() {
         onToggleStreaming={() => setStreaming((current) => !current)}
         payloadBytes={payloadBytes}
         onCopyMarkdown={() => void copyMarkdown()}
+        onExportCI={() => void openCIExport()}
         onExportJSON={exportWorkspaceJSON}
-        pending={pendingAction !== null}
-        onLoadSamplePair={() => void loadSamplePair()}
+        onShareReview={() => void shareReview()}
+        sharingReview={reviewShareLoading}
+        pending={pendingAction !== null || ciExportLoading}
+        onLoadExampleDiff={(preset) => void loadExampleDiff(preset)}
         cloudStatus={sessionStatus === "authenticated" ? (session?.user?.email ?? "signed in") : null}
         onSignIn={() => { window.location.href = "/signin"; }}
-      />
+      />}
+
+      {isReadOnlyReview && (
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-sky-400/20 bg-sky-400/[0.04] px-4 py-3 text-xs text-sky-100 sm:px-6" role="status">
+          <span>{reviewStatus === "loading" ? "Loading shared contract review…" : reviewStatus === "error" ? "Shared review unavailable" : `Read-only review · ${active?.name ?? "Contract workspace"} · payloads are not editable`}</span>
+          {reviewPreview && <span className="font-mono text-[10px] text-sky-200/70">{baseline?.versionLabel} → {candidate?.versionLabel}</span>}
+        </div>
+      )}
 
       {sampleWarnings.length > 0 && (
         <div role="status" className="px-4 sm:px-6 py-2 bg-amber-950/40 border-b border-amber-500/30 text-xs font-mono text-amber-200">
@@ -731,7 +929,7 @@ export function WorkbenchPage() {
         </div>
       )}
 
-      {loading ? (
+      {loading || reviewStatus === "loading" ? (
         <div className="flex-1 grid place-items-center p-10" aria-busy="true">
           <p className="font-mono text-xs text-[#5E606E]" role="status" aria-live="polite">
             {mode === "cloud" ? "Loading cloud workspaces…" : "Opening the local workspace…"}
@@ -760,6 +958,7 @@ export function WorkbenchPage() {
           onFile={(side, file) => void onEditorFile(side, file)}
           streamedCandidate={streamedCandidate}
           onDraftSizeChange={payloadBytesReported}
+          readOnly={isReadOnlyReview}
         />
 
         <WorkbenchCenter
@@ -791,7 +990,7 @@ export function WorkbenchPage() {
         />
       </div>
 
-      <WorkbenchDrawer
+      {!isReadOnlyReview && <WorkbenchDrawer
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         workspaces={workspaces}
@@ -808,7 +1007,7 @@ export function WorkbenchPage() {
         onRenameSnapshot={(snapshot, label) => void renameSnapshotLabel(snapshot, label)}
         onDeleteSide={(side) => void deleteSnapshotSide(side)}
         onLoadSamplePair={() => void loadSamplePair()}
-      />
+      />}
 
       <footer className="border-t border-white/[0.08] bg-[#0A0A0D] px-4 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-3 text-[10px] font-mono text-[#5E606E]">
         <span>
@@ -817,14 +1016,16 @@ export function WorkbenchPage() {
             : "Local mode · data stays in this browser (IndexedDB) · not synced to cloud"}
         </span>
         <span className="flex flex-wrap items-center gap-3">
-          <span>⌘K commands · ↑↓ / JK rows · ⌘C report · ⌘S export</span>
-          <button type="button" onClick={() => setDrawerOpen(true)} className="text-[#9496A1] hover:text-white transition-colors">
+          {!isReadOnlyReview && <span>⌘K commands · ↑↓ / JK rows · ⌘C report · ⌘S export</span>}
+          {!isReadOnlyReview && <button type="button" onClick={() => setDrawerOpen(true)} className="text-[#9496A1] hover:text-white transition-colors">
             Workspaces <Images size={11} className="inline" aria-hidden="true" />
-          </button>
+          </button>}
         </span>
       </footer>
 
       <ToastRegion />
+      {ciExport && <CIExportModal credentials={ciExport} onClose={() => setCiExport(null)} />}
+      {reviewShareUrl && <ReviewLinkModal url={reviewShareUrl} expiresAt={reviewShareExpiry} onClose={() => setReviewShareUrl(null)} />}
     </main>
   );
 }

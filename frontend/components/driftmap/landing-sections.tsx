@@ -1,7 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useState, type FormEvent } from "react";
 import { useSpatialUIStore } from "@/stores/spatial-ui-store";
+import { submitEarlyAccessRequest } from "@/lib/client/early-access";
+import { getProCheckoutUrl } from "@/lib/client/pro-checkout";
 import { useTiltCard } from "./use-tilt-card";
 
 /**
@@ -202,6 +205,138 @@ export function LandingCta({ onOpenWorkbench }: { onOpenWorkbench: () => void })
           <a href="/signin" className="btn-geist-secondary px-5 py-3 rounded-xl text-sm text-[#9496A1] hover:text-white">
             Sign in to sync workspaces
           </a>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export function PricingSection({ onOpenWorkbench }: { onOpenWorkbench: () => void }) {
+  const checkoutUrl = getProCheckoutUrl();
+  const [email, setEmail] = useState("");
+  const [githubOrg, setGithubOrg] = useState("");
+  const [repositoryCount, setRepositoryCount] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [message, setMessage] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+
+  async function requestEarlyAccess(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSubmitting(true);
+    setMessage("");
+    const result = await submitEarlyAccessRequest({
+      email,
+      githubOrg,
+      ...(repositoryCount ? { repositoryCount: Number(repositoryCount) } : {}),
+    });
+    setSubmitting(false);
+    if (result.ok) {
+      setSubmitted(true);
+      setMessage("You’re on the Team Cloud early access list. We’ll follow up by email.");
+    } else {
+      setMessage(result.message);
+    }
+  }
+
+  return (
+    <section id="team-ci-cloud" className="py-20 md:py-28 border-b border-white/[0.07]">
+      <div className="max-w-[1120px] mx-auto px-4 sm:px-6">
+        <div className="max-w-2xl mb-10">
+          <div className="text-xs font-mono uppercase tracking-[0.14em] text-[#9496A1] mb-2.5 flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
+            <span>TEAM / CI CLOUD</span>
+          </div>
+          <h2 className="text-2xl sm:text-4xl font-semibold tracking-tight text-white mb-3">
+            Start local. Add shared baselines when your team needs them.
+          </h2>
+          <p className="text-sm sm:text-base text-[#9496A1] leading-relaxed">
+            The local workbench and open source Action are available now. Team Cloud Baseline is in early access and is planned to track a shared default-branch contract for automatic pull request comparisons.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <article className="obsidian-card rounded-2xl border border-white/[0.1] p-6 sm:p-8">
+            <div className="text-xs font-mono uppercase tracking-wider text-[#9496A1] mb-3">FREE · LOCAL &amp; OSS ACTION</div>
+            <h3 className="text-2xl font-semibold text-white mb-2">Free</h3>
+            <p className="text-sm text-[#9496A1] mb-6">Review payload changes in your browser or CI with files you provide.</p>
+            <ul className="space-y-3 text-sm text-[#D3D4DA] mb-8">
+              <li className="flex gap-2"><span className="text-emerald-400">✓</span><span>In-browser workbench saved to IndexedDB</span></li>
+              <li className="flex gap-2"><span className="text-emerald-400">✓</span><span>Open source GitHub Action compares baseline and candidate files</span></li>
+              <li className="flex gap-2"><span className="text-emerald-400">✓</span><span>Markdown findings posted to pull requests</span></li>
+            </ul>
+            <button type="button" onClick={onOpenWorkbench} className="btn-geist-secondary px-4 py-2.5 rounded-xl text-sm text-white">
+              Open the workbench <span aria-hidden="true">→</span>
+            </button>
+          </article>
+
+          <article className="obsidian-card rounded-2xl border border-sky-400/25 bg-sky-400/[0.035] p-6 sm:p-8">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+              <div className="text-xs font-mono uppercase tracking-wider text-sky-300">PRO · TEAM CLOUD BASELINE</div>
+              <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-1 rounded-full border border-sky-300/25 text-sky-200">Early access</span>
+            </div>
+            <h3 className="text-2xl font-semibold text-white mb-2">For teams</h3>
+            <p className="text-sm text-[#9496A1] mb-6">Shared contract history for teams that want CI to find the baseline automatically.</p>
+            <ul className="space-y-3 text-sm text-[#D3D4DA] mb-8">
+              <li className="flex gap-2"><span className="text-sky-300">◷</span><span>Shared baseline tracked from the default branch</span></li>
+              <li className="flex gap-2"><span className="text-sky-300">◷</span><span>Automatic pull request comparisons across branches</span></li>
+              <li className="flex gap-2"><span className="text-sky-300">◷</span><span>Team review history for contract changes</span></li>
+            </ul>
+            {checkoutUrl && <a href={checkoutUrl} target="_blank" rel="noopener noreferrer" className="btn-geist-primary mb-4 inline-flex rounded-xl px-4 py-2.5 text-sm">Upgrade to Team CI Cloud <span aria-hidden="true" className="ml-2">↗</span></a>}
+            {!submitted && (
+              <form onSubmit={requestEarlyAccess} className="space-y-3" aria-label="Request Team Cloud early access">
+                <label className="block text-xs text-[#D3D4DA]">
+                  Email address
+                  <input
+                    type="email"
+                    name="email"
+                    required
+                    autoComplete="email"
+                    maxLength={254}
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    className="mt-1.5 w-full rounded-lg border border-white/10 bg-[#08090D] px-3 py-2.5 text-sm text-white outline-none focus:border-sky-300"
+                    placeholder="you@company.com"
+                  />
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <label className="block text-xs text-[#D3D4DA]">
+                    GitHub org <span className="text-[#777985]">(optional)</span>
+                    <input
+                      type="text"
+                      name="githubOrg"
+                      maxLength={39}
+                      value={githubOrg}
+                      onChange={(event) => setGithubOrg(event.target.value)}
+                      className="mt-1.5 w-full rounded-lg border border-white/10 bg-[#08090D] px-3 py-2.5 text-sm text-white outline-none focus:border-sky-300"
+                      placeholder="acme"
+                    />
+                  </label>
+                  <label className="block text-xs text-[#D3D4DA]">
+                    Repository count <span className="text-[#777985]">(optional)</span>
+                    <input
+                      type="number"
+                      name="repositoryCount"
+                      min={1}
+                      max={100000}
+                      step={1}
+                      value={repositoryCount}
+                      onChange={(event) => setRepositoryCount(event.target.value)}
+                      className="mt-1.5 w-full rounded-lg border border-white/10 bg-[#08090D] px-3 py-2.5 text-sm text-white outline-none focus:border-sky-300"
+                      placeholder="12"
+                    />
+                  </label>
+                </div>
+                <button type="submit" disabled={submitting} className="btn-geist-secondary inline-flex px-4 py-2.5 rounded-xl text-sm text-sky-200 disabled:opacity-60">
+                  {submitting ? "Sending…" : "Request Early Access"}
+                </button>
+              </form>
+            )}
+            {message && <p role="status" aria-live="polite" className={`mt-3 text-sm ${submitted ? "text-emerald-300" : "text-amber-200"}`}>{message}</p>}
+            <a href="/signin" className="mt-4 inline-flex text-sm text-[#AEB0BA] underline underline-offset-4 hover:text-white">
+              Already have an account? Sign in for Cloud Workspace Sync
+            </a>
+            <p className="text-xs text-[#777985] mt-3">Team baseline tracking is planned; pricing and availability have not been announced.</p>
+          </article>
         </div>
       </div>
     </section>

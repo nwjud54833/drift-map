@@ -16,6 +16,7 @@ import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
+import { gzipSync } from "node:zlib";
 
 import { compareContracts } from "@/lib/contract/compare";
 import { inferContract } from "@/lib/contract/infer";
@@ -23,6 +24,7 @@ import { MAX_IMPORT_BYTES } from "@/lib/contract/parse";
 import type { ChangeSeverity, ContractChange, ContractDirection, ContractNode, DiffSummary, PayloadSample, StoredContract } from "@/lib/contract/types";
 import { ruleIdFor } from "@/lib/driftmap/rules";
 import { parseImportArtifact } from "@/lib/workbench/import-artifact";
+import { dispatchDriftWebhook } from "@/lib/webhook";
 
 import { createPaint, type ColorRole, type Paint } from "./colors";
 
@@ -34,6 +36,7 @@ export interface CompareOptions {
   baselinePath: string;
   candidatePath: string;
   direction: ContractDirection;
+  directionExplicit?: boolean;
   failOn: FailOn;
   format: OutputFormat;
   outPath: string | null;
@@ -41,6 +44,7 @@ export interface CompareOptions {
   quiet: boolean;
   verbose: boolean;
   color: ColorMode;
+  webhookUrl?: string | null;
 }
 
 export type ParseResult =
@@ -48,12 +52,16 @@ export type ParseResult =
   | { ok: false; message: string };
 
 export const USAGE = `Usage: driftmap diff <baseline> <candidate> [options]
+       driftmap diff --baseline <file-or-url> --candidate <file> [options]
+       driftmap promote <baseline-url> <candidate-file>
 
 Compare two JSON payloads, arrays of payload samples, or OpenAPI 3.0 documents
 (JSON or YAML). The input type is detected from file contents, not extensions.
 
 Options:
-  --direction <response|request|event>  Contract direction (default: response)
+  --baseline <file-or-url>             Local file/glob or hosted workspace baseline URL
+  --candidate <file>                   Candidate JSON/OpenAPI file or glob
+  --direction <response|request|event>  Contract direction (default: workspace value or response)
   --fail-on <breaking|warning|off>      Exit 1 when findings meet this level (default: breaking)
   --format <text|json|markdown>         Output format (default: text)
   --config <path>                       JSON rule overrides: { "rules": { "RULE_*": "severity" } }
@@ -61,7 +69,11 @@ Options:
   --quiet                               Print only the verdict line (text format; for scripts)
   --verbose                             Show raw RULE_* IDs and sample counts (text format)
   --color <auto|always|never>           When to colorize (default: auto; colors need a TTY and NO_COLOR unset)
+  --webhook-url <https-url>               Best-effort notification for breaking drift and baseline promotion
   --help                                Show this help
+
+promote saves a candidate as the selected workspace baseline. Set
+DRIFTMAP_PROMOTE_TOKEN to a workspace-scoped promotion token.
 
 \`diff\` is the primary command; \`compare\` remains as a backwards-compatible alias.
 Installed commands: driftmap, driftmap-cli
@@ -129,6 +141,8 @@ export function parseCliArguments(argv: string[]): ParseResult {
       strict: true,
       options: {
         direction: { type: "string" },
+        baseline: { type: "string" },
+        candidate: { type: "string" },
         "fail-on": { type: "string" },
         format: { type: "string" },
         out: { type: "string" },
@@ -136,6 +150,7 @@ export function parseCliArguments(argv: string[]): ParseResult {
         quiet: { type: "boolean" },
         verbose: { type: "boolean" },
         color: { type: "string" },
+        "webhook-url": { type: "string" },
         help: { type: "boolean" },
       },
     });
@@ -147,15 +162,28 @@ export function parseCliArguments(argv: string[]): ParseResult {
     return { ok: true, options: emptyOptions(), help: true };
   }
 
-  const [command, baselinePath, candidatePath, ...extra] = parsed.positionals;
+  const [command, ...positionalPaths] = parsed.positionals;
   if (command !== "diff" && command !== "compare") {
     return { ok: false, message: `Unknown command "${command ?? ""}". Usage: driftmap diff <baseline> <candidate>.` };
   }
-  if (!baselinePath || !candidatePath) {
-    return { ok: false, message: "Provide exactly two file paths: driftmap diff <baseline> <candidate>." };
+  const hasBaselineOption = typeof parsed.values.baseline === "string";
+  const hasCandidateOption = typeof parsed.values.candidate === "string";
+  let baselinePath: string | undefined;
+  let candidatePath: string | undefined;
+  if (hasBaselineOption || hasCandidateOption) {
+    if (!hasBaselineOption || !hasCandidateOption || positionalPaths.length > 0) {
+      return { ok: false, message: "Use both --baseline and --candidate, or provide both positional input paths." };
+    }
+    baselinePath = parsed.values.baseline as string;
+    candidatePath = parsed.values.candidate as string;
+  } else {
+    [baselinePath, candidatePath] = positionalPaths;
+    if (positionalPaths.length > 2) {
+      return { ok: false, message: `Unexpected extra argument "${positionalPaths[2]}". Provide exactly two input paths.` };
+    }
   }
-  if (extra.length > 0) {
-    return { ok: false, message: `Unexpected extra argument "${extra[0]}". Provide exactly two file paths.` };
+  if (!baselinePath || !candidatePath) {
+    return { ok: false, message: "Provide exactly two inputs: driftmap diff <baseline> <candidate>." };
   }
 
   const directionInput = typeof parsed.values.direction === "string" ? parsed.values.direction : "response";
@@ -181,6 +209,7 @@ export function parseCliArguments(argv: string[]): ParseResult {
       baselinePath,
       candidatePath,
       direction,
+      directionExplicit: typeof parsed.values.direction === "string",
       failOn,
       format,
       outPath: typeof parsed.values.out === "string" ? parsed.values.out : null,
@@ -188,12 +217,15 @@ export function parseCliArguments(argv: string[]): ParseResult {
       quiet: parsed.values.quiet === true,
       verbose: parsed.values.verbose === true,
       color,
+      ...(typeof parsed.values["webhook-url"] === "string" || process.env.DRIFTMAP_WEBHOOK_URL?.trim()
+        ? { webhookUrl: typeof parsed.values["webhook-url"] === "string" ? parsed.values["webhook-url"] : process.env.DRIFTMAP_WEBHOOK_URL?.trim() }
+        : {}),
     },
   };
 }
 
 function emptyOptions(): CompareOptions {
-  return { baselinePath: "", candidatePath: "", direction: "response", failOn: "breaking", format: "text", outPath: null, configPath: null, quiet: false, verbose: false, color: "auto" };
+  return { baselinePath: "", candidatePath: "", direction: "response", directionExplicit: false, failOn: "breaking", format: "text", outPath: null, configPath: null, quiet: false, verbose: false, color: "auto" };
 }
 
 interface LoadedInput {
@@ -201,6 +233,11 @@ interface LoadedInput {
   /** Null for OpenAPI documents, matching the Markdown report's evidence model. */
   samples: number | null;
   description: string;
+  direction?: ContractDirection;
+  reviewDocument?: unknown;
+  reviewWorkspaceId?: string;
+  reviewWorkspaceName?: string;
+  reviewSnapshotId?: string;
 }
 
 type LoadResult = LoadedInput | { error: string };
@@ -302,18 +339,132 @@ function loadInput(inputPath: string, label: string): LoadResult {
       return { error: `${label} patterns may match multiple JSON sample files, but an OpenAPI document must be provided as one file.` };
     }
     const contract = openApiContracts[0];
-    return { contract, samples: null, description: `OpenAPI ${contract.version} · ${contract.operations.length} operations` };
+    return {
+      contract, samples: null, description: `OpenAPI ${contract.version} · ${contract.operations.length} operations`,
+      reviewDocument: contract.document,
+    };
   }
   return {
     contract: inferContract(sampleValues),
     samples: sampleValues.length,
     description: `${sampleValues.length} sample${sampleValues.length === 1 ? "" : "s"}${expanded.paths.length > 1 ? ` from ${expanded.paths.length} files` : ""}`,
+    reviewDocument: sampleValues.length === 1 ? sampleValues[0].value : sampleValues.map((sample) => sample.value),
+  };
+}
+
+function isStoredContract(value: unknown): value is StoredContract {
+  if (!value || typeof value !== "object") return false;
+  const contract = value as Record<string, unknown>;
+  if (contract.kind === "openapi") {
+    return contract.version === "3.0" && Array.isArray(contract.operations) && Array.isArray(contract.nodes);
+  }
+  return Array.isArray(contract.rootKinds)
+    && Array.isArray(contract.nodes)
+    && typeof contract.fingerprint === "string";
+}
+
+export function validateHostedBaselineUrl(input: string): URL | null {
+  try {
+    const url = new URL(input);
+    if (url.protocol !== "https:"
+      || url.hostname !== "driftmap.in"
+      || url.port !== ""
+      || url.username !== ""
+      || url.password !== ""
+      || (url.search !== "" && (url.searchParams.getAll("token").length !== 1 || !url.searchParams.get("token") || [...url.searchParams.keys()].some((key) => key !== "token")))
+      || url.hash !== ""
+      || !/^\/api\/v1\/workspaces\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/baseline$/i.test(url.pathname)) {
+      return null;
+    }
+    return url;
+  } catch {
+    return null;
+  }
+}
+
+export function displayBaselineInput(input: string): string {
+  const url = validateHostedBaselineUrl(input);
+  if (!url) return input;
+  url.search = "";
+  return url.toString();
+}
+
+export async function loadHostedBaseline(
+  input: string,
+  fetchImpl: typeof fetch = fetch,
+  token = process.env.DRIFTMAP_BASELINE_TOKEN?.trim(),
+): Promise<LoadResult> {
+  const url = validateHostedBaselineUrl(input);
+  if (!url) return { error: "Hosted baseline URLs must be HTTPS DriftMap workspace baseline endpoints." };
+  const queryToken = url.searchParams.get("token")?.trim();
+  url.search = "";
+  const authToken = token || queryToken;
+
+  let response: Response;
+  try {
+    response = await fetchImpl(url, {
+      method: "GET",
+      headers: { accept: "application/json", ...(authToken ? { authorization: `Bearer ${authToken}` } : {}) },
+      redirect: "error",
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch {
+    return { error: "Unable to reach the hosted baseline endpoint." };
+  }
+  if (!response.ok) {
+    return { error: response.status === 401
+      ? "Hosted baseline access was denied. Set DRIFTMAP_BASELINE_TOKEN to a valid workspace read token."
+      : `Hosted baseline request failed with HTTP ${response.status}.` };
+  }
+
+  const declaredLength = Number(response.headers.get("content-length"));
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_IMPORT_BYTES) {
+    return { error: "Hosted baseline exceeds the 2 MB input limit." };
+  }
+  let text: string;
+  try {
+    text = await response.text();
+  } catch {
+    return { error: "Unable to read the hosted baseline response." };
+  }
+  if (new TextEncoder().encode(text).byteLength > MAX_IMPORT_BYTES) {
+    return { error: "Hosted baseline exceeds the 2 MB input limit." };
+  }
+
+  let payload: unknown;
+  try {
+    payload = JSON.parse(text) as unknown;
+  } catch {
+    return { error: "Hosted baseline endpoint returned invalid JSON." };
+  }
+  if (!payload || typeof payload !== "object" || !("baseline" in payload)) {
+    return { error: "Hosted baseline endpoint returned an invalid baseline document." };
+  }
+  const baseline = (payload as { baseline?: unknown }).baseline;
+  if (!baseline || typeof baseline !== "object") return { error: "Hosted baseline endpoint returned an invalid baseline document." };
+  const value = baseline as Record<string, unknown>;
+  if (!isStoredContract(value.contract) || !Array.isArray(value.samples)) {
+    return { error: "Hosted baseline endpoint returned an invalid contract." };
+  }
+  const isOpenApi = "kind" in value.contract && value.contract.kind === "openapi";
+  const versionLabel = typeof value.versionLabel === "string" ? value.versionLabel : "baseline";
+  const samples = value.samples as unknown[];
+  return {
+    contract: value.contract,
+    samples: isOpenApi ? null : samples.length,
+    description: `hosted workspace baseline · ${versionLabel}`,
+    ...(DIRECTIONS.includes(value.direction as ContractDirection) ? { direction: value.direction as ContractDirection } : {}),
+    reviewDocument: isOpenApi ? (value.contract as Extract<StoredContract, { kind: "openapi" }>).document : samples.length === 1 ? samples[0] : samples,
+    ...(typeof value.workspaceId === "string" ? { reviewWorkspaceId: value.workspaceId } : {}),
+    ...(typeof value.workspaceName === "string" ? { reviewWorkspaceName: value.workspaceName } : {}),
+    ...(typeof value.snapshotId === "string" ? { reviewSnapshotId: value.snapshotId } : {}),
   };
 }
 
 export interface CompareOutcome {
   exitCode: number;
   output: string;
+  summary?: DiffSummary;
 }
 
 /* ==========================================================================
@@ -496,7 +647,7 @@ function renderText(report: TextReport, useColor: boolean): string {
     return verdictLine(report.exitCode);
   }
   const paint = createPaint(useColor);
-  const files = truncateFromLeft(basename(options.baselinePath), 40) + " \u2192 " + truncateFromLeft(basename(options.candidatePath), 40);
+  const files = truncateFromLeft(basename(displayBaselineInput(options.baselinePath)), 40) + " \u2192 " + truncateFromLeft(basename(options.candidatePath), 40);
   const lines = [
     paint("dim", `driftmap diff  ${files}`),
     paint("dim", `${options.direction} · fail on ${options.failOn}`),
@@ -549,6 +700,38 @@ function markdownCell(value: string): string {
     .replace(/\|/g, "\\|").replace(/\r?\n/g, "<br>").replace(/`/g, "\\`");
 }
 
+function workbenchReviewUrl(direction: ContractDirection, baseline: LoadedInput, candidate: LoadedInput): string | null {
+  if (baseline.reviewDocument === undefined || candidate.reviewDocument === undefined) return null;
+  try {
+    const payload = JSON.stringify({
+      version: 1,
+      workspace: {
+        id: baseline.reviewWorkspaceId ?? "cli-review",
+        name: baseline.reviewWorkspaceName ?? "CLI contract review",
+        direction,
+      },
+      baseline: {
+        id: baseline.reviewSnapshotId ?? "cli-baseline",
+        versionLabel: baseline.description.slice(0, 120),
+        document: baseline.reviewDocument,
+      },
+      candidate: {
+        id: "cli-candidate",
+        versionLabel: candidate.description.slice(0, 120),
+        document: candidate.reviewDocument,
+      },
+    });
+    if (Buffer.byteLength(payload, "utf8") > 4 * 1024 * 1024) return null;
+    const encoded = `z.${gzipSync(Buffer.from(payload, "utf8"), { level: 9 }).toString("base64url")}`;
+    if (encoded.length > 7_000) return null;
+    const url = new URL("https://driftmap.in/workbench");
+    url.searchParams.set("review", encoded);
+    return url.toString().length <= 8_000 ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 function markdownOutput(
   options: CompareOptions,
   baseline: LoadedInput,
@@ -564,13 +747,14 @@ function markdownOutput(
   });
   if (rows.length === 0) rows.push("| — | — | No structural changes | — | — | No structural drift detected. |" );
   const result = exitCode === 1 ? "FAIL" : "PASS";
+  const reviewUrl = workbenchReviewUrl(options.direction, baseline, candidate);
   return [
     "<!-- driftmap-contract-review -->",
     "## DriftMap contract review",
     "",
     `**${result}** · fail on \`${options.failOn}\` · ${options.direction} contract`,
     "",
-    `Baseline: \`${markdownCell(options.baselinePath)}\` (${markdownCell(baseline.description)})  `,
+    `Baseline: \`${markdownCell(displayBaselineInput(options.baselinePath))}\` (${markdownCell(baseline.description)})  `,
     `Candidate: \`${markdownCell(options.candidatePath)}\` (${markdownCell(candidate.description)})`,
     "",
     `**${summary.breaking} breaking** · ${summary.warning} warning · ${summary.safe} safe · ${summary.info} info`,
@@ -578,6 +762,7 @@ function markdownOutput(
     "| Severity | Path | Change | Baseline | Candidate | Explanation |",
     "| --- | --- | --- | --- | --- | --- |",
     ...rows,
+    ...(reviewUrl ? ["", `[Inspect full diff in DriftMap Workbench](${reviewUrl})`] : []),
     "",
     "> Sample inference is evidence, not proof of the producer's formal schema.",
   ].join("\n");
@@ -607,18 +792,16 @@ function loadRuleOverrides(configPath: string | null | undefined): RuleOverrides
   return { ok: true, rules: overrides };
 }
 
-export function runCompare(options: CompareOptions): CompareOutcome {
-  const ruleOverrides = loadRuleOverrides(options.configPath);
-  if (!ruleOverrides.ok) return { exitCode: 2, output: errorBlock(ruleOverrides.error) };
-  const baseline = loadInput(options.baselinePath, "baseline");
-  if ("error" in baseline) return { exitCode: 2, output: errorBlock(baseline.error) };
-  const candidate = loadInput(options.candidatePath, "candidate");
-  if ("error" in candidate) return { exitCode: 2, output: errorBlock(candidate.error) };
-
+function compareLoadedInputs(
+  options: CompareOptions,
+  ruleOverrides: Partial<Record<string, ChangeSeverity>>,
+  baseline: LoadedInput,
+  candidate: LoadedInput,
+): CompareOutcome {
   let changes: ContractChange[];
   try {
     changes = compareContracts(baseline.contract, candidate.contract, options.direction).map((change) => {
-      const override = ruleOverrides.rules[ruleOf(change, options.direction)];
+      const override = ruleOverrides[ruleOf(change, options.direction)];
       return override ? { ...change, severity: override } : change;
     });
   } catch (error) {
@@ -635,11 +818,126 @@ export function runCompare(options: CompareOptions): CompareOutcome {
   } else {
     output = renderText({ options, baseline, candidate, summary, exitCode, changes }, resolveColors(options.color));
   }
-  return { exitCode, output };
+  return { exitCode, output, summary };
 }
 
-function main(): number {
-  const parsed = parseCliArguments(process.argv.slice(2));
+export function runCompare(options: CompareOptions): CompareOutcome {
+  const ruleOverrides = loadRuleOverrides(options.configPath);
+  if (!ruleOverrides.ok) return { exitCode: 2, output: errorBlock(ruleOverrides.error) };
+  const baseline = loadInput(options.baselinePath, "baseline");
+  if ("error" in baseline) return { exitCode: 2, output: errorBlock(baseline.error) };
+  const candidate = loadInput(options.candidatePath, "candidate");
+  if ("error" in candidate) return { exitCode: 2, output: errorBlock(candidate.error) };
+  return compareLoadedInputs(options, ruleOverrides.rules, baseline, candidate);
+}
+
+export async function runCompareAsync(options: CompareOptions, fetchImpl: typeof fetch = fetch): Promise<CompareOutcome> {
+  const ruleOverrides = loadRuleOverrides(options.configPath);
+  if (!ruleOverrides.ok) return { exitCode: 2, output: errorBlock(ruleOverrides.error) };
+  const baseline = /^https?:\/\//i.test(options.baselinePath)
+    ? await loadHostedBaseline(options.baselinePath, fetchImpl)
+    : loadInput(options.baselinePath, "baseline");
+  if ("error" in baseline) return { exitCode: 2, output: errorBlock(baseline.error) };
+  const candidate = loadInput(options.candidatePath, "candidate");
+  if ("error" in candidate) return { exitCode: 2, output: errorBlock(candidate.error) };
+  const effectiveOptions = baseline.direction && options.directionExplicit !== true
+    ? { ...options, direction: baseline.direction }
+    : options;
+  return compareLoadedInputs(effectiveOptions, ruleOverrides.rules, baseline, candidate);
+}
+
+export interface PromoteOutcome { exitCode: number; output: string }
+
+export async function promoteCandidate(
+  baselineUrl: string,
+  candidatePath: string,
+  fetchImpl: typeof fetch = fetch,
+  token = process.env.DRIFTMAP_PROMOTE_TOKEN?.trim(),
+  webhookUrl = process.env.DRIFTMAP_WEBHOOK_URL?.trim(),
+): Promise<PromoteOutcome> {
+  const url = validateHostedBaselineUrl(baselineUrl);
+  if (!url) return { exitCode: 2, output: errorBlock("Promotion URL must be an HTTPS DriftMap workspace baseline endpoint.") };
+  if (!token) return { exitCode: 2, output: errorBlock("Set DRIFTMAP_PROMOTE_TOKEN to a workspace-scoped promotion token.") };
+
+  const expanded = expandInputPaths(candidatePath);
+  if ("error" in expanded) return { exitCode: 2, output: errorBlock(expanded.error) };
+  let raw: string;
+  try {
+    let bytes = 0;
+    const documents = expanded.paths.map((path) => {
+      const size = statSync(path).size;
+      bytes += size;
+      if (bytes > MAX_IMPORT_BYTES) throw new RangeError("Candidate document exceeds the 2 MB promotion limit.");
+      const text = readFileSync(path, "utf8");
+      return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+    });
+    if (documents.length === 1) raw = documents[0];
+    else {
+      const sampleValues: unknown[] = [];
+      for (const document of documents) {
+        const artifact = parseImportArtifact(document, { source: "file" });
+        if (!artifact.ok || artifact.artifact.format !== "samples") return { exitCode: 2, output: errorBlock("Promotion patterns can combine JSON payload samples, but must match exactly one OpenAPI document.") };
+        sampleValues.push(...artifact.artifact.samples.map((sample) => sample.value));
+      }
+      raw = JSON.stringify(sampleValues);
+    }
+  } catch (error) {
+    return { exitCode: 2, output: errorBlock(error instanceof RangeError ? error.message : "Unable to read the candidate file for promotion.") };
+  }
+  const artifact = parseImportArtifact(raw, { source: "file", fileName: basename(candidatePath) });
+  if (!artifact.ok) return { exitCode: 2, output: errorBlock(artifact.message) };
+  const comparison = await runCompareAsync({ baselinePath: baselineUrl, candidatePath, direction: "response", directionExplicit: false, failOn: "off", format: "json", outPath: null, configPath: null, quiet: true, verbose: false, color: "never" }, fetchImpl);
+  if (!comparison.summary) return { exitCode: 2, output: errorBlock("Unable to compare the current baseline before promotion.") };
+  url.search = "";
+  const commitSha = process.env.GITHUB_SHA?.trim();
+  const actor = process.env.GITHUB_ACTOR?.trim();
+
+  let response: Response;
+  try {
+    response = await fetchImpl(url, {
+      method: "POST",
+      headers: { accept: "application/json", "content-type": "application/json", authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        document: raw,
+        versionLabel: `main ${new Date().toISOString().slice(0, 10)}`,
+        ...(commitSha && /^[0-9a-f]{7,64}$/i.test(commitSha) ? { commitSha } : {}),
+        ...(actor && /^[A-Za-z0-9_.\-[\]]{1,100}$/.test(actor) ? { actor } : {}),
+      }),
+      redirect: "error",
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch {
+    return { exitCode: 2, output: errorBlock("Unable to reach the workspace promotion endpoint.") };
+  }
+  if (!response.ok) return { exitCode: 2, output: errorBlock(response.status === 401 ? "Workspace promotion was denied. Check DRIFTMAP_PROMOTE_TOKEN." : `Workspace promotion failed with HTTP ${response.status}.`) };
+  await dispatchDriftWebhook(webhookUrl, {
+    event: "baseline-promoted", ...comparison.summary,
+    baseline: displayBaselineInput(baselineUrl), candidate: basename(candidatePath),
+    link: process.env.DRIFTMAP_CONTEXT_URL ?? null,
+  });
+  return { exitCode: 0, output: "DriftMap baseline promoted from the passing candidate.\n" };
+}
+
+async function runPromoteCommand(argv: string[]): Promise<number> {
+  let parsed: ReturnType<typeof parseArgs>;
+  try { parsed = parseArgs({ args: argv, allowPositionals: true, strict: true, options: { help: { type: "boolean" }, "webhook-url": { type: "string" } } }); }
+  catch (error) { process.stderr.write(`${errorBlock(error instanceof Error ? error.message : "Unable to parse promotion arguments.")}\n`); return 2; }
+  if (parsed.values.help) {
+    process.stdout.write("Usage: driftmap promote <baseline-url> <candidate-file> [--webhook-url <https-url>]\n\nSet DRIFTMAP_PROMOTE_TOKEN to a workspace-scoped promotion token.\n");
+    return 0;
+  }
+  const [url, candidate, extra] = parsed.positionals;
+  if (!url || !candidate || extra) { process.stderr.write(`${errorBlock("Provide exactly a workspace baseline URL and one candidate file.")}\n`); return 2; }
+  const webhookUrl = typeof parsed.values["webhook-url"] === "string" ? parsed.values["webhook-url"] : process.env.DRIFTMAP_WEBHOOK_URL?.trim();
+  const outcome = await promoteCandidate(url, candidate, fetch, process.env.DRIFTMAP_PROMOTE_TOKEN?.trim(), webhookUrl);
+  (outcome.exitCode === 0 ? process.stdout : process.stderr).write(`${outcome.output}\n`);
+  return outcome.exitCode;
+}
+
+async function main(): Promise<number> {
+  const argv = process.argv.slice(2);
+  if (argv[0] === "promote") return runPromoteCommand(argv.slice(1));
+  const parsed = parseCliArguments(argv);
   if (!parsed.ok) {
     process.stderr.write(`${errorBlock(parsed.message)}\n\n${USAGE}\n`);
     return 2;
@@ -648,7 +946,7 @@ function main(): number {
     process.stdout.write(`${USAGE}\n`);
     return 0;
   }
-  const outcome = runCompare(parsed.options);
+  const outcome = await runCompareAsync(parsed.options);
   if (parsed.options.outPath) {
     try {
       writeFileSync(parsed.options.outPath, `${outcome.output}\n`);
@@ -659,11 +957,22 @@ function main(): number {
   } else {
     process.stdout.write(`${outcome.output}\n`);
   }
+  if (outcome.summary?.breaking && parsed.options.webhookUrl) {
+    await dispatchDriftWebhook(parsed.options.webhookUrl, {
+      event: "breaking-drift", ...outcome.summary,
+      baseline: displayBaselineInput(parsed.options.baselinePath),
+      candidate: basename(parsed.options.candidatePath),
+      link: process.env.DRIFTMAP_CONTEXT_URL ?? null,
+    });
+  }
   return outcome.exitCode;
 }
 
 const invokedDirectly = process.argv[1] !== undefined
   && import.meta.url === pathToFileURL(resolve(process.argv[1])).href;
 if (invokedDirectly) {
-  process.exitCode = main();
+  main().then((exitCode) => { process.exitCode = exitCode; }).catch(() => {
+    process.stderr.write(`${errorBlock("Unable to complete the contract comparison.")}\n`);
+    process.exitCode = 2;
+  });
 }

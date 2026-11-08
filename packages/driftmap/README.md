@@ -55,7 +55,7 @@ permissions:
 
 steps:
   - uses: actions/checkout@v4
-  - uses: nwjud54833/drift-map@v2.5.0
+  - uses: nwjud54833/drift-map@v2.5.8
     with:
       baseline-path: contracts/openapi-base.yaml
       candidate-path: contracts/openapi.yaml
@@ -64,6 +64,27 @@ steps:
 ```
 
 For local development in this repository, the workflow example is [`.github/workflows/contract-review.yml`](../../.github/workflows/contract-review.yml). The action expects a `pull_request` event and a token with permission to write issue comments.
+
+See a [live breaking-change PR with the posted DriftMap report](https://github.com/nwjud54833/drift-map/pull/12).
+
+### Hosted workspace baseline
+
+The CLI and Action can fetch a selected workspace baseline over HTTPS. From the signed-in Workbench, select a cloud workspace with a baseline and choose **Use in CI / GitHub Action** to issue a 90-day read URL and separate promotion token. Store the URL as `DRIFTMAP_BASELINE_URL` and the promotion token as `DRIFTMAP_PROMOTE_TOKEN` in GitHub Actions secrets. Read tokens only read the workspace's selected baseline. Promotion tokens only promote that workspace and are accepted only by `POST /api/v1/workspaces/<workspace-id>/baseline`.
+
+```yaml
+steps:
+  - uses: actions/checkout@v4
+  - uses: nwjud54833/drift-map@v2.5.8
+    with:
+      baseline-path: ${{ secrets.DRIFTMAP_BASELINE_URL }}
+      candidate-path: contracts/openapi.yaml
+      promote-on-push: true
+      promote-token: ${{ secrets.DRIFTMAP_PROMOTE_TOKEN }}
+      webhook-url: ${{ secrets.DRIFTMAP_WEBHOOK_URL }}
+      github-token: ${{ secrets.GITHUB_TOKEN }}
+```
+
+Trigger the workflow on `pull_request` and `push` to `main`. The Action compares on both events and promotes only after a successful `main` push when `promote-on-push: true`. Set `webhook-url` to an HTTPS Slack/Discord-compatible incoming webhook for best-effort breaking-drift and promotion notices; DriftMap rejects private or local destinations. The standalone CLI supports `--webhook-url` for comparisons and `driftmap promote <baseline-url> <candidate-file> --webhook-url <url>`. Hosted reads accept HTTPS URLs only, reject redirects, and are limited to 2 MB. URL tokens are redacted from report output and sent to the API as authorization headers.
 
 ## Exit codes
 

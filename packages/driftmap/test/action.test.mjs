@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { pullRequestNumber, upsertStickyComment } from "../../../action/run.mjs";
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { load as loadYaml } from "js-yaml";
+import { contextLink, prepareBaselineForCli, pullRequestNumber, shouldPromoteOnPush, upsertStickyComment } from "../../../action/run.mjs";
 
 const marker = "<!-- driftmap-contract-review -->";
 
@@ -61,4 +65,42 @@ test("reads a pull request number from its event payload", async () => {
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("only promotes a baseline on an explicitly enabled push to main", () => {
+  assert.equal(shouldPromoteOnPush({ eventName: "push", ref: "refs/heads/main", enabled: true }), true);
+  assert.equal(shouldPromoteOnPush({ eventName: "pull_request", ref: "refs/heads/main", enabled: true }), false);
+  assert.equal(shouldPromoteOnPush({ eventName: "push", ref: "refs/heads/feature", enabled: true }), false);
+  assert.equal(shouldPromoteOnPush({ eventName: "push", ref: "refs/heads/main", enabled: false }), false);
+});
+
+test("moves a signed baseline URL token to the child environment instead of argv", () => {
+  const env = {};
+  const source = "https://driftmap.in/api/v1/workspaces/00000000-0000-4000-8000-000000000001/baseline?token=read-secret";
+  const cliUrl = prepareBaselineForCli(source, env);
+  assert.equal(cliUrl, "https://driftmap.in/api/v1/workspaces/00000000-0000-4000-8000-000000000001/baseline");
+  assert.equal(env.DRIFTMAP_BASELINE_TOKEN, "read-secret");
+  assert.doesNotMatch(cliUrl, /read-secret/);
+});
+
+test("Action metadata includes Marketplace branding and optional webhook input", () => {
+  const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
+  const action = loadYaml(readFileSync(resolve(repoRoot, "action.yml"), "utf8"));
+  assert.equal(action.author, "nwjud54833");
+  assert.ok(action.name.length <= 64);
+  assert.ok(action.description.length <= 125);
+  assert.deepEqual(action.branding, { icon: "shield", color: "purple" });
+  assert.equal(action.inputs["webhook-url"].required, false);
+});
+
+test("resolves PR and commit context links for notification payloads", async () => {
+  const { mkdtempSync, rmSync, writeFileSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const dir = mkdtempSync(resolve(tmpdir(), "driftmap-context-"));
+  try {
+    const eventFile = resolve(dir, "event.json");
+    writeFileSync(eventFile, JSON.stringify({ pull_request: { html_url: "https://github.com/acme/api/pull/9" } }));
+    assert.equal(contextLink({ eventName: "pull_request", eventPath: eventFile }), "https://github.com/acme/api/pull/9");
+    assert.equal(contextLink({ eventName: "push", repository: "acme/api", sha: "abc123" }), "https://github.com/acme/api/commit/abc123");
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });
