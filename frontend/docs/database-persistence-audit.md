@@ -50,7 +50,8 @@ PR #11 from `feat/cli-dark-theme` to `test-driftmap-action` triggered [run 42393
 - The Workbench CI modal copies README badge Markdown and displays the current revision, inferred path count, last promotion timestamp, commit SHA, and actor when available.
 - Promotion audit metadata is stored in the promoted snapshot's existing `notes` field, so this release requires no schema migration.
 - Local verification passed: Prisma schema validation, ESLint, TypeScript typecheck, production build, 331 frontend tests, and 21 CLI/Action tests.
-- Live production health, release tag, and GitHub Release are verified after deployment and recorded below.
+- Published as annotated tag `v2.5.5` and [GitHub Release](https://github.com/nwjud54833/drift-map/releases/tag/v2.5.5).
+- Production health returned HTTP 200 with `status: ok`, `db: connected`, `version: 2.5.5`, and build SHA `04455ca9d81ec7248023d794c9ea5e82ec79e4ef`.
 
 ## Database persistence and smoke test
 
