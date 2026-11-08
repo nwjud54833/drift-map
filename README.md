@@ -54,8 +54,8 @@ from local `.env.local`: `DATABASE_URL`, `AUTH_SECRET`, `AUTH_GOOGLE_ID`, and
 `AUTH_GOOGLE_SECRET`. Set production and preview values to their intended
 environments. `AUTH_TRUST_HOST` is enabled automatically on Vercel by the auth
 configuration, but can be set explicitly. Do not configure `TEST_DATABASE_URL`
-in Vercel. The build runs Prisma Client generation and `next build`; it does
-not apply database migrations.
+in Vercel. The Vercel build script applies migrations before Prisma Client
+generation and `next build`; local builds skip migrations.
 
 ## Command line
 
@@ -94,9 +94,10 @@ Inputs are capped at 2 MB per file. `--fail-on off` always exits `0` unless the
 arguments or the files themselves are unusable.
 
 For a hosted baseline, pass its HTTPS workspace endpoint to `--baseline` and
-set `DRIFTMAP_BASELINE_TOKEN` to a workspace-scoped read token. Owners can mint
-a 90-day token by calling `POST /api/v1/workspaces/<workspace-id>/baseline/token`
-while signed in. The token can only read that workspace's selected baseline.
+store the signed URL from the Workbench's **Use in CI / GitHub Action** panel in
+`DRIFTMAP_BASELINE_URL`. To promote on a passing push to `main`, use the
+separate `DRIFTMAP_PROMOTE_TOKEN` secret and run `driftmap promote <url>
+<candidate-file>`. Tokens are workspace scoped and expire after 90 days.
 
 The CLI is not yet published to npm; run it with `npx tsx` from a checkout of
 this repository.

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { pullRequestNumber, upsertStickyComment } from "../../../action/run.mjs";
+import { prepareBaselineForCli, pullRequestNumber, shouldPromoteOnPush, upsertStickyComment } from "../../../action/run.mjs";
 
 const marker = "<!-- driftmap-contract-review -->";
 
@@ -61,4 +61,20 @@ test("reads a pull request number from its event payload", async () => {
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("only promotes a baseline on an explicitly enabled push to main", () => {
+  assert.equal(shouldPromoteOnPush({ eventName: "push", ref: "refs/heads/main", enabled: true }), true);
+  assert.equal(shouldPromoteOnPush({ eventName: "pull_request", ref: "refs/heads/main", enabled: true }), false);
+  assert.equal(shouldPromoteOnPush({ eventName: "push", ref: "refs/heads/feature", enabled: true }), false);
+  assert.equal(shouldPromoteOnPush({ eventName: "push", ref: "refs/heads/main", enabled: false }), false);
+});
+
+test("moves a signed baseline URL token to the child environment instead of argv", () => {
+  const env = {};
+  const source = "https://driftmap.in/api/v1/workspaces/00000000-0000-4000-8000-000000000001/baseline?token=read-secret";
+  const cliUrl = prepareBaselineForCli(source, env);
+  assert.equal(cliUrl, "https://driftmap.in/api/v1/workspaces/00000000-0000-4000-8000-000000000001/baseline");
+  assert.equal(env.DRIFTMAP_BASELINE_TOKEN, "read-secret");
+  assert.doesNotMatch(cliUrl, /read-secret/);
 });

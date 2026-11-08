@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { loadHostedBaseline, parseCliArguments, resolveColors, runCompare, runCompareAsync, USAGE, validateHostedBaselineUrl } from "@/bin/driftmap";
+import { displayBaselineInput, loadHostedBaseline, parseCliArguments, promoteCandidate, resolveColors, runCompare, runCompareAsync, USAGE, validateHostedBaselineUrl } from "@/bin/driftmap";
 import type { CompareOptions } from "@/bin/driftmap";
 import { ANSI_CODES } from "@/bin/colors";
 import { inferContract } from "@/lib/contract/infer";
@@ -145,7 +145,8 @@ describe("hosted baseline fetching", () => {
     expect(validateHostedBaselineUrl(url)?.hostname).toBe("driftmap.in");
     expect(validateHostedBaselineUrl(url.replace("https:", "http:"))).toBeNull();
     expect(validateHostedBaselineUrl(url.replace("driftmap.in", "example.com"))).toBeNull();
-    expect(validateHostedBaselineUrl(`${url}?token=secret`)).toBeNull();
+    expect(validateHostedBaselineUrl(`${url}?token=secret`)?.hostname).toBe("driftmap.in");
+    expect(validateHostedBaselineUrl(`${url}?other=secret`)).toBeNull();
   });
 
   it("fetches a signed baseline and compares it with a local candidate", async () => {
@@ -182,6 +183,39 @@ describe("hosted baseline fetching", () => {
     const fetchMock = vi.fn(async () => new Response("private database details", { status: 401 })) as unknown as typeof fetch;
     const loaded = await loadHostedBaseline(url, fetchMock, "invalid-token");
     expect(loaded).toEqual({ error: "Hosted baseline access was denied. Set DRIFTMAP_BASELINE_TOKEN to a valid workspace read token." });
+  });
+
+  it("extracts a read token from the URL without sending it in the request URL", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      expect(String(input)).toBe(url);
+      expect(new Headers(init?.headers).get("authorization")).toBe("Bearer copied-token");
+      return new Response(JSON.stringify({ baseline: { versionLabel: "v1", contract: baselineContract, samples: baselineSamples.map((sample) => sample.value) } }), { status: 200 });
+    }) as unknown as typeof fetch;
+    const loaded = await loadHostedBaseline(`${url}?token=copied-token`, fetchMock, "");
+    expect("error" in loaded).toBe(false);
+    expect(displayBaselineInput(`${url}?token=copied-token`)).toBe(url);
+    const report = await runCompareAsync(options({ baselinePath: `${url}?token=copied-token`, format: "markdown" }), fetchMock);
+    expect(report.output).not.toContain("copied-token");
+    expect(report.output).toContain(url);
+  });
+
+  it("promotes a candidate with a scoped bearer token and sanitizes failures", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      expect(String(input)).toBe(url);
+      expect(init?.method).toBe("POST");
+      expect(new Headers(init?.headers).get("authorization")).toBe("Bearer promote-token");
+      expect(JSON.parse(String(init?.body))).toMatchObject({ document: expect.any(String) });
+      return new Response("{}", { status: 200 });
+    }) as unknown as typeof fetch;
+    const success = await promoteCandidate(url, pair1.candidatePath, fetchMock, "promote-token");
+    expect(success.exitCode).toBe(0);
+    expect(success.output).toContain("promoted");
+
+    const failingFetch = vi.fn(async () => new Response("private database detail", { status: 401 })) as unknown as typeof fetch;
+    const denied = await promoteCandidate(url, pair1.candidatePath, failingFetch, "bad-token");
+    expect(denied.exitCode).toBe(2);
+    expect(denied.output).toContain("Check DRIFTMAP_PROMOTE_TOKEN");
+    expect(denied.output).not.toContain("private database detail");
   });
 });
 

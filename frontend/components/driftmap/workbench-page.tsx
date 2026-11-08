@@ -45,6 +45,7 @@ import { WorkbenchInspector } from "./workbench-inspector";
 import { WorkbenchToolbar } from "./workbench-toolbar";
 import { WorkbenchDrawer } from "./workbench-drawer";
 import { WorkbenchEmptyState } from "./workbench-empty-state";
+import { CIExportModal, type CIExportCredentials } from "./ci-export-modal";
 
 type WorkbenchMode = "local" | "cloud";
 
@@ -97,6 +98,8 @@ export function WorkbenchPage() {
     direction: ContractDirection;
   } | null>(null);
   const [savedDiffStatus, setSavedDiffStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [ciExport, setCiExport] = useState<CIExportCredentials | null>(null);
+  const [ciExportLoading, setCiExportLoading] = useState(false);
 
   const inputRef = useRef<WorkbenchInputHandle>(null);
   const centerRef = useRef<WorkbenchCenterHandle>(null);
@@ -148,6 +151,31 @@ export function WorkbenchPage() {
   const baseline = snapshots.find((snapshot) => snapshot.id === active?.baselineSnapshotId) ?? null;
   const candidate = snapshots.find((snapshot) => snapshot.id === active?.candidateSnapshotId) ?? null;
   const hasComparison = Boolean(baseline && candidate);
+
+  const openCIExport = useCallback(async () => {
+    if (mode !== "cloud" || sessionStatus !== "authenticated" || !active?.baselineSnapshotId) return;
+    setCiExportLoading(true);
+    try {
+      const endpoint = `/api/v1/workspaces/${encodeURIComponent(active.id)}/baseline/token`;
+      const [readResponse, promoteResponse] = await Promise.all([
+        fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ scope: "read" }) }),
+        fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ scope: "promote" }) }),
+      ]);
+      if (!readResponse.ok || !promoteResponse.ok) throw new Error("Unable to issue CI tokens. Check the workspace baseline and sign-in session.");
+      const [readToken, promoteToken] = await Promise.all([
+        readResponse.json() as Promise<{ token: string; expiresAt: number }>,
+        promoteResponse.json() as Promise<{ token: string; expiresAt: number }>,
+      ]);
+      const endpointUrl = `https://driftmap.in/api/v1/workspaces/${encodeURIComponent(active.id)}/baseline`;
+      const url = new URL(endpointUrl);
+      url.searchParams.set("token", readToken.token);
+      setCiExport({ baselineUrl: url.toString(), promoteToken: promoteToken.token, expiresAt: Math.min(readToken.expiresAt, promoteToken.expiresAt) });
+    } catch (reason) {
+      toast.error(reason instanceof Error ? reason.message : "Unable to prepare the GitHub Action configuration.");
+    } finally {
+      setCiExportLoading(false);
+    }
+  }, [active, mode, sessionStatus]);
   const direction: ContractDirection = active?.direction ?? "response";
   const sampleWarnings = useMemo(() => sampleWarningsForSnapshots(baseline, candidate), [baseline, candidate]);
 
@@ -710,8 +738,9 @@ export function WorkbenchPage() {
         onToggleStreaming={() => setStreaming((current) => !current)}
         payloadBytes={payloadBytes}
         onCopyMarkdown={() => void copyMarkdown()}
+        onExportCI={() => void openCIExport()}
         onExportJSON={exportWorkspaceJSON}
-        pending={pendingAction !== null}
+        pending={pendingAction !== null || ciExportLoading}
         onLoadSamplePair={() => void loadSamplePair()}
         cloudStatus={sessionStatus === "authenticated" ? (session?.user?.email ?? "signed in") : null}
         onSignIn={() => { window.location.href = "/signin"; }}
@@ -825,6 +854,7 @@ export function WorkbenchPage() {
       </footer>
 
       <ToastRegion />
+      {ciExport && <CIExportModal credentials={ciExport} onClose={() => setCiExport(null)} />}
     </main>
   );
 }

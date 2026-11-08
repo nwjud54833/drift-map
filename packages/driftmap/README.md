@@ -55,7 +55,7 @@ permissions:
 
 steps:
   - uses: actions/checkout@v4
-  - uses: nwjud54833/drift-map@v2.5.2
+  - uses: nwjud54833/drift-map@v2.5.3
     with:
       baseline-path: contracts/openapi-base.yaml
       candidate-path: contracts/openapi.yaml
@@ -69,20 +69,21 @@ See a [live breaking-change PR with the posted DriftMap report](https://github.c
 
 ### Hosted workspace baseline
 
-The CLI and Action can fetch a selected workspace baseline over HTTPS. The workspace owner signs in and requests a 90-day read token with `POST /api/v1/workspaces/<workspace-id>/baseline/token`; store that token as the Actions secret `DRIFTMAP_BASELINE_TOKEN`. Tokens are scoped to one workspace and can only read its currently selected baseline. The baseline endpoint requires either the owner session or this bearer token.
+The CLI and Action can fetch a selected workspace baseline over HTTPS. From the signed-in Workbench, select a cloud workspace with a baseline and choose **Use in CI / GitHub Action** to issue a 90-day read URL and separate promotion token. Store the URL as `DRIFTMAP_BASELINE_URL` and the promotion token as `DRIFTMAP_PROMOTE_TOKEN` in GitHub Actions secrets. Read tokens only read the workspace's selected baseline. Promotion tokens only promote that workspace and are accepted only by `POST /api/v1/workspaces/<workspace-id>/baseline`.
 
 ```yaml
 steps:
   - uses: actions/checkout@v4
-  - uses: nwjud54833/drift-map@v2.5.2
+  - uses: nwjud54833/drift-map@v2.5.3
     with:
-      baseline-path: https://driftmap.in/api/v1/workspaces/00000000-0000-4000-8000-000000000001/baseline
+      baseline-path: ${{ secrets.DRIFTMAP_BASELINE_URL }}
       candidate-path: contracts/openapi.yaml
-      baseline-token: ${{ secrets.DRIFTMAP_BASELINE_TOKEN }}
+      promote-on-push: true
+      promote-token: ${{ secrets.DRIFTMAP_PROMOTE_TOKEN }}
       github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-For the CLI, set `DRIFTMAP_BASELINE_TOKEN` in the environment and pass the same endpoint to `--baseline`. Hosted reads accept HTTPS URLs only, reject redirects, and are limited to 2 MB.
+Trigger the workflow on `pull_request` and `push` to `main`. The Action compares on both events and promotes only after a successful `main` push when `promote-on-push: true`. The standalone CLI supports `driftmap promote <baseline-url> <candidate-file>` with `DRIFTMAP_PROMOTE_TOKEN` set. Hosted reads accept HTTPS URLs only, reject redirects, and are limited to 2 MB. URL tokens are redacted from report output and sent to the API as authorization headers.
 
 ## Exit codes
 

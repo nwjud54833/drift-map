@@ -27,6 +27,25 @@ export function pullRequestNumber(eventPath) {
   return number;
 }
 
+export function shouldPromoteOnPush({ eventName, ref, enabled }) {
+  return eventName === "push" && ref === "refs/heads/main" && enabled === true;
+}
+
+/** Move an embedded read token into the child process environment, never argv. */
+export function prepareBaselineForCli(input, environment) {
+  try {
+    const url = new URL(input);
+    const tokens = url.searchParams.getAll("token");
+    if (tokens.length === 0) return input;
+    if (tokens.length !== 1 || [...url.searchParams.keys()].some((key) => key !== "token")) return input;
+    if (!environment.DRIFTMAP_BASELINE_TOKEN) environment.DRIFTMAP_BASELINE_TOKEN = tokens[0];
+    url.search = "";
+    return url.toString();
+  } catch {
+    return input;
+  }
+}
+
 function apiHeaders(token, json = false) {
   return {
     authorization: `Bearer ${token}`,
@@ -65,10 +84,39 @@ export async function upsertStickyComment({ apiUrl, repository, issueNumber, tok
 }
 
 export async function main() {
-  const baseline = required("DRIFTMAP_BASELINE_PATH");
+  const baseline = prepareBaselineForCli(required("DRIFTMAP_BASELINE_PATH"), process.env);
   const candidate = required("DRIFTMAP_CANDIDATE_PATH");
   const failOn = process.env.DRIFTMAP_FAIL_ON?.trim() || "breaking";
   if (!["breaking", "warning"].includes(failOn)) throw new Error("DRIFTMAP_FAIL_ON must be breaking or warning.");
+  const eventName = process.env.GITHUB_EVENT_NAME?.trim() || "pull_request";
+  if (eventName === "push") {
+    const result = spawnSync(process.execPath, [CLI_PATH, "diff", "--baseline", baseline, "--candidate", candidate, "--fail-on", failOn], {
+      cwd: process.env.GITHUB_WORKSPACE || process.cwd(),
+      env: process.env,
+      encoding: "utf8",
+      maxBuffer: 4 * 1024 * 1024,
+      windowsHide: true,
+    });
+    if (result.error) throw new Error(`Unable to run DriftMap CLI: ${result.error.message}`);
+    if (result.stdout) process.stdout.write(result.stdout);
+    if (result.stderr) process.stderr.write(result.stderr);
+    if (result.status !== 0) return result.status || 2;
+    const promoteEnabled = process.env.DRIFTMAP_PROMOTE_ON_PUSH?.trim().toLowerCase() === "true";
+    if (!shouldPromoteOnPush({ eventName, ref: process.env.GITHUB_REF, enabled: promoteEnabled })) return 0;
+    const promote = spawnSync(process.execPath, [CLI_PATH, "promote", baseline, candidate], {
+      cwd: process.env.GITHUB_WORKSPACE || process.cwd(),
+      env: process.env,
+      encoding: "utf8",
+      maxBuffer: 4 * 1024 * 1024,
+      windowsHide: true,
+    });
+    if (promote.error) throw new Error(`Unable to run DriftMap baseline promotion: ${promote.error.message}`);
+    if (promote.stdout) process.stdout.write(promote.stdout);
+    if (promote.stderr) process.stderr.write(promote.stderr);
+    return promote.status ?? 2;
+  }
+  if (eventName !== "pull_request") throw new Error("DriftMap Action supports pull_request checks and optional push-based baseline promotion.");
+
   const token = required("DRIFTMAP_GITHUB_TOKEN");
   const repository = required("GITHUB_REPOSITORY");
   if (!/^[^/]+\/[^/]+$/.test(repository)) throw new Error("GITHUB_REPOSITORY must use owner/repository format.");

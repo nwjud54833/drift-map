@@ -50,6 +50,7 @@ export type ParseResult =
 
 export const USAGE = `Usage: driftmap diff <baseline> <candidate> [options]
        driftmap diff --baseline <file-or-url> --candidate <file> [options]
+       driftmap promote <baseline-url> <candidate-file>
 
 Compare two JSON payloads, arrays of payload samples, or OpenAPI 3.0 documents
 (JSON or YAML). The input type is detected from file contents, not extensions.
@@ -66,6 +67,9 @@ Options:
   --verbose                             Show raw RULE_* IDs and sample counts (text format)
   --color <auto|always|never>           When to colorize (default: auto; colors need a TTY and NO_COLOR unset)
   --help                                Show this help
+
+promote saves a candidate as the selected workspace baseline. Set
+DRIFTMAP_PROMOTE_TOKEN to a workspace-scoped promotion token.
 
 \`diff\` is the primary command; \`compare\` remains as a backwards-compatible alias.
 Installed commands: driftmap, driftmap-cli
@@ -351,7 +355,7 @@ export function validateHostedBaselineUrl(input: string): URL | null {
       || url.port !== ""
       || url.username !== ""
       || url.password !== ""
-      || url.search !== ""
+      || (url.search !== "" && (url.searchParams.getAll("token").length !== 1 || !url.searchParams.get("token") || [...url.searchParams.keys()].some((key) => key !== "token")))
       || url.hash !== ""
       || !/^\/api\/v1\/workspaces\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/baseline$/i.test(url.pathname)) {
       return null;
@@ -362,19 +366,29 @@ export function validateHostedBaselineUrl(input: string): URL | null {
   }
 }
 
+export function displayBaselineInput(input: string): string {
+  const url = validateHostedBaselineUrl(input);
+  if (!url) return input;
+  url.search = "";
+  return url.toString();
+}
+
 export async function loadHostedBaseline(
   input: string,
   fetchImpl: typeof fetch = fetch,
   token = process.env.DRIFTMAP_BASELINE_TOKEN?.trim(),
 ): Promise<LoadResult> {
   const url = validateHostedBaselineUrl(input);
-  if (!url) return { error: "Hosted baseline URLs must be HTTPS DriftMap workspace baseline endpoints without query parameters." };
+  if (!url) return { error: "Hosted baseline URLs must be HTTPS DriftMap workspace baseline endpoints." };
+  const queryToken = url.searchParams.get("token")?.trim();
+  url.search = "";
+  const authToken = token || queryToken;
 
   let response: Response;
   try {
     response = await fetchImpl(url, {
       method: "GET",
-      headers: { accept: "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
+      headers: { accept: "application/json", ...(authToken ? { authorization: `Bearer ${authToken}` } : {}) },
       redirect: "error",
       signal: AbortSignal.timeout(15_000),
     });
@@ -611,7 +625,7 @@ function renderText(report: TextReport, useColor: boolean): string {
     return verdictLine(report.exitCode);
   }
   const paint = createPaint(useColor);
-  const files = truncateFromLeft(basename(options.baselinePath), 40) + " \u2192 " + truncateFromLeft(basename(options.candidatePath), 40);
+  const files = truncateFromLeft(basename(displayBaselineInput(options.baselinePath)), 40) + " \u2192 " + truncateFromLeft(basename(options.candidatePath), 40);
   const lines = [
     paint("dim", `driftmap diff  ${files}`),
     paint("dim", `${options.direction} · fail on ${options.failOn}`),
@@ -685,7 +699,7 @@ function markdownOutput(
     "",
     `**${result}** · fail on \`${options.failOn}\` · ${options.direction} contract`,
     "",
-    `Baseline: \`${markdownCell(options.baselinePath)}\` (${markdownCell(baseline.description)})  `,
+    `Baseline: \`${markdownCell(displayBaselineInput(options.baselinePath))}\` (${markdownCell(baseline.description)})  `,
     `Candidate: \`${markdownCell(options.candidatePath)}\` (${markdownCell(candidate.description)})`,
     "",
     `**${summary.breaking} breaking** · ${summary.warning} warning · ${summary.safe} safe · ${summary.info} info`,
@@ -776,8 +790,82 @@ export async function runCompareAsync(options: CompareOptions, fetchImpl: typeof
   return compareLoadedInputs(effectiveOptions, ruleOverrides.rules, baseline, candidate);
 }
 
+export interface PromoteOutcome { exitCode: number; output: string }
+
+export async function promoteCandidate(
+  baselineUrl: string,
+  candidatePath: string,
+  fetchImpl: typeof fetch = fetch,
+  token = process.env.DRIFTMAP_PROMOTE_TOKEN?.trim(),
+): Promise<PromoteOutcome> {
+  const url = validateHostedBaselineUrl(baselineUrl);
+  if (!url) return { exitCode: 2, output: errorBlock("Promotion URL must be an HTTPS DriftMap workspace baseline endpoint.") };
+  if (!token) return { exitCode: 2, output: errorBlock("Set DRIFTMAP_PROMOTE_TOKEN to a workspace-scoped promotion token.") };
+
+  const expanded = expandInputPaths(candidatePath);
+  if ("error" in expanded) return { exitCode: 2, output: errorBlock(expanded.error) };
+  let raw: string;
+  try {
+    let bytes = 0;
+    const documents = expanded.paths.map((path) => {
+      const size = statSync(path).size;
+      bytes += size;
+      if (bytes > MAX_IMPORT_BYTES) throw new RangeError("Candidate document exceeds the 2 MB promotion limit.");
+      const text = readFileSync(path, "utf8");
+      return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+    });
+    if (documents.length === 1) raw = documents[0];
+    else {
+      const sampleValues: unknown[] = [];
+      for (const document of documents) {
+        const artifact = parseImportArtifact(document, { source: "file" });
+        if (!artifact.ok || artifact.artifact.format !== "samples") return { exitCode: 2, output: errorBlock("Promotion patterns can combine JSON payload samples, but must match exactly one OpenAPI document.") };
+        sampleValues.push(...artifact.artifact.samples.map((sample) => sample.value));
+      }
+      raw = JSON.stringify(sampleValues);
+    }
+  } catch (error) {
+    return { exitCode: 2, output: errorBlock(error instanceof RangeError ? error.message : "Unable to read the candidate file for promotion.") };
+  }
+  const artifact = parseImportArtifact(raw, { source: "file", fileName: basename(candidatePath) });
+  if (!artifact.ok) return { exitCode: 2, output: errorBlock(artifact.message) };
+  url.search = "";
+
+  let response: Response;
+  try {
+    response = await fetchImpl(url, {
+      method: "POST",
+      headers: { accept: "application/json", "content-type": "application/json", authorization: `Bearer ${token}` },
+      body: JSON.stringify({ document: raw, versionLabel: `main ${new Date().toISOString().slice(0, 10)}` }),
+      redirect: "error",
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch {
+    return { exitCode: 2, output: errorBlock("Unable to reach the workspace promotion endpoint.") };
+  }
+  if (!response.ok) return { exitCode: 2, output: errorBlock(response.status === 401 ? "Workspace promotion was denied. Check DRIFTMAP_PROMOTE_TOKEN." : `Workspace promotion failed with HTTP ${response.status}.`) };
+  return { exitCode: 0, output: "DriftMap baseline promoted from the passing candidate.\n" };
+}
+
+async function runPromoteCommand(argv: string[]): Promise<number> {
+  let parsed: ReturnType<typeof parseArgs>;
+  try { parsed = parseArgs({ args: argv, allowPositionals: true, strict: true, options: { help: { type: "boolean" } } }); }
+  catch (error) { process.stderr.write(`${errorBlock(error instanceof Error ? error.message : "Unable to parse promotion arguments.")}\n`); return 2; }
+  if (parsed.values.help) {
+    process.stdout.write("Usage: driftmap promote <baseline-url> <candidate-file>\n\nSet DRIFTMAP_PROMOTE_TOKEN to a workspace-scoped promotion token.\n");
+    return 0;
+  }
+  const [url, candidate, extra] = parsed.positionals;
+  if (!url || !candidate || extra) { process.stderr.write(`${errorBlock("Provide exactly a workspace baseline URL and one candidate file.")}\n`); return 2; }
+  const outcome = await promoteCandidate(url, candidate);
+  (outcome.exitCode === 0 ? process.stdout : process.stderr).write(`${outcome.output}\n`);
+  return outcome.exitCode;
+}
+
 async function main(): Promise<number> {
-  const parsed = parseCliArguments(process.argv.slice(2));
+  const argv = process.argv.slice(2);
+  if (argv[0] === "promote") return runPromoteCommand(argv.slice(1));
+  const parsed = parseCliArguments(argv);
   if (!parsed.ok) {
     process.stderr.write(`${errorBlock(parsed.message)}\n\n${USAGE}\n`);
     return 2;

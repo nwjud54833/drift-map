@@ -27,6 +27,7 @@ export interface WorkbenchToolbarProps {
   onToggleStreaming: () => void;
   payloadBytes: number;
   onCopyMarkdown: () => void;
+  onExportCI: () => void;
   onExportJSON: () => void;
   pending: boolean;
   onLoadSamplePair: () => void;
@@ -55,6 +56,7 @@ export function WorkbenchToolbar({
   onToggleStreaming,
   payloadBytes,
   onCopyMarkdown,
+  onExportCI,
   onExportJSON,
   pending,
   onLoadSamplePair,
@@ -204,6 +206,19 @@ export function WorkbenchToolbar({
             </svg>
             <span>Copy Markdown</span>
           </button>
+
+          {mode === "cloud" && cloudStatus && active?.baselineSnapshotId && (
+            <button
+              type="button"
+              onClick={onExportCI}
+              disabled={pending}
+              className="btn-geist-secondary px-3 py-1.5 rounded-lg text-xs font-mono inline-flex items-center gap-1.5 disabled:opacity-50"
+              aria-label="Use this workspace in CI or a GitHub Action"
+            >
+              <span aria-hidden="true">⇧</span>
+              <span>Use in CI / GitHub Action</span>
+            </button>
+          )}
 
           <button
             type="button"

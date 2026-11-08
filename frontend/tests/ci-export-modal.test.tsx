@@ -1,0 +1,21 @@
+import { describe, expect, it } from "vitest";
+import { renderToStaticMarkup } from "react-dom/server";
+import { CIExportModal, DRIFTMAP_GITHUB_WORKFLOW } from "@/components/driftmap/ci-export-modal";
+
+describe("Workbench CI export", () => {
+  it("renders the signed baseline URL, promotion secret, and pinned workflow snippet", () => {
+    const markup = renderToStaticMarkup(<CIExportModal credentials={{
+      baselineUrl: "https://driftmap.in/api/v1/workspaces/00000000-0000-4000-8000-000000000001/baseline?token=read.signed.value",
+      promoteToken: "promote.signed.value",
+      expiresAt: 1_800_000_000,
+    }} onClose={() => undefined} />);
+    expect(markup).toContain("Use this baseline in GitHub Actions");
+    expect(markup).toContain("DRIFTMAP_BASELINE_URL");
+    expect(markup).toContain("DRIFTMAP_PROMOTE_TOKEN");
+    expect(markup).toContain("read.signed.value");
+    expect(markup).toContain("promote.signed.value");
+    expect(markup).toContain("nwjud54833/drift-map@v2.5.3");
+    expect(DRIFTMAP_GITHUB_WORKFLOW).toContain("secrets.DRIFTMAP_BASELINE_URL");
+    expect(DRIFTMAP_GITHUB_WORKFLOW).toContain("promote-on-push: true");
+  });
+});

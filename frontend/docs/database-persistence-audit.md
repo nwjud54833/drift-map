@@ -29,6 +29,14 @@ PR #11 from `feat/cli-dark-theme` to `test-driftmap-action` triggered [run 42393
 - Hosted baseline reads use existing `Workspace`, `ContractSnapshot`, and `PayloadSample` records. They require the owner session or a 90-day workspace-scoped read token; no contract data is public by workspace ID alone.
 - Current verification: 312 frontend tests, 17 CLI/Action tests, lint, typecheck, schema validation, and production build passed.
 
+## v2.5.3 self-serve CI and baseline promotion
+
+- The signed-in cloud Workbench can issue separate 90-day workspace-scoped read and promote tokens and provides a ready-to-copy `v2.5.3` GitHub Action workflow.
+- Read tokens work through an Authorization header or the copied URL query parameter; query tokens are stripped before network requests, redacted from CLI output, and protected from referrers.
+- `POST /api/v1/workspaces/<id>/baseline` accepts only a promotion-scoped bearer token, validates JSON/OpenAPI candidate documents, and atomically creates a snapshot and selects it as the workspace baseline. The Action performs this only after a passing `push` to `main` with `promote-on-push: true`.
+- `GET /api/v1/waitlist` requires an authenticated email listed in `DRIFTMAP_ADMIN_EMAILS` and returns only an aggregate count, never signup PII.
+- Local v2.5.3 verification passed: 320 frontend tests, 19 CLI/Action tests, lint, typecheck, Prisma validation, and the production build. The live health endpoint is checked after the push.
+
 ## Database persistence and smoke test
 
 `frontend/scripts/verify-db-auth.ts` is ready for CI or pre-deploy execution against an explicitly selected, empty, non-production database. It verifies disposable user creation, session persistence, workspace create/update/query, and a 1 MiB JSON snapshot round-trip, then deletes the disposable user in `finally`. It requires `TEST_DATABASE_URL` and `DRIFTMAP_TEST_DATABASE_CONFIRMATION=I_VERIFIED_EMPTY_NON_PRODUCTION`.

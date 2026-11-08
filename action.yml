@@ -20,6 +20,13 @@ inputs:
   baseline-token:
     description: Optional workspace-scoped read token for hosted baseline URLs.
     required: false
+  promote-on-push:
+    description: Promote the candidate after a passing push to main (requires a promotion token).
+    required: false
+    default: "false"
+  promote-token:
+    description: Workspace-scoped baseline promotion token. Store it as a GitHub Actions secret.
+    required: false
 runs:
   using: composite
   steps:
@@ -38,4 +45,6 @@ runs:
         DRIFTMAP_CONFIG_PATH: ${{ inputs.config-path }}
         DRIFTMAP_GITHUB_TOKEN: ${{ inputs.github-token }}
         DRIFTMAP_BASELINE_TOKEN: ${{ inputs.baseline-token }}
+        DRIFTMAP_PROMOTE_ON_PUSH: ${{ inputs.promote-on-push }}
+        DRIFTMAP_PROMOTE_TOKEN: ${{ inputs.promote-token }}
       run: node "$GITHUB_ACTION_PATH/action/run.mjs"
