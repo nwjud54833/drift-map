@@ -18,7 +18,7 @@ jobs:
       - name: Post the DriftMap sticky review comment
         id: review
         continue-on-error: true
-        uses: nwjud54833/drift-map@v2.5.9
+        uses: nwjud54833/drift-map@v2.5.10
         with:
           baseline-path: examples/demo/order-api/v1.json
           candidate-path: examples/demo/order-api/v2.json
