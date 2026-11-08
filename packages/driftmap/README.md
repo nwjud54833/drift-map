@@ -55,7 +55,7 @@ permissions:
 
 steps:
   - uses: actions/checkout@v4
-  - uses: nwjud54833/drift-map@v2.5.1
+  - uses: nwjud54833/drift-map@v2.5.2
     with:
       baseline-path: contracts/openapi-base.yaml
       candidate-path: contracts/openapi.yaml
@@ -66,6 +66,23 @@ steps:
 For local development in this repository, the workflow example is [`.github/workflows/contract-review.yml`](../../.github/workflows/contract-review.yml). The action expects a `pull_request` event and a token with permission to write issue comments.
 
 See a [live breaking-change PR with the posted DriftMap report](https://github.com/nwjud54833/drift-map/pull/12).
+
+### Hosted workspace baseline
+
+The CLI and Action can fetch a selected workspace baseline over HTTPS. The workspace owner signs in and requests a 90-day read token with `POST /api/v1/workspaces/<workspace-id>/baseline/token`; store that token as the Actions secret `DRIFTMAP_BASELINE_TOKEN`. Tokens are scoped to one workspace and can only read its currently selected baseline. The baseline endpoint requires either the owner session or this bearer token.
+
+```yaml
+steps:
+  - uses: actions/checkout@v4
+  - uses: nwjud54833/drift-map@v2.5.2
+    with:
+      baseline-path: https://driftmap.in/api/v1/workspaces/00000000-0000-4000-8000-000000000001/baseline
+      candidate-path: contracts/openapi.yaml
+      baseline-token: ${{ secrets.DRIFTMAP_BASELINE_TOKEN }}
+      github-token: ${{ secrets.GITHUB_TOKEN }}
+```
+
+For the CLI, set `DRIFTMAP_BASELINE_TOKEN` in the environment and pass the same endpoint to `--baseline`. Hosted reads accept HTTPS URLs only, reject redirects, and are limited to 2 MB.
 
 ## Exit codes
 

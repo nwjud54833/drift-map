@@ -22,6 +22,13 @@ PR #11 from `feat/cli-dark-theme` to `test-driftmap-action` triggered [run 42393
 
 [PR #12](https://github.com/nwjud54833/drift-map/pull/12) is intentionally left open as a public product example. It removes the required `/customer/email` field from an Order API response. Hosted [run 42490396623](https://github.com/nwjud54833/drift-map/actions/runs/42490396623) completed successfully: the Action posted its sticky Markdown findings table, the report classified `/customer/email` as `BREAKING`, and the workflow verified the expected breaking exit code and finding. The README and landing page link to this PR.
 
+## v2.5.2 persistence and CI changes
+
+- Added the `EarlyAccessRequest` table with an additive migration only. Vercel builds now run `prisma migrate deploy` before publishing, using `DATABASE_URL_UNPOOLED` or a direct Neon hostname derived from the pooled URL. Local builds skip migrations, so the rotated local `.env.local` credential is not used for schema writes.
+- The waitlist API validates and normalizes submissions, stores only the email and optional GitHub organization/repository count, and applies per-IP and per-email rate limits.
+- Hosted baseline reads use existing `Workspace`, `ContractSnapshot`, and `PayloadSample` records. They require the owner session or a 90-day workspace-scoped read token; no contract data is public by workspace ID alone.
+- Current verification: 312 frontend tests, 17 CLI/Action tests, lint, typecheck, schema validation, and production build passed.
+
 ## Database persistence and smoke test
 
 `frontend/scripts/verify-db-auth.ts` is ready for CI or pre-deploy execution against an explicitly selected, empty, non-production database. It verifies disposable user creation, session persistence, workspace create/update/query, and a 1 MiB JSON snapshot round-trip, then deletes the disposable user in `finally`. It requires `TEST_DATABASE_URL` and `DRIFTMAP_TEST_DATABASE_CONFIRMATION=I_VERIFIED_EMPTY_NON_PRODUCTION`.

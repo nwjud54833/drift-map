@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useState, type FormEvent } from "react";
 import { useSpatialUIStore } from "@/stores/spatial-ui-store";
+import { submitEarlyAccessRequest } from "@/lib/client/early-access";
 import { useTiltCard } from "./use-tilt-card";
 
 /**
@@ -209,6 +211,31 @@ export function LandingCta({ onOpenWorkbench }: { onOpenWorkbench: () => void })
 }
 
 export function PricingSection({ onOpenWorkbench }: { onOpenWorkbench: () => void }) {
+  const [email, setEmail] = useState("");
+  const [githubOrg, setGithubOrg] = useState("");
+  const [repositoryCount, setRepositoryCount] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [message, setMessage] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+
+  async function requestEarlyAccess(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSubmitting(true);
+    setMessage("");
+    const result = await submitEarlyAccessRequest({
+      email,
+      githubOrg,
+      ...(repositoryCount ? { repositoryCount: Number(repositoryCount) } : {}),
+    });
+    setSubmitting(false);
+    if (result.ok) {
+      setSubmitted(true);
+      setMessage("You’re on the Team Cloud early access list. We’ll follow up by email.");
+    } else {
+      setMessage(result.message);
+    }
+  }
+
   return (
     <section id="team-ci-cloud" className="py-20 md:py-28 border-b border-white/[0.07]">
       <div className="max-w-[1120px] mx-auto px-4 sm:px-6">
@@ -252,8 +279,58 @@ export function PricingSection({ onOpenWorkbench }: { onOpenWorkbench: () => voi
               <li className="flex gap-2"><span className="text-sky-300">◷</span><span>Automatic pull request comparisons across branches</span></li>
               <li className="flex gap-2"><span className="text-sky-300">◷</span><span>Team review history for contract changes</span></li>
             </ul>
-            <a href="/signin" className="btn-geist-secondary inline-flex px-4 py-2.5 rounded-xl text-sm text-sky-200">
-              Explore workspace sync <span aria-hidden="true">→</span>
+            {!submitted && (
+              <form onSubmit={requestEarlyAccess} className="space-y-3" aria-label="Request Team Cloud early access">
+                <label className="block text-xs text-[#D3D4DA]">
+                  Email address
+                  <input
+                    type="email"
+                    name="email"
+                    required
+                    autoComplete="email"
+                    maxLength={254}
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    className="mt-1.5 w-full rounded-lg border border-white/10 bg-[#08090D] px-3 py-2.5 text-sm text-white outline-none focus:border-sky-300"
+                    placeholder="you@company.com"
+                  />
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <label className="block text-xs text-[#D3D4DA]">
+                    GitHub org <span className="text-[#777985]">(optional)</span>
+                    <input
+                      type="text"
+                      name="githubOrg"
+                      maxLength={39}
+                      value={githubOrg}
+                      onChange={(event) => setGithubOrg(event.target.value)}
+                      className="mt-1.5 w-full rounded-lg border border-white/10 bg-[#08090D] px-3 py-2.5 text-sm text-white outline-none focus:border-sky-300"
+                      placeholder="acme"
+                    />
+                  </label>
+                  <label className="block text-xs text-[#D3D4DA]">
+                    Repository count <span className="text-[#777985]">(optional)</span>
+                    <input
+                      type="number"
+                      name="repositoryCount"
+                      min={1}
+                      max={100000}
+                      step={1}
+                      value={repositoryCount}
+                      onChange={(event) => setRepositoryCount(event.target.value)}
+                      className="mt-1.5 w-full rounded-lg border border-white/10 bg-[#08090D] px-3 py-2.5 text-sm text-white outline-none focus:border-sky-300"
+                      placeholder="12"
+                    />
+                  </label>
+                </div>
+                <button type="submit" disabled={submitting} className="btn-geist-secondary inline-flex px-4 py-2.5 rounded-xl text-sm text-sky-200 disabled:opacity-60">
+                  {submitting ? "Sending…" : "Request Early Access"}
+                </button>
+              </form>
+            )}
+            {message && <p role="status" aria-live="polite" className={`mt-3 text-sm ${submitted ? "text-emerald-300" : "text-amber-200"}`}>{message}</p>}
+            <a href="/signin" className="mt-4 inline-flex text-sm text-[#AEB0BA] underline underline-offset-4 hover:text-white">
+              Already have an account? Sign in for Cloud Workspace Sync
             </a>
             <p className="text-xs text-[#777985] mt-3">Team baseline tracking is planned; pricing and availability have not been announced.</p>
           </article>

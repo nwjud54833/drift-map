@@ -74,7 +74,7 @@ export async function main() {
   if (!/^[^/]+\/[^/]+$/.test(repository)) throw new Error("GITHUB_REPOSITORY must use owner/repository format.");
   const issueNumber = pullRequestNumber(required("GITHUB_EVENT_PATH"));
   const apiUrl = process.env.GITHUB_API_URL?.trim() || "https://api.github.com";
-  const args = [CLI_PATH, "diff", baseline, candidate, "--fail-on", failOn, "--format", "markdown"];
+  const args = [CLI_PATH, "diff", "--baseline", baseline, "--candidate", candidate, "--fail-on", failOn, "--format", "markdown"];
   if (process.env.DRIFTMAP_CONFIG_PATH?.trim()) args.push("--config", process.env.DRIFTMAP_CONFIG_PATH.trim());
   const { DRIFTMAP_GITHUB_TOKEN: _tokenForCommentApi, ...cliEnv } = process.env;
   const result = spawnSync(process.execPath, args, {

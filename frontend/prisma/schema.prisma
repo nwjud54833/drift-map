@@ -192,3 +192,13 @@ model ContractChange {
   @@index([diffId, severity])
   @@index([pointer])
 }
+
+model EarlyAccessRequest {
+  id              String   @id @default(cuid())
+  email           String   @unique @db.VarChar(254)
+  githubOrg       String?  @db.VarChar(39)
+  repositoryCount Int?
+  createdAt       DateTime @default(now())
+
+  @@index([createdAt])
+}

@@ -1,12 +1,14 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { parseCliArguments, resolveColors, runCompare, USAGE } from "@/bin/driftmap";
+import { loadHostedBaseline, parseCliArguments, resolveColors, runCompare, runCompareAsync, USAGE, validateHostedBaselineUrl } from "@/bin/driftmap";
 import type { CompareOptions } from "@/bin/driftmap";
 import { ANSI_CODES } from "@/bin/colors";
+import { inferContract } from "@/lib/contract/infer";
+import { parseImportArtifact } from "@/lib/workbench/import-artifact";
 
 const fixturesDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures");
 const fixture = (name: string) => path.join(fixturesDir, name);
@@ -19,6 +21,7 @@ function options(overrides: Partial<CompareOptions> = {}): CompareOptions {
     baselinePath: pair1.baselinePath,
     candidatePath: pair1.candidatePath,
     direction: "response",
+    directionExplicit: false,
     failOn: "breaking",
     format: "text",
     outPath: null,
@@ -50,6 +53,7 @@ describe("parseCliArguments", () => {
       baselinePath: "a.json",
       candidatePath: "b.json",
       direction: "request",
+      directionExplicit: true,
       failOn: "warning",
       format: "json",
       outPath: "drift.md",
@@ -87,6 +91,15 @@ describe("parseCliArguments", () => {
     expect(parseCliArguments([]).ok).toBe(false);
   });
 
+  it("accepts explicit --baseline and --candidate file-or-URL options", () => {
+    const url = "https://driftmap.in/api/v1/workspaces/6f9619ff-8b86-4d3a-a5a5-6d2a7e5b6c10/baseline";
+    const parsed = parseCliArguments(["diff", "--baseline", url, "--candidate", "candidate.json"]);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.options.baselinePath).toBe(url);
+    expect(parsed.options.candidatePath).toBe("candidate.json");
+  });
+
   it("rejects unknown flags with a usage error", () => {
     const parsed = parseCliArguments(["compare", "a.json", "b.json", "--wat"]);
     expect(parsed.ok).toBe(false);
@@ -118,6 +131,57 @@ describe("parseCliArguments", () => {
     expect(color.ok).toBe(false);
     if (color.ok) return;
     expect(color.message).toContain("--color must be one of auto, always, never");
+  });
+});
+
+describe("hosted baseline fetching", () => {
+  const url = "https://driftmap.in/api/v1/workspaces/6f9619ff-8b86-4d3a-a5a5-6d2a7e5b6c10/baseline";
+  const baselineArtifact = parseImportArtifact(readFileSync(pair1.baselinePath, "utf8"), { source: "file" });
+  if (!baselineArtifact.ok || !("samples" in baselineArtifact.artifact)) throw new Error("CLI test fixture must parse as samples.");
+  const baselineSamples = baselineArtifact.artifact.samples;
+  const baselineContract = inferContract(baselineSamples);
+
+  it("only accepts HTTPS DriftMap workspace baseline endpoints", () => {
+    expect(validateHostedBaselineUrl(url)?.hostname).toBe("driftmap.in");
+    expect(validateHostedBaselineUrl(url.replace("https:", "http:"))).toBeNull();
+    expect(validateHostedBaselineUrl(url.replace("driftmap.in", "example.com"))).toBeNull();
+    expect(validateHostedBaselineUrl(`${url}?token=secret`)).toBeNull();
+  });
+
+  it("fetches a signed baseline and compares it with a local candidate", async () => {
+    const previousToken = process.env.DRIFTMAP_BASELINE_TOKEN;
+    process.env.DRIFTMAP_BASELINE_TOKEN = "ci-read-token";
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      expect(init?.method).toBe("GET");
+      expect(new Headers(init?.headers).get("authorization")).toBe("Bearer ci-read-token");
+      expect(init?.redirect).toBe("error");
+      return new Response(JSON.stringify({
+        baseline: {
+          versionLabel: "v1",
+          contract: baselineContract,
+          samples: baselineSamples.map((sample) => sample.value),
+        },
+      }), { status: 200, headers: { "content-type": "application/json" } });
+    }) as unknown as typeof fetch;
+
+    try {
+      const loaded = await loadHostedBaseline(url, fetchMock, "ci-read-token");
+      expect("error" in loaded).toBe(false);
+
+      const result = await runCompareAsync(options({ baselinePath: url, candidatePath: pair1.candidatePath, format: "markdown" }), fetchMock);
+      expect(result.exitCode).toBe(1);
+      expect(result.output).toContain("BREAKING");
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    } finally {
+      if (previousToken === undefined) delete process.env.DRIFTMAP_BASELINE_TOKEN;
+      else process.env.DRIFTMAP_BASELINE_TOKEN = previousToken;
+    }
+  });
+
+  it("returns a clear auth error without exposing endpoint response data", async () => {
+    const fetchMock = vi.fn(async () => new Response("private database details", { status: 401 })) as unknown as typeof fetch;
+    const loaded = await loadHostedBaseline(url, fetchMock, "invalid-token");
+    expect(loaded).toEqual({ error: "Hosted baseline access was denied. Set DRIFTMAP_BASELINE_TOKEN to a valid workspace read token." });
   });
 });
 

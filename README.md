@@ -46,7 +46,10 @@ npm run build
 ```
 
 The production deployment uses standard Next.js/Vercel behavior; there is no
-checked-in `vercel.json`. Configure Vercel environment variables separately
+checked-in `vercel.json`. Vercel builds deploy pending Prisma migrations before
+publishing, using `DATABASE_URL_UNPOOLED` when configured or deriving the direct
+Neon hostname from `DATABASE_URL`. This release adds only the
+`EarlyAccessRequest` table; local builds skip migrations. Configure Vercel environment variables separately
 from local `.env.local`: `DATABASE_URL`, `AUTH_SECRET`, `AUTH_GOOGLE_ID`, and
 `AUTH_GOOGLE_SECRET`. Set production and preview values to their intended
 environments. `AUTH_TRUST_HOST` is enabled automatically on Vercel by the auth
@@ -61,6 +64,7 @@ A small local wrapper around the contract engine is available from this checkout
 
 ```bash
 npx tsx frontend/bin/driftmap.ts compare <baseline> <candidate> [options]
+npx tsx frontend/bin/driftmap.ts diff --baseline <file-or-url> --candidate <file> [options]
 ```
 
 Each input is a file path holding a JSON payload, a JSON array of payload
@@ -89,6 +93,11 @@ from the file contents, not the extension.
 Inputs are capped at 2 MB per file. `--fail-on off` always exits `0` unless the
 arguments or the files themselves are unusable.
 
+For a hosted baseline, pass its HTTPS workspace endpoint to `--baseline` and
+set `DRIFTMAP_BASELINE_TOKEN` to a workspace-scoped read token. Owners can mint
+a 90-day token by calling `POST /api/v1/workspaces/<workspace-id>/baseline/token`
+while signed in. The token can only read that workspace's selected baseline.
+
 The CLI is not yet published to npm; run it with `npx tsx` from a checkout of
 this repository.
 
@@ -113,7 +122,9 @@ In local mode, JSON payloads and workspaces are stored in browser IndexedDB and
 comparisons run locally. When cloud persistence is selected, authenticated
 workspace, snapshot, sample, and diff operations use the configured server and
 PostgreSQL database. The project does not require an API key for these user
-flows.
+flows. The Early Access form stores the normalized email and optional GitHub
+organization/repository count in PostgreSQL; those values are not returned by
+the API.
 
 ## Architecture
 

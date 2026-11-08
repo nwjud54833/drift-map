@@ -34,6 +34,7 @@ export interface CompareOptions {
   baselinePath: string;
   candidatePath: string;
   direction: ContractDirection;
+  directionExplicit?: boolean;
   failOn: FailOn;
   format: OutputFormat;
   outPath: string | null;
@@ -48,12 +49,15 @@ export type ParseResult =
   | { ok: false; message: string };
 
 export const USAGE = `Usage: driftmap diff <baseline> <candidate> [options]
+       driftmap diff --baseline <file-or-url> --candidate <file> [options]
 
 Compare two JSON payloads, arrays of payload samples, or OpenAPI 3.0 documents
 (JSON or YAML). The input type is detected from file contents, not extensions.
 
 Options:
-  --direction <response|request|event>  Contract direction (default: response)
+  --baseline <file-or-url>             Local file/glob or hosted workspace baseline URL
+  --candidate <file>                   Candidate JSON/OpenAPI file or glob
+  --direction <response|request|event>  Contract direction (default: workspace value or response)
   --fail-on <breaking|warning|off>      Exit 1 when findings meet this level (default: breaking)
   --format <text|json|markdown>         Output format (default: text)
   --config <path>                       JSON rule overrides: { "rules": { "RULE_*": "severity" } }
@@ -129,6 +133,8 @@ export function parseCliArguments(argv: string[]): ParseResult {
       strict: true,
       options: {
         direction: { type: "string" },
+        baseline: { type: "string" },
+        candidate: { type: "string" },
         "fail-on": { type: "string" },
         format: { type: "string" },
         out: { type: "string" },
@@ -147,15 +153,28 @@ export function parseCliArguments(argv: string[]): ParseResult {
     return { ok: true, options: emptyOptions(), help: true };
   }
 
-  const [command, baselinePath, candidatePath, ...extra] = parsed.positionals;
+  const [command, ...positionalPaths] = parsed.positionals;
   if (command !== "diff" && command !== "compare") {
     return { ok: false, message: `Unknown command "${command ?? ""}". Usage: driftmap diff <baseline> <candidate>.` };
   }
-  if (!baselinePath || !candidatePath) {
-    return { ok: false, message: "Provide exactly two file paths: driftmap diff <baseline> <candidate>." };
+  const hasBaselineOption = typeof parsed.values.baseline === "string";
+  const hasCandidateOption = typeof parsed.values.candidate === "string";
+  let baselinePath: string | undefined;
+  let candidatePath: string | undefined;
+  if (hasBaselineOption || hasCandidateOption) {
+    if (!hasBaselineOption || !hasCandidateOption || positionalPaths.length > 0) {
+      return { ok: false, message: "Use both --baseline and --candidate, or provide both positional input paths." };
+    }
+    baselinePath = parsed.values.baseline as string;
+    candidatePath = parsed.values.candidate as string;
+  } else {
+    [baselinePath, candidatePath] = positionalPaths;
+    if (positionalPaths.length > 2) {
+      return { ok: false, message: `Unexpected extra argument "${positionalPaths[2]}". Provide exactly two input paths.` };
+    }
   }
-  if (extra.length > 0) {
-    return { ok: false, message: `Unexpected extra argument "${extra[0]}". Provide exactly two file paths.` };
+  if (!baselinePath || !candidatePath) {
+    return { ok: false, message: "Provide exactly two inputs: driftmap diff <baseline> <candidate>." };
   }
 
   const directionInput = typeof parsed.values.direction === "string" ? parsed.values.direction : "response";
@@ -181,6 +200,7 @@ export function parseCliArguments(argv: string[]): ParseResult {
       baselinePath,
       candidatePath,
       direction,
+      directionExplicit: typeof parsed.values.direction === "string",
       failOn,
       format,
       outPath: typeof parsed.values.out === "string" ? parsed.values.out : null,
@@ -193,7 +213,7 @@ export function parseCliArguments(argv: string[]): ParseResult {
 }
 
 function emptyOptions(): CompareOptions {
-  return { baselinePath: "", candidatePath: "", direction: "response", failOn: "breaking", format: "text", outPath: null, configPath: null, quiet: false, verbose: false, color: "auto" };
+  return { baselinePath: "", candidatePath: "", direction: "response", directionExplicit: false, failOn: "breaking", format: "text", outPath: null, configPath: null, quiet: false, verbose: false, color: "auto" };
 }
 
 interface LoadedInput {
@@ -201,6 +221,7 @@ interface LoadedInput {
   /** Null for OpenAPI documents, matching the Markdown report's evidence model. */
   samples: number | null;
   description: string;
+  direction?: ContractDirection;
 }
 
 type LoadResult = LoadedInput | { error: string };
@@ -308,6 +329,100 @@ function loadInput(inputPath: string, label: string): LoadResult {
     contract: inferContract(sampleValues),
     samples: sampleValues.length,
     description: `${sampleValues.length} sample${sampleValues.length === 1 ? "" : "s"}${expanded.paths.length > 1 ? ` from ${expanded.paths.length} files` : ""}`,
+  };
+}
+
+function isStoredContract(value: unknown): value is StoredContract {
+  if (!value || typeof value !== "object") return false;
+  const contract = value as Record<string, unknown>;
+  if (contract.kind === "openapi") {
+    return contract.version === "3.0" && Array.isArray(contract.operations) && Array.isArray(contract.nodes);
+  }
+  return Array.isArray(contract.rootKinds)
+    && Array.isArray(contract.nodes)
+    && typeof contract.fingerprint === "string";
+}
+
+export function validateHostedBaselineUrl(input: string): URL | null {
+  try {
+    const url = new URL(input);
+    if (url.protocol !== "https:"
+      || url.hostname !== "driftmap.in"
+      || url.port !== ""
+      || url.username !== ""
+      || url.password !== ""
+      || url.search !== ""
+      || url.hash !== ""
+      || !/^\/api\/v1\/workspaces\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/baseline$/i.test(url.pathname)) {
+      return null;
+    }
+    return url;
+  } catch {
+    return null;
+  }
+}
+
+export async function loadHostedBaseline(
+  input: string,
+  fetchImpl: typeof fetch = fetch,
+  token = process.env.DRIFTMAP_BASELINE_TOKEN?.trim(),
+): Promise<LoadResult> {
+  const url = validateHostedBaselineUrl(input);
+  if (!url) return { error: "Hosted baseline URLs must be HTTPS DriftMap workspace baseline endpoints without query parameters." };
+
+  let response: Response;
+  try {
+    response = await fetchImpl(url, {
+      method: "GET",
+      headers: { accept: "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
+      redirect: "error",
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch {
+    return { error: "Unable to reach the hosted baseline endpoint." };
+  }
+  if (!response.ok) {
+    return { error: response.status === 401
+      ? "Hosted baseline access was denied. Set DRIFTMAP_BASELINE_TOKEN to a valid workspace read token."
+      : `Hosted baseline request failed with HTTP ${response.status}.` };
+  }
+
+  const declaredLength = Number(response.headers.get("content-length"));
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_IMPORT_BYTES) {
+    return { error: "Hosted baseline exceeds the 2 MB input limit." };
+  }
+  let text: string;
+  try {
+    text = await response.text();
+  } catch {
+    return { error: "Unable to read the hosted baseline response." };
+  }
+  if (new TextEncoder().encode(text).byteLength > MAX_IMPORT_BYTES) {
+    return { error: "Hosted baseline exceeds the 2 MB input limit." };
+  }
+
+  let payload: unknown;
+  try {
+    payload = JSON.parse(text) as unknown;
+  } catch {
+    return { error: "Hosted baseline endpoint returned invalid JSON." };
+  }
+  if (!payload || typeof payload !== "object" || !("baseline" in payload)) {
+    return { error: "Hosted baseline endpoint returned an invalid baseline document." };
+  }
+  const baseline = (payload as { baseline?: unknown }).baseline;
+  if (!baseline || typeof baseline !== "object") return { error: "Hosted baseline endpoint returned an invalid baseline document." };
+  const value = baseline as Record<string, unknown>;
+  if (!isStoredContract(value.contract) || !Array.isArray(value.samples)) {
+    return { error: "Hosted baseline endpoint returned an invalid contract." };
+  }
+  const isOpenApi = "kind" in value.contract && value.contract.kind === "openapi";
+  const versionLabel = typeof value.versionLabel === "string" ? value.versionLabel : "baseline";
+  return {
+    contract: value.contract,
+    samples: isOpenApi ? null : value.samples.length,
+    description: `hosted workspace baseline · ${versionLabel}`,
+    ...(DIRECTIONS.includes(value.direction as ContractDirection) ? { direction: value.direction as ContractDirection } : {}),
   };
 }
 
@@ -607,18 +722,16 @@ function loadRuleOverrides(configPath: string | null | undefined): RuleOverrides
   return { ok: true, rules: overrides };
 }
 
-export function runCompare(options: CompareOptions): CompareOutcome {
-  const ruleOverrides = loadRuleOverrides(options.configPath);
-  if (!ruleOverrides.ok) return { exitCode: 2, output: errorBlock(ruleOverrides.error) };
-  const baseline = loadInput(options.baselinePath, "baseline");
-  if ("error" in baseline) return { exitCode: 2, output: errorBlock(baseline.error) };
-  const candidate = loadInput(options.candidatePath, "candidate");
-  if ("error" in candidate) return { exitCode: 2, output: errorBlock(candidate.error) };
-
+function compareLoadedInputs(
+  options: CompareOptions,
+  ruleOverrides: Partial<Record<string, ChangeSeverity>>,
+  baseline: LoadedInput,
+  candidate: LoadedInput,
+): CompareOutcome {
   let changes: ContractChange[];
   try {
     changes = compareContracts(baseline.contract, candidate.contract, options.direction).map((change) => {
-      const override = ruleOverrides.rules[ruleOf(change, options.direction)];
+      const override = ruleOverrides[ruleOf(change, options.direction)];
       return override ? { ...change, severity: override } : change;
     });
   } catch (error) {
@@ -638,7 +751,32 @@ export function runCompare(options: CompareOptions): CompareOutcome {
   return { exitCode, output };
 }
 
-function main(): number {
+export function runCompare(options: CompareOptions): CompareOutcome {
+  const ruleOverrides = loadRuleOverrides(options.configPath);
+  if (!ruleOverrides.ok) return { exitCode: 2, output: errorBlock(ruleOverrides.error) };
+  const baseline = loadInput(options.baselinePath, "baseline");
+  if ("error" in baseline) return { exitCode: 2, output: errorBlock(baseline.error) };
+  const candidate = loadInput(options.candidatePath, "candidate");
+  if ("error" in candidate) return { exitCode: 2, output: errorBlock(candidate.error) };
+  return compareLoadedInputs(options, ruleOverrides.rules, baseline, candidate);
+}
+
+export async function runCompareAsync(options: CompareOptions, fetchImpl: typeof fetch = fetch): Promise<CompareOutcome> {
+  const ruleOverrides = loadRuleOverrides(options.configPath);
+  if (!ruleOverrides.ok) return { exitCode: 2, output: errorBlock(ruleOverrides.error) };
+  const baseline = /^https?:\/\//i.test(options.baselinePath)
+    ? await loadHostedBaseline(options.baselinePath, fetchImpl)
+    : loadInput(options.baselinePath, "baseline");
+  if ("error" in baseline) return { exitCode: 2, output: errorBlock(baseline.error) };
+  const candidate = loadInput(options.candidatePath, "candidate");
+  if ("error" in candidate) return { exitCode: 2, output: errorBlock(candidate.error) };
+  const effectiveOptions = baseline.direction && options.directionExplicit !== true
+    ? { ...options, direction: baseline.direction }
+    : options;
+  return compareLoadedInputs(effectiveOptions, ruleOverrides.rules, baseline, candidate);
+}
+
+async function main(): Promise<number> {
   const parsed = parseCliArguments(process.argv.slice(2));
   if (!parsed.ok) {
     process.stderr.write(`${errorBlock(parsed.message)}\n\n${USAGE}\n`);
@@ -648,7 +786,7 @@ function main(): number {
     process.stdout.write(`${USAGE}\n`);
     return 0;
   }
-  const outcome = runCompare(parsed.options);
+  const outcome = await runCompareAsync(parsed.options);
   if (parsed.options.outPath) {
     try {
       writeFileSync(parsed.options.outPath, `${outcome.output}\n`);
@@ -665,5 +803,8 @@ function main(): number {
 const invokedDirectly = process.argv[1] !== undefined
   && import.meta.url === pathToFileURL(resolve(process.argv[1])).href;
 if (invokedDirectly) {
-  process.exitCode = main();
+  main().then((exitCode) => { process.exitCode = exitCode; }).catch(() => {
+    process.stderr.write(`${errorBlock("Unable to complete the contract comparison.")}\n`);
+    process.exitCode = 2;
+  });
 }
