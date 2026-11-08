@@ -80,7 +80,9 @@ PR #11 from `feat/cli-dark-theme` to `test-driftmap-action` triggered [run 42393
 ## v2.5.10 sticky comment update hotfix
 
 - Restored the canonical report marker constant while supporting both current and legacy markers during lookup.
-- Production health and repeated hosted PR #12 update results are recorded after release.
+- Verification passed: Prisma validation, lint, typecheck, 342 frontend tests, 22 CLI/Action tests, and the production build.
+- Production `/api/health` returned HTTP 200, `db: connected`, version `2.5.10`, commit `807558f07fda9fe5e8d6971473c3b8ea2120f9c3`.
+- PR #12 runs [42522732974](https://github.com/nwjud54833/drift-map/actions/runs/42522732974) and [42522819924](https://github.com/nwjud54833/drift-map/actions/runs/42522819924) both completed successfully with the Action pinned to `@v2.5.10`, without the pre-delete workaround. The existing bot comment ID `6726847940` was retained across both runs; hosted logs had no comment-update 404 or Action error, and the comment's Workbench review URL returned HTTP 200.
 
 ## Database persistence and smoke test
 
