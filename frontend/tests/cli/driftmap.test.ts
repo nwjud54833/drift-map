@@ -100,6 +100,13 @@ describe("parseCliArguments", () => {
     expect(parsed.options.candidatePath).toBe("candidate.json");
   });
 
+  it("parses an optional HTTPS webhook notification URL", () => {
+    const url = "https://hooks.example.test/driftmap";
+    const parsed = parseCliArguments(["diff", "--baseline", "a.json", "--candidate", "b.json", "--webhook-url", url]);
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) expect(parsed.options.webhookUrl).toBe(url);
+  });
+
   it("rejects unknown flags with a usage error", () => {
     const parsed = parseCliArguments(["compare", "a.json", "b.json", "--wat"]);
     expect(parsed.ok).toBe(false);
@@ -202,6 +209,9 @@ describe("hosted baseline fetching", () => {
   it("promotes a candidate with a scoped bearer token and sanitizes failures", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       expect(String(input)).toBe(url);
+      if (init?.method === "GET") {
+        return new Response(JSON.stringify({ baseline: { versionLabel: "v1", contract: baselineContract, samples: baselineSamples.map((sample) => sample.value) } }), { status: 200 });
+      }
       expect(init?.method).toBe("POST");
       expect(new Headers(init?.headers).get("authorization")).toBe("Bearer promote-token");
       expect(JSON.parse(String(init?.body))).toMatchObject({ document: expect.any(String) });
@@ -211,7 +221,9 @@ describe("hosted baseline fetching", () => {
     expect(success.exitCode).toBe(0);
     expect(success.output).toContain("promoted");
 
-    const failingFetch = vi.fn(async () => new Response("private database detail", { status: 401 })) as unknown as typeof fetch;
+    const failingFetch = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => init?.method === "GET"
+      ? new Response(JSON.stringify({ baseline: { versionLabel: "v1", contract: baselineContract, samples: baselineSamples.map((sample) => sample.value) } }), { status: 200 })
+      : new Response("private database detail", { status: 401 })) as unknown as typeof fetch;
     const denied = await promoteCandidate(url, pair1.candidatePath, failingFetch, "bad-token");
     expect(denied.exitCode).toBe(2);
     expect(denied.output).toContain("Check DRIFTMAP_PROMOTE_TOKEN");

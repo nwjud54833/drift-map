@@ -46,6 +46,23 @@ export function prepareBaselineForCli(input, environment) {
   }
 }
 
+export function contextLink({ eventName, eventPath, serverUrl = "https://github.com", repository, sha }) {
+  try {
+    if (eventName === "pull_request" && eventPath) {
+      const event = JSON.parse(readFileSync(eventPath, "utf8"));
+      const link = event?.pull_request?.html_url;
+      if (typeof link === "string" && new URL(link).protocol === "https:") return link;
+    }
+  } catch { /* Fall back to the commit URL if the event payload is unavailable. */ }
+  if (repository && sha) {
+    try {
+      const base = new URL(serverUrl);
+      if (base.protocol === "https:") return new URL(`${repository}/commit/${encodeURIComponent(sha)}`, `${base.toString().replace(/\/$/, "")}/`).toString();
+    } catch { /* No safe link is available. */ }
+  }
+  return null;
+}
+
 function apiHeaders(token, json = false) {
   return {
     authorization: `Bearer ${token}`,
@@ -89,6 +106,8 @@ export async function main() {
   const failOn = process.env.DRIFTMAP_FAIL_ON?.trim() || "breaking";
   if (!["breaking", "warning"].includes(failOn)) throw new Error("DRIFTMAP_FAIL_ON must be breaking or warning.");
   const eventName = process.env.GITHUB_EVENT_NAME?.trim() || "pull_request";
+  const link = contextLink({ eventName, eventPath: process.env.GITHUB_EVENT_PATH, serverUrl: process.env.GITHUB_SERVER_URL, repository: process.env.GITHUB_REPOSITORY, sha: process.env.GITHUB_SHA });
+  if (link) process.env.DRIFTMAP_CONTEXT_URL = link;
   if (eventName === "push") {
     const result = spawnSync(process.execPath, [CLI_PATH, "diff", "--baseline", baseline, "--candidate", candidate, "--fail-on", failOn], {
       cwd: process.env.GITHUB_WORKSPACE || process.cwd(),

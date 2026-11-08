@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: nwjud54833/drift-map@v2.5.3
+      - uses: nwjud54833/drift-map@v2.5.4
         with:
           baseline-path: \${{ secrets.DRIFTMAP_BASELINE_URL }}
           candidate-path: samples/*.json
@@ -32,6 +32,7 @@ jobs:
           github-token: \${{ secrets.GITHUB_TOKEN }}
           promote-on-push: true
           promote-token: \${{ secrets.DRIFTMAP_PROMOTE_TOKEN }}
+          webhook-url: \${{ secrets.DRIFTMAP_WEBHOOK_URL }}
 `;
 
 async function copy(value: string, setCopied: (value: boolean) => void) {

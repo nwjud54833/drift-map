@@ -1,5 +1,9 @@
 name: DriftMap contract review
-description: Compare API contracts and publish a sticky pull request findings report.
+author: nwjud54833
+description: Detect breaking API contract drift and promote passing baselines in GitHub Actions.
+branding:
+  icon: shield
+  color: purple
 inputs:
   baseline-path:
     description: Local JSON sample, glob, OpenAPI 3.0 file, or DriftMap hosted workspace baseline URL.
@@ -27,6 +31,9 @@ inputs:
   promote-token:
     description: Workspace-scoped baseline promotion token. Store it as a GitHub Actions secret.
     required: false
+  webhook-url:
+    description: Optional HTTPS Slack, Discord, or JSON webhook for breaking drift and baseline promotions.
+    required: false
 runs:
   using: composite
   steps:
@@ -47,4 +54,5 @@ runs:
         DRIFTMAP_BASELINE_TOKEN: ${{ inputs.baseline-token }}
         DRIFTMAP_PROMOTE_ON_PUSH: ${{ inputs.promote-on-push }}
         DRIFTMAP_PROMOTE_TOKEN: ${{ inputs.promote-token }}
+        DRIFTMAP_WEBHOOK_URL: ${{ inputs.webhook-url }}
       run: node "$GITHUB_ACTION_PATH/action/run.mjs"

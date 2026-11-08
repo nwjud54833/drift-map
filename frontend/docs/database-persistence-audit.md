@@ -37,6 +37,13 @@ PR #11 from `feat/cli-dark-theme` to `test-driftmap-action` triggered [run 42393
 - `GET /api/v1/waitlist` requires an authenticated email listed in `DRIFTMAP_ADMIN_EMAILS` and returns only an aggregate count, never signup PII.
 - Local v2.5.3 verification passed: 320 frontend tests, 19 CLI/Action tests, lint, typecheck, Prisma validation, and the production build. The live health endpoint is checked after the push.
 
+## v2.5.4 Marketplace, webhook, and social preview polish
+
+- Added Marketplace branding and an optional SSRF-resistant webhook integration. Webhook delivery is best-effort and does not alter the CI exit status.
+- The Workbench export template and README Action examples are pinned to `@v2.5.4`.
+- Root metadata and a dynamic OpenGraph image provide an Obsidian high-contrast share card with all four semantic severity classes.
+- Local v2.5.4 verification passed: 327 frontend tests, 21 CLI/Action tests, lint, typecheck, Prisma validation, and production build. Production deployment health is checked after push.
+
 ## Database persistence and smoke test
 
 `frontend/scripts/verify-db-auth.ts` is ready for CI or pre-deploy execution against an explicitly selected, empty, non-production database. It verifies disposable user creation, session persistence, workspace create/update/query, and a 1 MiB JSON snapshot round-trip, then deletes the disposable user in `finally`. It requires `TEST_DATABASE_URL` and `DRIFTMAP_TEST_DATABASE_CONFIRMATION=I_VERIFIED_EMPTY_NON_PRODUCTION`.

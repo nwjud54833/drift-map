@@ -55,7 +55,7 @@ permissions:
 
 steps:
   - uses: actions/checkout@v4
-  - uses: nwjud54833/drift-map@v2.5.3
+  - uses: nwjud54833/drift-map@v2.5.4
     with:
       baseline-path: contracts/openapi-base.yaml
       candidate-path: contracts/openapi.yaml
@@ -74,16 +74,17 @@ The CLI and Action can fetch a selected workspace baseline over HTTPS. From the 
 ```yaml
 steps:
   - uses: actions/checkout@v4
-  - uses: nwjud54833/drift-map@v2.5.3
+  - uses: nwjud54833/drift-map@v2.5.4
     with:
       baseline-path: ${{ secrets.DRIFTMAP_BASELINE_URL }}
       candidate-path: contracts/openapi.yaml
       promote-on-push: true
       promote-token: ${{ secrets.DRIFTMAP_PROMOTE_TOKEN }}
+      webhook-url: ${{ secrets.DRIFTMAP_WEBHOOK_URL }}
       github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-Trigger the workflow on `pull_request` and `push` to `main`. The Action compares on both events and promotes only after a successful `main` push when `promote-on-push: true`. The standalone CLI supports `driftmap promote <baseline-url> <candidate-file>` with `DRIFTMAP_PROMOTE_TOKEN` set. Hosted reads accept HTTPS URLs only, reject redirects, and are limited to 2 MB. URL tokens are redacted from report output and sent to the API as authorization headers.
+Trigger the workflow on `pull_request` and `push` to `main`. The Action compares on both events and promotes only after a successful `main` push when `promote-on-push: true`. Set `webhook-url` to an HTTPS Slack/Discord-compatible incoming webhook for best-effort breaking-drift and promotion notices; DriftMap rejects private or local destinations. The standalone CLI supports `--webhook-url` for comparisons and `driftmap promote <baseline-url> <candidate-file> --webhook-url <url>`. Hosted reads accept HTTPS URLs only, reject redirects, and are limited to 2 MB. URL tokens are redacted from report output and sent to the API as authorization headers.
 
 ## Exit codes
 

@@ -39,8 +39,23 @@ const jetbrainsMono = JetBrains_Mono({
 const themeInitScript = `(function(){try{var k="driftmap.theme";var v=localStorage.getItem(k);if(v==="light"||v==="dark"){document.documentElement.setAttribute("data-theme",v);}else if(v==="system"){document.documentElement.removeAttribute("data-theme");}}catch(e){}})();`;
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://driftmap.in"),
   title: "DriftMap — API Contract Review & Semantic Drift Engine",
   description: "Import OpenAPI contracts and compare API changes to catch breaking drift before it reaches production.",
+  openGraph: {
+    type: "website",
+    url: "/",
+    siteName: "DriftMap",
+    title: "DriftMap — API Contract Review",
+    description: "See breaking, warning, safe, and informational API changes before they reach production.",
+    images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: "DriftMap semantic API contract review: breaking, warning, safe, and info" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "DriftMap — API Contract Review",
+    description: "Catch breaking API drift with four-tier semantic contract analysis.",
+    images: ["/opengraph-image"],
+  },
   icons: {
     icon: [
       { url: "/logos/driftmap-icon.svg", type: "image/svg+xml" },

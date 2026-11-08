@@ -79,6 +79,7 @@ from the file contents, not the extension.
 | `--fail-on` | `breaking`, `warning`, `off` | `breaking` |
 | `--format` | `text`, `json`, `markdown` | `text` |
 | `--out <file>` | file path | print to stdout |
+| `--webhook-url <url>` | HTTPS Slack/Discord/JSON webhook | disabled |
 
 `--format json` emits a stable shape: `{ summary: { breaking, warning, safe, info }, changes: [{ pointer, kind, severity, rule, before, after }] }`.
 
@@ -97,7 +98,10 @@ For a hosted baseline, pass its HTTPS workspace endpoint to `--baseline` and
 store the signed URL from the Workbench's **Use in CI / GitHub Action** panel in
 `DRIFTMAP_BASELINE_URL`. To promote on a passing push to `main`, use the
 separate `DRIFTMAP_PROMOTE_TOKEN` secret and run `driftmap promote <url>
-<candidate-file>`. Tokens are workspace scoped and expire after 90 days.
+<candidate-file>`. Add `--webhook-url <url>` (or `DRIFTMAP_WEBHOOK_URL`) for
+best-effort breaking-drift and promotion notifications. Webhooks are HTTPS-only,
+block local/private destinations, and cannot change the CI result. Tokens are
+workspace scoped and expire after 90 days.
 
 The CLI is not yet published to npm; run it with `npx tsx` from a checkout of
 this repository.

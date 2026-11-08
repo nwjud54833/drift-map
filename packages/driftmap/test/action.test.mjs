@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { prepareBaselineForCli, pullRequestNumber, shouldPromoteOnPush, upsertStickyComment } from "../../../action/run.mjs";
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { load as loadYaml } from "js-yaml";
+import { contextLink, prepareBaselineForCli, pullRequestNumber, shouldPromoteOnPush, upsertStickyComment } from "../../../action/run.mjs";
 
 const marker = "<!-- driftmap-contract-review -->";
 
@@ -77,4 +81,26 @@ test("moves a signed baseline URL token to the child environment instead of argv
   assert.equal(cliUrl, "https://driftmap.in/api/v1/workspaces/00000000-0000-4000-8000-000000000001/baseline");
   assert.equal(env.DRIFTMAP_BASELINE_TOKEN, "read-secret");
   assert.doesNotMatch(cliUrl, /read-secret/);
+});
+
+test("Action metadata includes Marketplace branding and optional webhook input", () => {
+  const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
+  const action = loadYaml(readFileSync(resolve(repoRoot, "action.yml"), "utf8"));
+  assert.equal(action.author, "nwjud54833");
+  assert.ok(action.name.length <= 64);
+  assert.ok(action.description.length <= 125);
+  assert.deepEqual(action.branding, { icon: "shield", color: "purple" });
+  assert.equal(action.inputs["webhook-url"].required, false);
+});
+
+test("resolves PR and commit context links for notification payloads", async () => {
+  const { mkdtempSync, rmSync, writeFileSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const dir = mkdtempSync(resolve(tmpdir(), "driftmap-context-"));
+  try {
+    const eventFile = resolve(dir, "event.json");
+    writeFileSync(eventFile, JSON.stringify({ pull_request: { html_url: "https://github.com/acme/api/pull/9" } }));
+    assert.equal(contextLink({ eventName: "pull_request", eventPath: eventFile }), "https://github.com/acme/api/pull/9");
+    assert.equal(contextLink({ eventName: "push", repository: "acme/api", sha: "abc123" }), "https://github.com/acme/api/commit/abc123");
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });

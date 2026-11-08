@@ -23,6 +23,7 @@ import { MAX_IMPORT_BYTES } from "@/lib/contract/parse";
 import type { ChangeSeverity, ContractChange, ContractDirection, ContractNode, DiffSummary, PayloadSample, StoredContract } from "@/lib/contract/types";
 import { ruleIdFor } from "@/lib/driftmap/rules";
 import { parseImportArtifact } from "@/lib/workbench/import-artifact";
+import { dispatchDriftWebhook } from "@/lib/webhook";
 
 import { createPaint, type ColorRole, type Paint } from "./colors";
 
@@ -42,6 +43,7 @@ export interface CompareOptions {
   quiet: boolean;
   verbose: boolean;
   color: ColorMode;
+  webhookUrl?: string | null;
 }
 
 export type ParseResult =
@@ -66,6 +68,7 @@ Options:
   --quiet                               Print only the verdict line (text format; for scripts)
   --verbose                             Show raw RULE_* IDs and sample counts (text format)
   --color <auto|always|never>           When to colorize (default: auto; colors need a TTY and NO_COLOR unset)
+  --webhook-url <https-url>               Best-effort notification for breaking drift and baseline promotion
   --help                                Show this help
 
 promote saves a candidate as the selected workspace baseline. Set
@@ -146,6 +149,7 @@ export function parseCliArguments(argv: string[]): ParseResult {
         quiet: { type: "boolean" },
         verbose: { type: "boolean" },
         color: { type: "string" },
+        "webhook-url": { type: "string" },
         help: { type: "boolean" },
       },
     });
@@ -212,6 +216,9 @@ export function parseCliArguments(argv: string[]): ParseResult {
       quiet: parsed.values.quiet === true,
       verbose: parsed.values.verbose === true,
       color,
+      ...(typeof parsed.values["webhook-url"] === "string" || process.env.DRIFTMAP_WEBHOOK_URL?.trim()
+        ? { webhookUrl: typeof parsed.values["webhook-url"] === "string" ? parsed.values["webhook-url"] : process.env.DRIFTMAP_WEBHOOK_URL?.trim() }
+        : {}),
     },
   };
 }
@@ -443,6 +450,7 @@ export async function loadHostedBaseline(
 export interface CompareOutcome {
   exitCode: number;
   output: string;
+  summary?: DiffSummary;
 }
 
 /* ==========================================================================
@@ -762,7 +770,7 @@ function compareLoadedInputs(
   } else {
     output = renderText({ options, baseline, candidate, summary, exitCode, changes }, resolveColors(options.color));
   }
-  return { exitCode, output };
+  return { exitCode, output, summary };
 }
 
 export function runCompare(options: CompareOptions): CompareOutcome {
@@ -797,6 +805,7 @@ export async function promoteCandidate(
   candidatePath: string,
   fetchImpl: typeof fetch = fetch,
   token = process.env.DRIFTMAP_PROMOTE_TOKEN?.trim(),
+  webhookUrl = process.env.DRIFTMAP_WEBHOOK_URL?.trim(),
 ): Promise<PromoteOutcome> {
   const url = validateHostedBaselineUrl(baselineUrl);
   if (!url) return { exitCode: 2, output: errorBlock("Promotion URL must be an HTTPS DriftMap workspace baseline endpoint.") };
@@ -829,6 +838,8 @@ export async function promoteCandidate(
   }
   const artifact = parseImportArtifact(raw, { source: "file", fileName: basename(candidatePath) });
   if (!artifact.ok) return { exitCode: 2, output: errorBlock(artifact.message) };
+  const comparison = await runCompareAsync({ baselinePath: baselineUrl, candidatePath, direction: "response", directionExplicit: false, failOn: "off", format: "json", outPath: null, configPath: null, quiet: true, verbose: false, color: "never" }, fetchImpl);
+  if (!comparison.summary) return { exitCode: 2, output: errorBlock("Unable to compare the current baseline before promotion.") };
   url.search = "";
 
   let response: Response;
@@ -844,20 +855,26 @@ export async function promoteCandidate(
     return { exitCode: 2, output: errorBlock("Unable to reach the workspace promotion endpoint.") };
   }
   if (!response.ok) return { exitCode: 2, output: errorBlock(response.status === 401 ? "Workspace promotion was denied. Check DRIFTMAP_PROMOTE_TOKEN." : `Workspace promotion failed with HTTP ${response.status}.`) };
+  await dispatchDriftWebhook(webhookUrl, {
+    event: "baseline-promoted", ...comparison.summary,
+    baseline: displayBaselineInput(baselineUrl), candidate: basename(candidatePath),
+    link: process.env.DRIFTMAP_CONTEXT_URL ?? null,
+  });
   return { exitCode: 0, output: "DriftMap baseline promoted from the passing candidate.\n" };
 }
 
 async function runPromoteCommand(argv: string[]): Promise<number> {
   let parsed: ReturnType<typeof parseArgs>;
-  try { parsed = parseArgs({ args: argv, allowPositionals: true, strict: true, options: { help: { type: "boolean" } } }); }
+  try { parsed = parseArgs({ args: argv, allowPositionals: true, strict: true, options: { help: { type: "boolean" }, "webhook-url": { type: "string" } } }); }
   catch (error) { process.stderr.write(`${errorBlock(error instanceof Error ? error.message : "Unable to parse promotion arguments.")}\n`); return 2; }
   if (parsed.values.help) {
-    process.stdout.write("Usage: driftmap promote <baseline-url> <candidate-file>\n\nSet DRIFTMAP_PROMOTE_TOKEN to a workspace-scoped promotion token.\n");
+    process.stdout.write("Usage: driftmap promote <baseline-url> <candidate-file> [--webhook-url <https-url>]\n\nSet DRIFTMAP_PROMOTE_TOKEN to a workspace-scoped promotion token.\n");
     return 0;
   }
   const [url, candidate, extra] = parsed.positionals;
   if (!url || !candidate || extra) { process.stderr.write(`${errorBlock("Provide exactly a workspace baseline URL and one candidate file.")}\n`); return 2; }
-  const outcome = await promoteCandidate(url, candidate);
+  const webhookUrl = typeof parsed.values["webhook-url"] === "string" ? parsed.values["webhook-url"] : process.env.DRIFTMAP_WEBHOOK_URL?.trim();
+  const outcome = await promoteCandidate(url, candidate, fetch, process.env.DRIFTMAP_PROMOTE_TOKEN?.trim(), webhookUrl);
   (outcome.exitCode === 0 ? process.stdout : process.stderr).write(`${outcome.output}\n`);
   return outcome.exitCode;
 }
@@ -884,6 +901,14 @@ async function main(): Promise<number> {
     }
   } else {
     process.stdout.write(`${outcome.output}\n`);
+  }
+  if (outcome.summary?.breaking && parsed.options.webhookUrl) {
+    await dispatchDriftWebhook(parsed.options.webhookUrl, {
+      event: "breaking-drift", ...outcome.summary,
+      baseline: displayBaselineInput(parsed.options.baselinePath),
+      candidate: basename(parsed.options.candidatePath),
+      link: process.env.DRIFTMAP_CONTEXT_URL ?? null,
+    });
   }
   return outcome.exitCode;
 }

@@ -14,7 +14,7 @@ describe("Workbench CI export", () => {
     expect(markup).toContain("DRIFTMAP_PROMOTE_TOKEN");
     expect(markup).toContain("read.signed.value");
     expect(markup).toContain("promote.signed.value");
-    expect(markup).toContain("nwjud54833/drift-map@v2.5.3");
+    expect(markup).toContain("nwjud54833/drift-map@v2.5.4");
     expect(DRIFTMAP_GITHUB_WORKFLOW).toContain("secrets.DRIFTMAP_BASELINE_URL");
     expect(DRIFTMAP_GITHUB_WORKFLOW).toContain("promote-on-push: true");
   });
