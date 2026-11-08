@@ -2,6 +2,8 @@
 
 Contract Atlas is a local-first Next.js application for comparing real JSON payload samples, inferring a structural contract, and classifying semantic drift as breaking, warning, safe, or info. It also includes authenticated API routes for optional cloud-backed workspaces, snapshots, payload samples, and persisted diffs.
 
+[![View live DriftMap PR example](https://img.shields.io/badge/GitHub-View%20Live%20PR%20Example-8250df?logo=github)](https://github.com/nwjud54833/drift-map/pull/12)
+
 ## Routes
 
 - `/` — DriftMap-inspired product overview and interactive explanation
@@ -134,6 +136,8 @@ The domain engine covers JSON parsing, normalized JSON-pointer paths, array wild
 - Multi-user collaboration is not implemented. Pull request gating is available
   through the composite GitHub Action in `action.yml`; see
   `packages/driftmap/README.md` for its setup requirements.
+- Team Cloud Baseline features are in early access planning; the free Action
+  currently compares the baseline and candidate files supplied to the workflow.
 
 ## License
 

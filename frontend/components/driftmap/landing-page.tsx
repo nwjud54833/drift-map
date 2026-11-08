@@ -7,14 +7,14 @@ import { toast } from "@/components/ui/toast";
 import { LandingHero } from "./landing-hero";
 import { HowItWorksSection } from "./landing-how-it-works";
 import { CapabilitiesSection } from "./landing-capabilities";
-import { LandingCta, DeepInspectionSection, LimitationsSection, SiteFooter } from "./landing-sections";
+import { LandingCta, DeepInspectionSection, LimitationsSection, PricingSection, SiteFooter } from "./landing-sections";
 
 /**
  * Landing page composition for `/`.
  *
  * Mirrors the section order of the reference build's `#view-landing`: hero with
  * the 3D stage, how it works, the capabilities bento grid, deep inspection, the
- * engineering-scope table, the closing call to action, and the footer. The
+ * engineering-scope table, Team / CI Cloud plans, the closing call to action, and the footer. The
  * sticky glass header, command palette and modals are provided once by the root
  * layout so both routes share them.
  */
@@ -53,6 +53,7 @@ export function LandingPage() {
       <CapabilitiesSection onLaunchGraph={launchGraph} onCopySampleMarkdown={copySampleMarkdown} />
       <DeepInspectionSection onOpenWorkbench={openWorkbench} onLaunchGraph={launchGraph} />
       <LimitationsSection />
+      <PricingSection onOpenWorkbench={openWorkbench} />
       <LandingCta onOpenWorkbench={openWorkbench} />
       <SiteFooter onOpenWorkbench={openWorkbench} onLaunchGraph={launchGraph} />
     </main>

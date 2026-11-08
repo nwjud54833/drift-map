@@ -18,6 +18,10 @@ PR #11 from `feat/cli-dark-theme` to `test-driftmap-action` triggered [run 42393
 - The final workflow gate asserted the breaking Action outcome was failure and the safe CLI outcome was success; all three assertion steps concluded successfully.
 - PR #11 was closed and the remote and local `test-driftmap-action` branches were deleted after capturing the run.
 
+## Permanent public demo PR
+
+[PR #12](https://github.com/nwjud54833/drift-map/pull/12) is intentionally left open as a public product example. It removes the required `/customer/email` field from an Order API response. Hosted [run 42490396623](https://github.com/nwjud54833/drift-map/actions/runs/42490396623) completed successfully: the Action posted its sticky Markdown findings table, the report classified `/customer/email` as `BREAKING`, and the workflow verified the expected breaking exit code and finding. The README and landing page link to this PR.
+
 ## Database persistence and smoke test
 
 `frontend/scripts/verify-db-auth.ts` is ready for CI or pre-deploy execution against an explicitly selected, empty, non-production database. It verifies disposable user creation, session persistence, workspace create/update/query, and a 1 MiB JSON snapshot round-trip, then deletes the disposable user in `finally`. It requires `TEST_DATABASE_URL` and `DRIFTMAP_TEST_DATABASE_CONFIRMATION=I_VERIFIED_EMPTY_NON_PRODUCTION`.

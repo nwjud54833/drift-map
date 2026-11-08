@@ -208,6 +208,61 @@ export function LandingCta({ onOpenWorkbench }: { onOpenWorkbench: () => void })
   );
 }
 
+export function PricingSection({ onOpenWorkbench }: { onOpenWorkbench: () => void }) {
+  return (
+    <section id="team-ci-cloud" className="py-20 md:py-28 border-b border-white/[0.07]">
+      <div className="max-w-[1120px] mx-auto px-4 sm:px-6">
+        <div className="max-w-2xl mb-10">
+          <div className="text-xs font-mono uppercase tracking-[0.14em] text-[#9496A1] mb-2.5 flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
+            <span>TEAM / CI CLOUD</span>
+          </div>
+          <h2 className="text-2xl sm:text-4xl font-semibold tracking-tight text-white mb-3">
+            Start local. Add shared baselines when your team needs them.
+          </h2>
+          <p className="text-sm sm:text-base text-[#9496A1] leading-relaxed">
+            The local workbench and open source Action are available now. Team Cloud Baseline is in early access and is planned to track a shared default-branch contract for automatic pull request comparisons.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <article className="obsidian-card rounded-2xl border border-white/[0.1] p-6 sm:p-8">
+            <div className="text-xs font-mono uppercase tracking-wider text-[#9496A1] mb-3">FREE · LOCAL &amp; OSS ACTION</div>
+            <h3 className="text-2xl font-semibold text-white mb-2">Free</h3>
+            <p className="text-sm text-[#9496A1] mb-6">Review payload changes in your browser or CI with files you provide.</p>
+            <ul className="space-y-3 text-sm text-[#D3D4DA] mb-8">
+              <li className="flex gap-2"><span className="text-emerald-400">✓</span><span>In-browser workbench saved to IndexedDB</span></li>
+              <li className="flex gap-2"><span className="text-emerald-400">✓</span><span>Open source GitHub Action compares baseline and candidate files</span></li>
+              <li className="flex gap-2"><span className="text-emerald-400">✓</span><span>Markdown findings posted to pull requests</span></li>
+            </ul>
+            <button type="button" onClick={onOpenWorkbench} className="btn-geist-secondary px-4 py-2.5 rounded-xl text-sm text-white">
+              Open the workbench <span aria-hidden="true">→</span>
+            </button>
+          </article>
+
+          <article className="obsidian-card rounded-2xl border border-sky-400/25 bg-sky-400/[0.035] p-6 sm:p-8">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+              <div className="text-xs font-mono uppercase tracking-wider text-sky-300">PRO · TEAM CLOUD BASELINE</div>
+              <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-1 rounded-full border border-sky-300/25 text-sky-200">Early access</span>
+            </div>
+            <h3 className="text-2xl font-semibold text-white mb-2">For teams</h3>
+            <p className="text-sm text-[#9496A1] mb-6">Shared contract history for teams that want CI to find the baseline automatically.</p>
+            <ul className="space-y-3 text-sm text-[#D3D4DA] mb-8">
+              <li className="flex gap-2"><span className="text-sky-300">◷</span><span>Shared baseline tracked from the default branch</span></li>
+              <li className="flex gap-2"><span className="text-sky-300">◷</span><span>Automatic pull request comparisons across branches</span></li>
+              <li className="flex gap-2"><span className="text-sky-300">◷</span><span>Team review history for contract changes</span></li>
+            </ul>
+            <a href="/signin" className="btn-geist-secondary inline-flex px-4 py-2.5 rounded-xl text-sm text-sky-200">
+              Explore workspace sync <span aria-hidden="true">→</span>
+            </a>
+            <p className="text-xs text-[#777985] mt-3">Team baseline tracking is planned; pricing and availability have not been announced.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 const GITHUB_URL = "https://github.com/nwjud54833/drift-map";
 
 export function SiteFooter({ onOpenWorkbench, onLaunchGraph }: {

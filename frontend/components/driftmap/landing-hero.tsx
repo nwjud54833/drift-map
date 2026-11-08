@@ -262,6 +262,16 @@ export function LandingHero() {
               <span>Read the README</span>
             </a>
 
+            <a
+              href="https://github.com/nwjud54833/drift-map/pull/12"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-geist-secondary px-4 py-2.5 rounded-xl text-sm inline-flex items-center gap-2 text-emerald-300"
+            >
+              <span aria-hidden="true">↗</span>
+              <span>View Live PR Example</span>
+            </a>
+
             <button
               type="button"
               onClick={() => openModal("tokens")}
