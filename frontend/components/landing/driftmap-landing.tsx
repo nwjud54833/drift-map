@@ -4,8 +4,6 @@ import { ArrowRight, Check, FileJson, FileText, Lock, ShieldAlert } from "lucide
 import { Severity } from "@/components/ui/badge";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 
-const GITHUB_URL = "https://github.com/nwjud54833/drift-map";
-
 const features = [
   {
     icon: FileJson,
@@ -169,8 +167,8 @@ export default function DriftmapLanding() {
                 <Link className="ui-btn ui-btn-lg ui-btn-primary" href="/workbench">
                   Open the workbench <ArrowRight size={15} aria-hidden="true" />
                 </Link>
-                <a className="ui-btn ui-btn-lg ui-btn-quiet" href={GITHUB_URL} target="_blank" rel="noreferrer">
-                  <FileText size={15} aria-hidden="true" /> Read the README
+                <a className="ui-btn ui-btn-lg ui-btn-quiet" href="#capabilities">
+                  <FileText size={15} aria-hidden="true" /> Explore capabilities
                 </a>
               </div>
               <div className="dm-hero-notes">
@@ -258,11 +256,11 @@ export default function DriftmapLanding() {
           <nav className="dm-footer-links" aria-label="Footer">
             <Link href="/workbench">Workbench</Link>
             <a href="/signin">Sign in</a>
-            <a href={`${GITHUB_URL}/blob/main/LICENSE`} target="_blank" rel="noreferrer">MIT License</a>
-            <a href={GITHUB_URL} target="_blank" rel="noreferrer">GitHub</a>
+            <Link href="/privacy">Privacy</Link>
+            <Link href="/terms">Terms</Link>
           </nav>
           <small className="dm-footer-legal">
-            © 2026 DriftMap · Released under the MIT License · Local data stays in this browser unless you explicitly switch to cloud.
+            © 2026 DriftMap · Local data stays in this browser unless you explicitly switch to cloud.
           </small>
         </div>
       </footer>

@@ -25,7 +25,7 @@ export default function TermsPage() {
           <p className="font-mono text-xs uppercase tracking-[0.18em] text-[#8a8b98]">Legal · Terms</p>
           <h1 className="mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">Terms of Service</h1>
           <p className="mt-4 text-sm leading-6 text-[#a6a5b1]">Last updated: November 9, 2026</p>
-          <p className="mt-5 max-w-2xl text-base leading-7 text-[#c1c1ca]">These terms describe the basic rules for using DriftMap's API contract review and team CI services.</p>
+          <p className="mt-5 max-w-2xl text-base leading-7 text-[#c1c1ca]">These terms describe the basic rules for using DriftMap&apos;s API contract review and team CI services.</p>
         </header>
         <div className="divide-y divide-white/[0.08]">
           {sections.map((section) => (
