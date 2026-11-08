@@ -50,9 +50,13 @@ describe("Team Cloud early access conversion", () => {
       onOpenDrawer={() => undefined} onFormatJSON={() => undefined} onInferAndCompare={() => undefined}
       streaming={false} onToggleStreaming={() => undefined} payloadBytes={0} onCopyMarkdown={() => undefined}
       onExportCI={() => undefined} onExportJSON={() => undefined} onShareReview={() => undefined} sharingReview={false}
-      pending={false} onLoadSamplePair={() => undefined} cloudStatus={null} onSignIn={() => undefined}
+      pending={false} onLoadExampleDiff={() => undefined} cloudStatus={null} onSignIn={() => undefined}
     />);
     expect(toolbar).toContain('href="https://buy.stripe.com/test_123"');
+    expect(toolbar).toContain('aria-label="Load Example Diff"');
+    expect(toolbar).toContain("Payment Webhook Drift · Breaking");
+    expect(toolbar).toContain("Order Fulfillment API · Warning + Safe");
+    expect(toolbar).toContain("OpenAPI 3.0 Spec Upgrade");
   });
 
   it("does not render unsafe checkout URLs", () => {

@@ -16,6 +16,7 @@ import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
+import { gzipSync } from "node:zlib";
 
 import { compareContracts } from "@/lib/contract/compare";
 import { inferContract } from "@/lib/contract/infer";
@@ -233,6 +234,10 @@ interface LoadedInput {
   samples: number | null;
   description: string;
   direction?: ContractDirection;
+  reviewDocument?: unknown;
+  reviewWorkspaceId?: string;
+  reviewWorkspaceName?: string;
+  reviewSnapshotId?: string;
 }
 
 type LoadResult = LoadedInput | { error: string };
@@ -334,12 +339,16 @@ function loadInput(inputPath: string, label: string): LoadResult {
       return { error: `${label} patterns may match multiple JSON sample files, but an OpenAPI document must be provided as one file.` };
     }
     const contract = openApiContracts[0];
-    return { contract, samples: null, description: `OpenAPI ${contract.version} · ${contract.operations.length} operations` };
+    return {
+      contract, samples: null, description: `OpenAPI ${contract.version} · ${contract.operations.length} operations`,
+      reviewDocument: contract.document,
+    };
   }
   return {
     contract: inferContract(sampleValues),
     samples: sampleValues.length,
     description: `${sampleValues.length} sample${sampleValues.length === 1 ? "" : "s"}${expanded.paths.length > 1 ? ` from ${expanded.paths.length} files` : ""}`,
+    reviewDocument: sampleValues.length === 1 ? sampleValues[0].value : sampleValues.map((sample) => sample.value),
   };
 }
 
@@ -439,11 +448,16 @@ export async function loadHostedBaseline(
   }
   const isOpenApi = "kind" in value.contract && value.contract.kind === "openapi";
   const versionLabel = typeof value.versionLabel === "string" ? value.versionLabel : "baseline";
+  const samples = value.samples as unknown[];
   return {
     contract: value.contract,
-    samples: isOpenApi ? null : value.samples.length,
+    samples: isOpenApi ? null : samples.length,
     description: `hosted workspace baseline · ${versionLabel}`,
     ...(DIRECTIONS.includes(value.direction as ContractDirection) ? { direction: value.direction as ContractDirection } : {}),
+    reviewDocument: isOpenApi ? (value.contract as Extract<StoredContract, { kind: "openapi" }>).document : samples.length === 1 ? samples[0] : samples,
+    ...(typeof value.workspaceId === "string" ? { reviewWorkspaceId: value.workspaceId } : {}),
+    ...(typeof value.workspaceName === "string" ? { reviewWorkspaceName: value.workspaceName } : {}),
+    ...(typeof value.snapshotId === "string" ? { reviewSnapshotId: value.snapshotId } : {}),
   };
 }
 
@@ -686,6 +700,38 @@ function markdownCell(value: string): string {
     .replace(/\|/g, "\\|").replace(/\r?\n/g, "<br>").replace(/`/g, "\\`");
 }
 
+function workbenchReviewUrl(direction: ContractDirection, baseline: LoadedInput, candidate: LoadedInput): string | null {
+  if (baseline.reviewDocument === undefined || candidate.reviewDocument === undefined) return null;
+  try {
+    const payload = JSON.stringify({
+      version: 1,
+      workspace: {
+        id: baseline.reviewWorkspaceId ?? "cli-review",
+        name: baseline.reviewWorkspaceName ?? "CLI contract review",
+        direction,
+      },
+      baseline: {
+        id: baseline.reviewSnapshotId ?? "cli-baseline",
+        versionLabel: baseline.description.slice(0, 120),
+        document: baseline.reviewDocument,
+      },
+      candidate: {
+        id: "cli-candidate",
+        versionLabel: candidate.description.slice(0, 120),
+        document: candidate.reviewDocument,
+      },
+    });
+    if (Buffer.byteLength(payload, "utf8") > 4 * 1024 * 1024) return null;
+    const encoded = `z.${gzipSync(Buffer.from(payload, "utf8"), { level: 9 }).toString("base64url")}`;
+    if (encoded.length > 7_000) return null;
+    const url = new URL("https://driftmap.in/workbench");
+    url.searchParams.set("review", encoded);
+    return url.toString().length <= 8_000 ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 function markdownOutput(
   options: CompareOptions,
   baseline: LoadedInput,
@@ -701,6 +747,7 @@ function markdownOutput(
   });
   if (rows.length === 0) rows.push("| — | — | No structural changes | — | — | No structural drift detected. |" );
   const result = exitCode === 1 ? "FAIL" : "PASS";
+  const reviewUrl = workbenchReviewUrl(options.direction, baseline, candidate);
   return [
     "<!-- driftmap-contract-review -->",
     "## DriftMap contract review",
@@ -715,6 +762,7 @@ function markdownOutput(
     "| Severity | Path | Change | Baseline | Candidate | Explanation |",
     "| --- | --- | --- | --- | --- | --- |",
     ...rows,
+    ...(reviewUrl ? ["", `[Inspect full diff in DriftMap Workbench](${reviewUrl})`] : []),
     "",
     "> Sample inference is evidence, not proof of the producer's formal schema.",
   ].join("\n");

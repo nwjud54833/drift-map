@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { displayBaselineInput, loadHostedBaseline, parseCliArguments, promoteCandidate, resolveColors, runCompare, runCompareAsync, USAGE, validateHostedBaselineUrl } from "@/bin/driftmap";
 import type { CompareOptions } from "@/bin/driftmap";
 import { ANSI_CODES } from "@/bin/colors";
+import { decodeReviewState } from "@/lib/workbench/review-link";
 import { inferContract } from "@/lib/contract/infer";
 import { parseImportArtifact } from "@/lib/workbench/import-artifact";
 
@@ -179,6 +180,8 @@ describe("hosted baseline fetching", () => {
       const result = await runCompareAsync(options({ baselinePath: url, candidatePath: pair1.candidatePath, format: "markdown" }), fetchMock);
       expect(result.exitCode).toBe(1);
       expect(result.output).toContain("BREAKING");
+      expect(result.output).toContain("[Inspect full diff in DriftMap Workbench](https://driftmap.in/workbench?review=z.");
+      expect(result.output).not.toContain("ci-read-token");
       expect(fetchMock).toHaveBeenCalledTimes(2);
     } finally {
       if (previousToken === undefined) delete process.env.DRIFTMAP_BASELINE_TOKEN;
@@ -604,6 +607,40 @@ describe("output formats", () => {
     expect(outcome.output).toContain("| Severity | Path | Change | Baseline | Candidate | Explanation |");
     expect(outcome.output).toContain("| WARNING | `");
     expect(outcome.output).toContain("| WARNING | `");
+    expect(outcome.output).toContain("[Inspect full diff in DriftMap Workbench](https://driftmap.in/workbench?review=z.");
+  });
+
+  it("embeds a compressed, token-free Workbench deep link that restores the compared inputs", async () => {
+    const outcome = runCompare(options({ format: "markdown" }));
+    const match = /\[Inspect full diff in DriftMap Workbench\]\((https:\/\/driftmap\.in\/workbench\?review=[^)]+)\)/.exec(outcome.output);
+    expect(match).not.toBeNull();
+    const encoded = new URL(match![1]).searchParams.get("review");
+    expect(encoded).toMatch(/^z\./);
+    const preview = await decodeReviewState(encoded!);
+    expect(preview?.workspace.name).toBe("CLI contract review");
+    expect(preview?.baseline.samples[0]?.value).toMatchObject({ orderId: "ord-1042" });
+    expect(preview?.candidate.samples[0]?.value).toMatchObject({ orderId: "ord-1042" });
+  });
+
+  it("omits the deep link when the compressed review state exceeds the URL limit", () => {
+    const directory = mkdtempSync(path.join(tmpdir(), "driftmap-review-size-"));
+    const baselinePath = path.join(directory, "baseline.json");
+    const candidatePath = path.join(directory, "candidate.json");
+    const noisyText = (seed: number) => {
+      let value = seed >>> 0;
+      return Array.from({ length: 12_000 }, () => {
+        value = (Math.imul(value, 1664525) + 1013904223) >>> 0;
+        return (value % 36).toString(36);
+      }).join("");
+    };
+    writeFileSync(baselinePath, JSON.stringify({ id: "order-1", payload: noisyText(1) }));
+    writeFileSync(candidatePath, JSON.stringify({ id: "order-1", payload: noisyText(2) }));
+    try {
+      const outcome = runCompare(options({ baselinePath, candidatePath, format: "markdown" }));
+      expect(outcome.output).not.toContain("Inspect full diff in DriftMap Workbench");
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
   });
 
   it("documents the usage text with the new flags", () => {

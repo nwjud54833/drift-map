@@ -18,10 +18,10 @@ from the Workbench):
 ![DriftMap contract status](https://driftmap.in/api/v1/workspaces/WORKSPACE_ID/badge?token=BADGE_ONLY_TOKEN)
 ```
 
-The Workbench workflow template uses the pinned v2.5.6 Action:
+The Workbench workflow template uses the pinned v2.5.7 Action:
 
 ```yaml
-- uses: nwjud54833/drift-map@v2.5.6
+- uses: nwjud54833/drift-map@v2.5.7
 ```
 
 ## Routes
@@ -90,6 +90,11 @@ npx tsx frontend/bin/driftmap.ts diff --baseline <file-or-url> --candidate <file
 Each input is a file path holding a JSON payload, a JSON array of payload
 samples, or an OpenAPI 3.0 document (JSON or YAML). The input type is detected
 from the file contents, not the extension.
+
+Markdown PR reports include an **Inspect full diff in DriftMap Workbench** link
+when the compared payloads fit within the compressed review URL limit. The
+compressed URL contains the reviewed baseline and candidate payloads; keep
+sensitive data out of public pull requests.
 
 ### Flags
 

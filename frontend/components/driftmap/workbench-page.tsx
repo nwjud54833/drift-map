@@ -48,6 +48,7 @@ import { WorkbenchEmptyState } from "./workbench-empty-state";
 import { CIExportModal, type CIExportCredentials } from "./ci-export-modal";
 import { ReviewLinkModal } from "./review-link-modal";
 import { buildReviewPayload, decodeReviewState, encodeReviewState, parseReviewPayload, type ReviewPreview } from "@/lib/workbench/review-link";
+import { getExampleDiffPreset, type ExampleDiffPresetId } from "@/lib/workbench/example-presets";
 
 type WorkbenchMode = "local" | "cloud";
 
@@ -552,6 +553,66 @@ export function WorkbenchPage() {
     }
   }, [active, mode, pendingAction, refresh]);
 
+  const loadExampleDiff = useCallback(async (presetId: ExampleDiffPresetId) => {
+    if (pendingAction) return;
+    const preset = getExampleDiffPreset(presetId);
+    const baselineArtifact = parseImportArtifact(preset.baseline, { yaml: preset.yaml, source: "fixture", fileName: `${preset.id}-baseline.${preset.yaml ? "yaml" : "json"}` });
+    const candidateArtifact = parseImportArtifact(preset.candidate, { yaml: preset.yaml, source: "fixture", fileName: `${preset.id}-candidate.${preset.yaml ? "yaml" : "json"}` });
+    if (!baselineArtifact.ok || !candidateArtifact.ok) {
+      toast.error("The selected example could not be parsed.");
+      return;
+    }
+
+    setPendingAction("example-diff");
+    try {
+      let workspace = active;
+      if (!workspace) {
+        workspace = mode === "cloud"
+          ? await createCloudWorkspace(preset.name, preset.direction)
+          : createWorkspace(preset.name, preset.direction);
+        if (mode === "local") await saveWorkspace(workspace);
+      } else if (workspace.direction !== preset.direction) {
+        workspace = mode === "cloud"
+          ? await updateCloudWorkspace(workspace.id, { direction: preset.direction })
+          : { ...workspace, direction: preset.direction, updatedAt: new Date().toISOString() };
+      }
+
+      const persist = async (artifact: ImportArtifact, side: "baseline" | "candidate", versionLabel: string, fileName: string) => {
+        if (mode === "cloud") {
+          return artifact.format === "openapi"
+            ? (await createCloudOpenApiSnapshot(workspace!.id, versionLabel, JSON.stringify(artifact.contract.document), fileName, side)).snapshot
+            : (await createCloudSnapshot(workspace!.id, versionLabel, artifact.samples, fileName, side)).snapshot;
+        }
+        return artifact.format === "openapi"
+          ? createOpenApiSnapshot(workspace!.id, artifact.contract, versionLabel, fileName)
+          : createSnapshot(workspace!.id, artifact.samples, versionLabel, fileName);
+      };
+
+      const baselineSnapshot = await persist(baselineArtifact.artifact, "baseline", preset.baselineLabel, `${preset.id}-baseline.${preset.yaml ? "yaml" : "json"}`);
+      const candidateSnapshot = await persist(candidateArtifact.artifact, "candidate", preset.candidateLabel, `${preset.id}-candidate.${preset.yaml ? "yaml" : "json"}`);
+      const updated: Workspace = {
+        ...workspace,
+        direction: preset.direction,
+        baselineSnapshotId: baselineSnapshot.id,
+        candidateSnapshotId: candidateSnapshot.id,
+        updatedAt: new Date().toISOString(),
+      };
+      if (mode === "local") await saveWorkspace(updated);
+      setSnapshots((current) => [...current.filter((snapshot) => snapshot.id !== baselineSnapshot.id && snapshot.id !== candidateSnapshot.id), baselineSnapshot, candidateSnapshot]);
+      setWorkspaces((current) => [updated, ...current.filter((item) => item.id !== updated.id)]);
+      setActiveId(updated.id);
+      setSeverity("all");
+      setQuery("");
+      setCenterMode("table");
+      toast.success(`${preset.name} loaded. Review the findings or create a read-only share link.`);
+    } catch (reason) {
+      if (mode === "cloud") await refresh();
+      setError(reason instanceof Error ? reason.message : "Unable to load the example contract diff.");
+    } finally {
+      setPendingAction(null);
+    }
+  }, [active, mode, pendingAction, refresh, setCenterMode]);
+
   const newWorkspace = useCallback(async () => {
     const name = window.prompt("Workspace name", "New contract workspace");
     if (!name?.trim()) return;
@@ -842,7 +903,7 @@ export function WorkbenchPage() {
         onShareReview={() => void shareReview()}
         sharingReview={reviewShareLoading}
         pending={pendingAction !== null || ciExportLoading}
-        onLoadSamplePair={() => void loadSamplePair()}
+        onLoadExampleDiff={(preset) => void loadExampleDiff(preset)}
         cloudStatus={sessionStatus === "authenticated" ? (session?.user?.email ?? "signed in") : null}
         onSignIn={() => { window.location.href = "/signin"; }}
       />}

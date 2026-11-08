@@ -2,6 +2,7 @@
 
 import type { Workspace } from "@/lib/contract/types";
 import { getProCheckoutUrl } from "@/lib/client/pro-checkout";
+import type { ExampleDiffPresetId } from "@/lib/workbench/example-presets";
 
 /**
  * Workbench sub-toolbar.
@@ -33,7 +34,7 @@ export interface WorkbenchToolbarProps {
   onShareReview: () => void;
   sharingReview: boolean;
   pending: boolean;
-  onLoadSamplePair: () => void;
+  onLoadExampleDiff: (preset: ExampleDiffPresetId) => void;
   cloudStatus: string | null;
   onSignIn: () => void;
 }
@@ -64,7 +65,7 @@ export function WorkbenchToolbar({
   onShareReview,
   sharingReview,
   pending,
-  onLoadSamplePair,
+  onLoadExampleDiff,
   cloudStatus,
   onSignIn,
 }: WorkbenchToolbarProps) {
@@ -111,15 +112,16 @@ export function WorkbenchToolbar({
             id="preset-loader"
             value=""
             onChange={(event) => {
-              if (event.target.value === "sample") onLoadSamplePair();
-              else if (event.target.value === "blank") onFormatJSON();
+              if (event.target.value) onLoadExampleDiff(event.target.value as ExampleDiffPresetId);
             }}
+            disabled={pending}
             className="bg-[#111116] text-white font-mono text-xs px-3 py-1.5 rounded-lg border border-white/[0.12] focus:outline-none focus:border-white/30"
-            aria-label="Load a preset"
+            aria-label="Load Example Diff"
           >
-            <option value="">Presets…</option>
-            <option value="sample">Order webhook · v1 → v2 (sample pair)</option>
-            <option value="blank">Format the current editors</option>
+            <option value="">Load Example Diff…</option>
+            <option value="payment-webhook">Payment Webhook Drift · Breaking</option>
+            <option value="order-fulfillment">Order Fulfillment API · Warning + Safe</option>
+            <option value="openapi-upgrade">OpenAPI 3.0 Spec Upgrade</option>
           </select>
 
           <button
