@@ -1,6 +1,6 @@
 # DriftMap release and persistence audit
 
-Refreshed: 2026-11-07
+Refreshed: 2026-11-08
 
 ## Verified release checks
 
@@ -24,13 +24,17 @@ PR #11 from `feat/cli-dark-theme` to `test-driftmap-action` triggered [run 42393
 
 The live database gate remains **pending**. The configured Neon URL in `frontend/.env.local` uses a pooled hostname. The direct hostname was derived; the shell DNS resolver refused it, so the HTTPS SQL endpoint was reached using public DNS-over-HTTPS and `curl --resolve`. Neon then rejected the configured database credentials with a PostgreSQL password-authentication error for role `neondb_owner`. No aggregate row counts were returned. No `driftmap_audit_test` database was created, migrated, smoke-tested, or dropped in this verification attempt; its presence/removal was not confirmed. Production migrations were not run.
 
+### Production deployment health check
+
+After release commit `472aa7e7729abf88c73faca9f97406666f5a275c` was pushed to `main`, `https://driftmap.in/api/health` returned HTTP 200 with `status: ok`, `db: connected`, `version: 2.5.0`, and the same deployed commit SHA. The production Prisma connection therefore passed a live `SELECT 1` health check. The production Auth.js providers endpoint returned HTTP 200 and listed Google; the session endpoint returned HTTP 200 with an anonymous session. The earlier local Neon credential failure remains relevant to the isolated test-database smoke gate, which is still pending.
+
 ## Persistence and production security notes
 
 - Auth.js uses database sessions; protected workspace routes scope access by user ownership. Snapshot and diff writes validate workspace membership.
 - API JSON bodies are capped at 4 MiB. OpenAPI imports are capped at 2 MiB, limit expansion, and reject external `$ref` URLs.
 - Middleware applies a per-request CSP nonce. The Next.js configuration sets security headers and production HSTS.
-- Production deployment was not performed. Recheck response headers and the active API rate-limit rule after deployment.
+- Production deployment was verified through the health endpoint at commit `472aa7e7729abf88c73faca9f97406666f5a275c`. The endpoint reports only connection status and build metadata; it does not expose credentials or raw database errors.
 
 ## Release status
 
-Local checks, manual OAuth/workspace use, and the hosted BREAKING plus SAFE classification assertions are verified. The dedicated Neon migration/auth/workspace smoke test and independent database row counts remain pending because the configured database credentials were rejected. This audit does not mark the database gate as passed.
+Local checks, manual OAuth/workspace use, hosted BREAKING plus SAFE classification assertions, and live production database connectivity/Auth.js configuration are verified. The dedicated isolated Neon migration/auth/workspace smoke test and independent database row counts remain pending because the configured local test credentials were rejected. Production database connectivity is live and verified; the separate isolated test-database gate is not marked passed.

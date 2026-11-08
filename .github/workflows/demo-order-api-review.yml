@@ -1,0 +1,41 @@
+name: DriftMap public Order API demo
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "examples/demo/order-api/v2.json"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  contract-review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Post the DriftMap sticky review comment
+        id: review
+        continue-on-error: true
+        uses: ./
+        with:
+          baseline-path: examples/demo/order-api/v1.json
+          candidate-path: examples/demo/order-api/v2.json
+          fail-on: breaking
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify the demo contains a breaking Order API finding
+        env:
+          REVIEW_OUTCOME: ${{ steps.review.outcome }}
+        run: |
+          test "$REVIEW_OUTCOME" = failure
+          set +e
+          node packages/driftmap/dist/cli.js diff \
+            examples/demo/order-api/v1.json \
+            examples/demo/order-api/v2.json \
+            --fail-on breaking --format markdown > "$RUNNER_TEMP/order-api-report.md"
+          result=$?
+          set -e
+          test "$result" -eq 1
+          grep -F '| BREAKING |' "$RUNNER_TEMP/order-api-report.md"
+          grep -F '/customer/email' "$RUNNER_TEMP/order-api-report.md"
