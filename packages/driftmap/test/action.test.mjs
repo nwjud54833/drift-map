@@ -28,9 +28,36 @@ test("updates only DriftMap's own sticky pull request comment", async () => {
   });
   assert.equal(result, "updated");
   assert.equal(calls[1].options.method, "PATCH");
-  assert.match(calls[1].url, /\/comments\/11$/);
+  assert.equal(calls[1].url, "https://api.github.com/repos/owner/repo/issues/comments/11");
+  assert.doesNotMatch(calls[1].url, /issues\/7\/comments/);
   assert.equal(calls[0].options.headers.authorization, "Bearer test-secret");
   assert.doesNotMatch(calls[0].url, /test-secret/);
+});
+
+test("recreates the sticky report when updating a stale comment returns 404", async () => {
+  const calls = [];
+  const fetchImpl = async (url, options = {}) => {
+    calls.push({ url, options });
+    if (calls.length === 1) return new Response(JSON.stringify([
+      { id: 22, user: { login: "github-actions[bot]" }, body: "<!-- driftmap-report -->\nold report" },
+    ]), { status: 200 });
+    if (calls.length === 2) return new Response("not found", { status: 404 });
+    return new Response("{}", { status: 201 });
+  };
+  const result = await upsertStickyComment({
+    apiUrl: "https://api.github.com",
+    repository: "owner/repo",
+    issueNumber: 9,
+    token: "test-secret",
+    body: `${marker}\nupdated report`,
+    fetchImpl,
+  });
+  assert.equal(result, "recreated");
+  assert.equal(calls.length, 3);
+  assert.equal(calls[1].options.method, "PATCH");
+  assert.equal(calls[1].url, "https://api.github.com/repos/owner/repo/issues/comments/22");
+  assert.equal(calls[2].options.method, "POST");
+  assert.equal(calls[2].url, "https://api.github.com/repos/owner/repo/issues/9/comments");
 });
 
 test("creates the sticky report when no bot comment exists", async () => {

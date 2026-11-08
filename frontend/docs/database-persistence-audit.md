@@ -72,6 +72,11 @@ PR #11 from `feat/cli-dark-theme` to `test-driftmap-action` triggered [run 42393
 - Added a sitemap containing only the public landing page and Workbench.
 - Local release gates passed: Prisma validation, lint, typecheck, 342 frontend tests, 21 CLI/Action tests, and the Next.js production build. The build includes both `/robots.txt` and `/sitemap.xml`; production endpoint checks are recorded after deployment.
 
+## v2.5.9 sticky comment update reliability
+
+- Corrected Action comment updates to use the GitHub issue-comment endpoint and added a POST recreation fallback when a saved comment cannot be patched.
+- Production health and hosted PR #12 repeated-update verification are recorded after release.
+
 ## Database persistence and smoke test
 
 `frontend/scripts/verify-db-auth.ts` is ready for CI or pre-deploy execution against an explicitly selected, empty, non-production database. It verifies disposable user creation, session persistence, workspace create/update/query, and a 1 MiB JSON snapshot round-trip, then deletes the disposable user in `finally`. It requires `TEST_DATABASE_URL` and `DRIFTMAP_TEST_DATABASE_CONFIRMATION=I_VERIFIED_EMPTY_NON_PRODUCTION`.

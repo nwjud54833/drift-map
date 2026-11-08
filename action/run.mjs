@@ -6,7 +6,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ACTION_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const CLI_PATH = join(ACTION_ROOT, "packages", "driftmap", "dist", "cli.js");
-const COMMENT_MARKER = "<!-- driftmap-contract-review -->";
+const COMMENT_MARKERS = ["<!-- driftmap-contract-review -->", "<!-- driftmap-report -->"];
 const COMMENT_BODY_LIMIT = 60_000;
 const API_VERSION = "2022-11-28";
 
@@ -85,19 +85,34 @@ export async function upsertStickyComment({ apiUrl, repository, issueNumber, tok
     const comments = await response.json();
     if (!Array.isArray(comments)) throw new Error("GitHub API returned an unexpected comments response.");
     existing = comments.find((comment) => comment?.user?.login === "github-actions[bot]"
-      && typeof comment?.body === "string" && comment.body.includes(COMMENT_MARKER)) ?? existing;
+      && typeof comment?.body === "string" && COMMENT_MARKERS.some((marker) => comment.body.includes(marker))) ?? existing;
     if (comments.length < 100) break;
   }
 
   const payload = { body: body.length > COMMENT_BODY_LIMIT ? `${body.slice(0, COMMENT_BODY_LIMIT - 80)}\n\n_Report truncated by DriftMap._` : body };
-  const isUpdate = existing && Number.isSafeInteger(existing.id);
-  const response = await fetchImpl(isUpdate ? `${base}/${existing.id}` : base, {
-    method: isUpdate ? "PATCH" : "POST",
+  const canUpdate = existing && Number.isSafeInteger(existing.id);
+  if (canUpdate) {
+    // Issue comments use the issue-comments endpoint; including the PR number
+    // in the PATCH path returns 404 even though listing by issue is valid.
+    try {
+      const response = await fetchImpl(`${apiUrl.replace(/\/$/, "")}/repos/${repository}/issues/comments/${existing.id}`, {
+        method: "PATCH",
+        headers: apiHeaders(token, true),
+        body: JSON.stringify(payload),
+      });
+      if (response.ok) return "updated";
+    } catch {
+      // The reference may be stale or inaccessible; recreate the sticky report.
+    }
+  }
+
+  const response = await fetchImpl(base, {
+    method: "POST",
     headers: apiHeaders(token, true),
     body: JSON.stringify(payload),
   });
-  await checkResponse(response, isUpdate ? "comment update" : "comment creation");
-  return isUpdate ? "updated" : "created";
+  await checkResponse(response, "comment creation");
+  return canUpdate ? "recreated" : "created";
 }
 
 export async function main() {
