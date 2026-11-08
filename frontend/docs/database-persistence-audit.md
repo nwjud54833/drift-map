@@ -66,6 +66,12 @@ PR #11 from `feat/cli-dark-theme` to `test-driftmap-action` triggered [run 42393
 - Markdown CLI/Action reports add a compressed read-only Workbench link only when the complete state fits the URL limit. The link contains the baseline and candidate inputs and never includes the hosted-baseline token; oversized inputs omit the link.
 - Local v2.5.7 verification passed: Prisma validation, lint, typecheck, production build, 340 frontend tests, and 21 CLI/Action tests. Production deployment health is recorded after release.
 
+## v2.5.8 search indexing
+
+- Added `robots.txt` allowing `/` and `/workbench`, disallowing `/api/`, and pointing to the production sitemap.
+- Added a sitemap containing only the public landing page and Workbench.
+- Local release gates passed: Prisma validation, lint, typecheck, 342 frontend tests, 21 CLI/Action tests, and the Next.js production build. The build includes both `/robots.txt` and `/sitemap.xml`; production endpoint checks are recorded after deployment.
+
 ## Database persistence and smoke test
 
 `frontend/scripts/verify-db-auth.ts` is ready for CI or pre-deploy execution against an explicitly selected, empty, non-production database. It verifies disposable user creation, session persistence, workspace create/update/query, and a 1 MiB JSON snapshot round-trip, then deletes the disposable user in `finally`. It requires `TEST_DATABASE_URL` and `DRIFTMAP_TEST_DATABASE_CONFIRMATION=I_VERIFIED_EMPTY_NON_PRODUCTION`.

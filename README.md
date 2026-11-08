@@ -18,10 +18,10 @@ from the Workbench):
 ![DriftMap contract status](https://driftmap.in/api/v1/workspaces/WORKSPACE_ID/badge?token=BADGE_ONLY_TOKEN)
 ```
 
-The Workbench workflow template uses the pinned v2.5.7 Action:
+The Workbench workflow template uses the pinned v2.5.8 Action:
 
 ```yaml
-- uses: nwjud54833/drift-map@v2.5.7
+- uses: nwjud54833/drift-map@v2.5.8
 ```
 
 ## Routes
