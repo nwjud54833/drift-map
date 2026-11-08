@@ -19,6 +19,7 @@
   "created_at": "2026-11-08T10:24:00Z",
   "tracking_metadata": {
     "carrier": "ParcelCo",
-    "tracking_number": "PKG-2026-1042"
+    "tracking_number": "PKG-2026-1042",
+    "estimated_delivery": "2026-11-12"
   }
 }
