@@ -25,7 +25,9 @@ jobs:
           fail-on: breaking
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Build the local CLI used by the report assertion
-        run: npm run build --prefix packages/driftmap
+        run: |
+          npm ci --prefix packages/driftmap
+          npm run build --prefix packages/driftmap
       - name: Verify the demo contains a breaking Order API finding
         env:
           REVIEW_OUTCOME: ${{ steps.review.outcome }}
