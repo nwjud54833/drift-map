@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-const VERSION = "2.5.12";
+const VERSION = "2.5.13";
 
 export const dynamic = "force-dynamic";
 

@@ -3,7 +3,7 @@ import { LandingPage } from "@/components/driftmap/landing-page";
 
 export const metadata: Metadata = {
   title: "DriftMap — API Contract Review & Semantic Drift Engine",
-  description: "Compare OpenAPI contracts and JSON payloads to understand structural API changes and compatibility risks.",
+  description: "Review API contract changes with private schema gating built for secure team CI.",
 };
 
 export default function HomePage() {

@@ -45,14 +45,14 @@ export default function PrivacyPage() {
           <section className="py-8">
             <h2 className="text-xl font-semibold">Retention and deletion</h2>
             <p className="mt-3 text-sm leading-7 text-[#b1b1bd]">
-              Browser data remains in your browser until you clear it. Synced baselines and survey responses remain in cloud storage until they are removed or you request deletion. To request deletion of cloud data associated with your account, contact the DriftMap maintainers through the project’s GitHub repository and identify the account or workspace you control. We may verify ownership before processing the request.
+              Browser data remains in your browser until you clear it. Synced baselines and survey responses remain in cloud storage until they are removed or you request deletion. To request deletion of cloud data associated with your account, contact DriftMap support through the support channel provided with your account or service communications and identify the account or workspace you control. We may verify ownership before processing the request.
             </p>
           </section>
 
           <section className="py-8">
             <h2 className="text-xl font-semibold">Contact</h2>
             <p className="mt-3 text-sm leading-7 text-[#b1b1bd]">
-              For privacy questions or data requests, contact the maintainers through the <a className="text-[#c4b5fd] underline decoration-white/20 underline-offset-4 hover:text-white" href="https://github.com/nwjud54833/drift-map">DriftMap GitHub repository</a>. Do not post account identifiers or other sensitive details in a public issue.
+              For privacy questions or data requests, use the support channel provided with your account or service communications. Do not send account identifiers or other sensitive details through public channels.
             </p>
           </section>
         </div>
@@ -60,6 +60,7 @@ export default function PrivacyPage() {
         <div className="mt-4 flex flex-wrap gap-4 border-t border-white/10 pt-6 text-xs font-mono text-[#8a8b98]">
           <Link href="/" className="transition hover:text-white">Home</Link>
           <Link href="/workbench" className="transition hover:text-white">Workbench</Link>
+          <Link href="/terms" className="transition hover:text-white">Terms</Link>
         </div>
       </article>
     </main>

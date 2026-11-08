@@ -250,19 +250,19 @@ export function PricingSection({ onOpenWorkbench }: { onOpenWorkbench: () => voi
             Start local. Add shared baselines when your team needs them.
           </h2>
           <p className="text-sm sm:text-base text-[#9496A1] leading-relaxed">
-            The local workbench and open source Action are available now. Team Cloud Baseline is in early access and is planned to track a shared default-branch contract for automatic pull request comparisons.
+            Review API changes locally today, then bring private schema gating and shared baselines into your team CI workflow with Team CI Cloud. Team CI Cloud is currently in early access.
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <article className="obsidian-card rounded-2xl border border-white/[0.1] p-6 sm:p-8">
-            <div className="text-xs font-mono uppercase tracking-wider text-[#9496A1] mb-3">FREE · LOCAL &amp; OSS ACTION</div>
-            <h3 className="text-2xl font-semibold text-white mb-2">Free</h3>
-            <p className="text-sm text-[#9496A1] mb-6">Review payload changes in your browser or CI with files you provide.</p>
+            <div className="text-xs font-mono uppercase tracking-wider text-[#9496A1] mb-3">PRIVATE · LOCAL REVIEW</div>
+            <h3 className="text-2xl font-semibold text-white mb-2">Local review</h3>
+            <p className="text-sm text-[#9496A1] mb-6">Review payload changes in your browser with files you provide.</p>
             <ul className="space-y-3 text-sm text-[#D3D4DA] mb-8">
               <li className="flex gap-2"><span className="text-emerald-400">✓</span><span>In-browser workbench saved to IndexedDB</span></li>
-              <li className="flex gap-2"><span className="text-emerald-400">✓</span><span>Open source GitHub Action compares baseline and candidate files</span></li>
-              <li className="flex gap-2"><span className="text-emerald-400">✓</span><span>Markdown findings posted to pull requests</span></li>
+              <li className="flex gap-2"><span className="text-emerald-400">✓</span><span>Inspect baseline and candidate contracts in your browser</span></li>
+              <li className="flex gap-2"><span className="text-emerald-400">✓</span><span>Export review findings for your team workflows</span></li>
             </ul>
             <button type="button" onClick={onOpenWorkbench} className="btn-geist-secondary px-4 py-2.5 rounded-xl text-sm text-white">
               Open the workbench <span aria-hidden="true">→</span>
@@ -343,8 +343,6 @@ export function PricingSection({ onOpenWorkbench }: { onOpenWorkbench: () => voi
   );
 }
 
-const GITHUB_URL = "https://github.com/nwjud54833/drift-map";
-
 export function SiteFooter({ onOpenWorkbench, onLaunchGraph }: {
   onOpenWorkbench: () => void;
   onLaunchGraph: () => void;
@@ -358,7 +356,7 @@ export function SiteFooter({ onOpenWorkbench, onLaunchGraph }: {
         <div className="flex items-center gap-3 flex-wrap justify-center">
           <span className="font-semibold text-white">DriftMap</span>
           <span aria-hidden="true">·</span>
-          <span className="font-mono">Obsidian v2.5 Spatial · local-first API contract review</span>
+          <span className="font-mono">Private schema gating for team CI</span>
         </div>
         <nav className="flex flex-wrap items-center justify-center gap-5 font-mono" aria-label="Footer">
           <Link href="/" className="hover:text-white transition-colors">Landing</Link>
@@ -366,10 +364,8 @@ export function SiteFooter({ onOpenWorkbench, onLaunchGraph }: {
           <button type="button" onClick={onLaunchGraph} className="hover:text-white transition-colors">3D force graph</button>
           <button type="button" onClick={openCommandPalette} className="hover:text-white transition-colors">Command (⌘K)</button>
           <button type="button" onClick={() => openModal("tokens")} className="hover:text-white transition-colors">Design tokens</button>
-          <a href={`${GITHUB_URL}#readme`} target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
-            GitHub README ↗
-          </a>
           <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
+          <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
         </nav>
       </div>
     </footer>

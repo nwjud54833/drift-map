@@ -106,7 +106,7 @@ export function SiteHeader() {
             </span>
             <span className="font-semibold tracking-tight text-white text-sm whitespace-nowrap shrink-0">DriftMap</span>
             <span className="hidden sm:inline-flex items-center h-5 px-2 rounded text-[10px] font-mono font-medium bg-white/[0.05] text-[#9496A1] border border-white/[0.08] whitespace-nowrap shrink-0">
-              v2.5 SPATIAL
+              SECURE TEAM CI
             </span>
           </Link>
 
