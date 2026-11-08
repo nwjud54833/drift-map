@@ -75,7 +75,12 @@ PR #11 from `feat/cli-dark-theme` to `test-driftmap-action` triggered [run 42393
 ## v2.5.9 sticky comment update reliability
 
 - Corrected Action comment updates to use the GitHub issue-comment endpoint and added a POST recreation fallback when a saved comment cannot be patched.
-- Production health and hosted PR #12 repeated-update verification are recorded after release.
+- The first hosted run confirmed the corrected PATCH path but surfaced a marker constant regression after posting; the follow-up fix is included in v2.5.10.
+
+## v2.5.10 sticky comment update hotfix
+
+- Restored the canonical report marker constant while supporting both current and legacy markers during lookup.
+- Production health and repeated hosted PR #12 update results are recorded after release.
 
 ## Database persistence and smoke test
 

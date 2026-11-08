@@ -6,7 +6,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ACTION_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const CLI_PATH = join(ACTION_ROOT, "packages", "driftmap", "dist", "cli.js");
-const COMMENT_MARKERS = ["<!-- driftmap-contract-review -->", "<!-- driftmap-report -->"];
+const COMMENT_MARKER = "<!-- driftmap-contract-review -->";
+const COMMENT_MARKERS = [COMMENT_MARKER, "<!-- driftmap-report -->"];
 const COMMENT_BODY_LIMIT = 60_000;
 const API_VERSION = "2022-11-28";
 
