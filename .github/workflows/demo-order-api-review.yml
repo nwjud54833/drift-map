@@ -15,6 +15,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Remove the prior bot report so the pinned Action recreates the sticky comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          gh api --paginate "repos/$GH_REPOSITORY/issues/$PR_NUMBER/comments?per_page=100" \
+            --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | contains("<!-- driftmap-contract-review -->"))) | .id' |
+            while IFS= read -r comment_id; do
+              [ -z "$comment_id" ] || gh api --method DELETE "repos/$GH_REPOSITORY/issues/comments/$comment_id"
+            done
       - name: Post the DriftMap sticky review comment
         id: review
         continue-on-error: true
