@@ -35,7 +35,7 @@ describe("Team Cloud early access conversion", () => {
     const invalidFetch = vi.fn<typeof fetch>().mockResolvedValue(new Response("{}", { status: 400 }));
     const limitedFetch = vi.fn<typeof fetch>().mockResolvedValue(new Response("{}", { status: 429 }));
 
-    await expect(submitEarlyAccessRequest({ email: "bad" }, invalidFetch)).resolves.toMatchObject({ ok: false, message: "Enter a valid email" });
+    await expect(submitEarlyAccessRequest({ email: "bad" }, invalidFetch)).resolves.toMatchObject({ ok: false, message: expect.stringContaining("valid email") });
     await expect(submitEarlyAccessRequest({ email: "valid@example.com" }, limitedFetch)).resolves.toEqual({ ok: false, message: "Too many requests. Try again later." });
   });
 

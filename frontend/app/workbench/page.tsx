@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
+import { auth } from "@/auth";
+import { prisma } from "@/lib/db/prisma";
 import { WorkbenchPage } from "@/components/driftmap/workbench-page";
 
 export const metadata: Metadata = {
@@ -7,7 +10,16 @@ export const metadata: Metadata = {
   description: "Compare real JSON payloads or OpenAPI 3.0 contracts, infer the structural contract, and inspect classified semantic drift.",
 };
 
-export default function WorkbenchRoute() {
+export default async function WorkbenchRoute() {
+  const session = await auth();
+  if (session?.user?.id) {
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { surveyCompleted: true },
+    });
+    if (user && !user.surveyCompleted) redirect("/onboarding");
+  }
+
   return (
     // `WorkbenchPage` reads `?view=graph` through `useSearchParams`, which needs a
     // Suspense boundary so the shell can stream before the query resolves.

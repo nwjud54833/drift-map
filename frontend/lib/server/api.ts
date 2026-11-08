@@ -28,13 +28,13 @@ export function apiError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
 }
 
-export async function readJsonBody(request: Request): Promise<unknown> {
+export async function readJsonBody(request: Request, maxBytes = MAX_API_BODY_BYTES): Promise<unknown> {
   const rawContentLength = request.headers.get("content-length");
   const contentLength = rawContentLength === null ? null : Number(rawContentLength);
   if (contentLength !== null && (!Number.isSafeInteger(contentLength) || contentLength < 0)) {
     throw new SyntaxError("Request body has an invalid content length.");
   }
-  if (contentLength !== null && contentLength > MAX_API_BODY_BYTES) {
+  if (contentLength !== null && contentLength > maxBytes) {
     throw new RangeError("Request body is too large.");
   }
 
@@ -47,7 +47,7 @@ export async function readJsonBody(request: Request): Promise<unknown> {
       const { done, value } = await reader.read();
       if (done) break;
       byteLength += value.byteLength;
-      if (byteLength > MAX_API_BODY_BYTES) {
+      if (byteLength > maxBytes) {
         await reader.cancel();
         throw new RangeError("Request body is too large.");
       }

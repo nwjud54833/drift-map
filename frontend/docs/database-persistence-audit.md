@@ -84,6 +84,13 @@ PR #11 from `feat/cli-dark-theme` to `test-driftmap-action` triggered [run 42393
 - Production `/api/health` returned HTTP 200, `db: connected`, version `2.5.10`, commit `807558f07fda9fe5e8d6971473c3b8ea2120f9c3`.
 - PR #12 runs [42522732974](https://github.com/nwjud54833/drift-map/actions/runs/42522732974) and [42522819924](https://github.com/nwjud54833/drift-map/actions/runs/42522819924) both completed successfully with the Action pinned to `@v2.5.10`, without the pre-delete workaround. The existing bot comment ID `6726847940` was retained across both runs; hosted logs had no comment-update 404 or Action error, and the comment's Workbench review URL returned HTTP 200.
 
+## v2.5.11 post-registration survey
+
+- Added a required authenticated onboarding survey, secure profile save, an admin-only aggregate survey export, and a one-to-one profile model with completion status.
+- Existing accounts are backfilled as survey-complete during the additive migration so only new users are gated. `DRIFTMAP_ADMIN_EMAILS` allowlists the aggregate-only survey export; the export contains category counts and no personal email data.
+- Prisma schema validation and client generation passed. Prisma's offline schema diff matches the new `surveyCompleted` column and `UserProfile` table. A migration apply test could not run locally because this host has no local PostgreSQL service, `psql`, Docker, or process `DATABASE_URL`; the stale local Neon credential was not used. Production Vercel builds apply migrations before publishing.
+- Release checks passed: lint, typecheck, production build, 357 frontend tests (34 files, including previously undiscovered TSX tests), and 22 CLI/Action tests. Production endpoint and deployed migration status are recorded after rollout.
+
 ## Database persistence and smoke test
 
 `frontend/scripts/verify-db-auth.ts` is ready for CI or pre-deploy execution against an explicitly selected, empty, non-production database. It verifies disposable user creation, session persistence, workspace create/update/query, and a 1 MiB JSON snapshot round-trip, then deletes the disposable user in `finally`. It requires `TEST_DATABASE_URL` and `DRIFTMAP_TEST_DATABASE_CONFIRMATION=I_VERIFIED_EMPTY_NON_PRODUCTION`.

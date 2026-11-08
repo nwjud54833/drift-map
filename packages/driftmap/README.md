@@ -55,7 +55,7 @@ permissions:
 
 steps:
   - uses: actions/checkout@v4
-  - uses: nwjud54833/drift-map@v2.5.10
+  - uses: nwjud54833/drift-map@v2.5.11
     with:
       baseline-path: contracts/openapi-base.yaml
       candidate-path: contracts/openapi.yaml
@@ -74,7 +74,7 @@ The CLI and Action can fetch a selected workspace baseline over HTTPS. From the 
 ```yaml
 steps:
   - uses: actions/checkout@v4
-  - uses: nwjud54833/drift-map@v2.5.10
+  - uses: nwjud54833/drift-map@v2.5.11
     with:
       baseline-path: ${{ secrets.DRIFTMAP_BASELINE_URL }}
       candidate-path: contracts/openapi.yaml

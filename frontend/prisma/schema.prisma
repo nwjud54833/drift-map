@@ -54,14 +54,27 @@ enum ChangeSeverity {
 }
 
 model User {
-  id            String          @id @default(cuid())
-  name          String?
-  email         String?         @unique
-  emailVerified DateTime?
-  image         String?
-  accounts      Account[]
-  sessions      Session[]
-  workspaces    Workspace[]
+  id              String          @id @default(cuid())
+  name            String?
+  email           String?         @unique
+  emailVerified   DateTime?
+  image           String?
+  surveyCompleted Boolean         @default(false)
+  profile         UserProfile?
+  accounts        Account[]
+  sessions        Session[]
+  workspaces      Workspace[]
+}
+
+model UserProfile {
+  userId          String   @id
+  companySize     String   @db.VarChar(24)
+  primaryApiType  String   @db.VarChar(24)
+  cicdTool        String   @db.VarChar(32)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Account {

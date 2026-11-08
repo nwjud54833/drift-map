@@ -12,10 +12,11 @@ const integration = process.env.RUN_DB_TESTS === "1";
 
 export default defineConfig({
   resolve: { alias: { "@": path.resolve(__dirname, ".") } },
+  oxc: { jsx: { runtime: "automatic" } },
   test: {
     environment: "node",
     setupFiles: ["tests/setup.ts"],
-    include: [integration ? "tests/integration/**/*.test.ts" : "tests/**/*.test.ts"],
+    include: integration ? ["tests/integration/**/*.test.ts"] : ["tests/**/*.test.ts", "tests/**/*.test.tsx"],
     exclude: integration ? [] : ["tests/integration/**"],
   },
 });

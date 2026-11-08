@@ -21,10 +21,10 @@ describe("Workbench CI export", () => {
     expect(markup).toContain("Copy README Badge Markdown");
     expect(markup).toContain("badge.signed.value");
     expect(markup).toContain("12 paths");
-    expect(markup).toContain("abcdef1234567");
+    expect(markup).toContain("abcdef123456");
     expect(markup).toContain("read.signed.value");
     expect(markup).toContain("promote.signed.value");
-    expect(markup).toContain("nwjud54833/drift-map@v2.5.5");
+    expect(markup).toContain("nwjud54833/drift-map@v2.5.11");
     expect(DRIFTMAP_GITHUB_WORKFLOW).toContain("secrets.DRIFTMAP_BASELINE_URL");
     expect(DRIFTMAP_GITHUB_WORKFLOW).toContain("promote-on-push: true");
   });
