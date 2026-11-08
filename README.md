@@ -7,6 +7,23 @@ Contract Atlas is a local-first Next.js application for comparing real JSON payl
 The signed-in Workbench CI panel can generate a workspace-scoped, badge-only
 README status badge and show the revision, path count, and last CI promotion.
 
+### Add the DriftMap contract badge
+
+Copy the ready-to-use Markdown from **Use in CI / GitHub Action** in the
+Workbench. The badge token is read-only and exposes only the path-count badge.
+The generated line has this form (replace both placeholders with the values
+from the Workbench):
+
+```markdown
+![DriftMap contract status](https://driftmap.in/api/v1/workspaces/WORKSPACE_ID/badge?token=BADGE_ONLY_TOKEN)
+```
+
+The Workbench workflow template uses the pinned v2.5.6 Action:
+
+```yaml
+- uses: nwjud54833/drift-map@v2.5.6
+```
+
 ## Routes
 
 - `/` — DriftMap-inspired product overview and interactive explanation

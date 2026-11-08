@@ -1,6 +1,7 @@
 "use client";
 
 import type { Workspace } from "@/lib/contract/types";
+import { getProCheckoutUrl } from "@/lib/client/pro-checkout";
 
 /**
  * Workbench sub-toolbar.
@@ -29,6 +30,8 @@ export interface WorkbenchToolbarProps {
   onCopyMarkdown: () => void;
   onExportCI: () => void;
   onExportJSON: () => void;
+  onShareReview: () => void;
+  sharingReview: boolean;
   pending: boolean;
   onLoadSamplePair: () => void;
   cloudStatus: string | null;
@@ -58,12 +61,15 @@ export function WorkbenchToolbar({
   onCopyMarkdown,
   onExportCI,
   onExportJSON,
+  onShareReview,
+  sharingReview,
   pending,
   onLoadSamplePair,
   cloudStatus,
   onSignIn,
 }: WorkbenchToolbarProps) {
   const overCap = payloadBytes > MAX_IMPORT_BYTES;
+  const checkoutUrl = getProCheckoutUrl();
 
   return (
     <div className="bg-[#0A0A0D] border-b border-white/[0.08] px-4 sm:px-6 py-2.5">
@@ -149,6 +155,9 @@ export function WorkbenchToolbar({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <a href={checkoutUrl ?? "/#team-ci-cloud"} target={checkoutUrl ? "_blank" : undefined} rel={checkoutUrl ? "noopener noreferrer" : undefined} className="btn-geist-secondary rounded-lg px-2.5 py-1.5 text-[11px] font-mono text-sky-200">
+            {checkoutUrl ? "Upgrade to Team CI Cloud" : "Team CI Cloud · Early Access"}
+          </a>
           <div className="inline-flex items-center p-0.5 rounded-lg bg-[#050507] border border-white/[0.09] font-mono text-[11px] shrink-0" role="group" aria-label="Storage mode">
             <button
               type="button"
@@ -219,6 +228,10 @@ export function WorkbenchToolbar({
               <span>Use in CI / GitHub Action</span>
             </button>
           )}
+
+          <button type="button" onClick={onShareReview} disabled={sharingReview || !active?.baselineSnapshotId || !active.candidateSnapshotId} className="btn-geist-secondary rounded-lg px-3 py-1.5 text-xs font-mono text-sky-200 disabled:opacity-50">
+            {sharingReview ? "Preparing link…" : "Share Review Link"}
+          </button>
 
           <button
             type="button"

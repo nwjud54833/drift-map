@@ -53,6 +53,13 @@ PR #11 from `feat/cli-dark-theme` to `test-driftmap-action` triggered [run 42393
 - Published as annotated tag `v2.5.5` and [GitHub Release](https://github.com/nwjud54833/drift-map/releases/tag/v2.5.5).
 - Production health returned HTTP 200 with `status: ok`, `db: connected`, `version: 2.5.5`, and build SHA `04455ca9d81ec7248023d794c9ea5e82ec79e4ef`.
 
+## v2.5.6 shared reviews and Pro checkout
+
+- The Workbench creates compressed URL-safe review links for local workspaces when they fit the URL size cap. Synced workspaces receive a signed, read-only link scoped to the exact baseline and candidate snapshot IDs; the preview exposes no editing or workspace mutation controls.
+- `NEXT_PUBLIC_PRO_CHECKOUT_URL` optionally enables an HTTPS Team CI Cloud checkout link in the landing pricing card and Workbench toolbar. When unset or invalid, the early-access waitlist remains available.
+- The root README documents the v2.5.6 Action pin and the signed badge Markdown format. No Prisma schema or migration change was needed.
+- Local v2.5.6 verification: Prisma validation, lint, typecheck, production build, 335 frontend tests, and 21 CLI/Action tests. Production health is verified after deployment.
+
 ## Database persistence and smoke test
 
 `frontend/scripts/verify-db-auth.ts` is ready for CI or pre-deploy execution against an explicitly selected, empty, non-production database. It verifies disposable user creation, session persistence, workspace create/update/query, and a 1 MiB JSON snapshot round-trip, then deletes the disposable user in `finally`. It requires `TEST_DATABASE_URL` and `DRIFTMAP_TEST_DATABASE_CONFIRMATION=I_VERIFIED_EMPTY_NON_PRODUCTION`.

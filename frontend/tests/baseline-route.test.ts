@@ -17,6 +17,7 @@ import { POST as createToken } from "@/app/api/v1/workspaces/[workspaceId]/basel
 import { GET as getBadge } from "@/app/api/v1/workspaces/[workspaceId]/badge/route";
 import { createBaselineReadToken, createBaselineToken } from "@/lib/server/baseline-token";
 import { decodeBaselinePromotionNotes, encodeBaselinePromotionNotes } from "@/lib/server/baseline-audit";
+import { GET as getWorkspaceReview } from "@/app/api/v1/workspaces/[workspaceId]/review/route";
 
 const workspaceId = "6f9619ff-8b86-4d3a-a5a5-6d2a7e5b6c10";
 const context = { params: Promise.resolve({ workspaceId }) };
@@ -101,6 +102,39 @@ describe("GET workspace baseline", () => {
     workspaceFindFirstMock.mockResolvedValue({ ...workspaceResult, baselineSnapshot: null });
     const response = await GET(new Request("https://driftmap.in/api/v1/workspaces"), context);
     expect(response.status).toBe(404);
+  });
+});
+
+describe("GET signed read-only workspace review", () => {
+  it("returns the two snapshots only for a review-scoped token", async () => {
+    const candidateSnapshotId = "f47ac10b-58cc-4372-a567-0e02b2c3d480";
+    const issued = createBaselineToken("user-1", workspaceId, "review", Date.now(), undefined, { baselineSnapshotId: workspaceResult.baselineSnapshot.id, candidateSnapshotId });
+    if (!issued) throw new Error("Token not issued");
+    workspaceFindFirstMock.mockResolvedValue({
+      ...workspaceResult,
+      snapshots: [
+        workspaceResult.baselineSnapshot,
+        { ...workspaceResult.baselineSnapshot, id: candidateSnapshotId, versionLabel: "v2", samples: [{ value: { id: 2 } }] },
+      ],
+    });
+    const reviewContext = { params: Promise.resolve({ workspaceId }) };
+    const response = await getWorkspaceReview(new Request("https://driftmap.in/api/review", { headers: { authorization: `Bearer ${issued.token}` } }), reviewContext);
+    const body = await response.json();
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toContain("no-store");
+    expect(body.review).toMatchObject({
+      version: 1,
+      workspace: { id: workspaceId, name: "Orders", direction: "response" },
+      baseline: { versionLabel: "v1", document: { id: "order-1" } },
+      candidate: { versionLabel: "v2", document: { id: 2 } },
+    });
+  });
+
+  it("rejects baseline read tokens", async () => {
+    const issued = createBaselineToken("user-1", workspaceId, "read");
+    if (!issued) throw new Error("Token not issued");
+    const response = await getWorkspaceReview(new Request("https://driftmap.in/api/review", { headers: { authorization: `Bearer ${issued.token}` } }), context);
+    expect(response.status).toBe(401);
   });
 });
 

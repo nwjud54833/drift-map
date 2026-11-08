@@ -19,8 +19,8 @@ export async function POST(request: Request, context: Context) {
     let body: unknown;
     try { body = await readJsonBody(request); }
     catch { return apiError("Token request body must be valid JSON.", 400); }
-    const parsed = z.object({ scope: z.enum(["read", "promote", "badge"]).default("read") }).strict().safeParse(body);
-    if (!parsed.success) return apiError("Token scope must be read, promote, or badge.", 400);
+    const parsed = z.object({ scope: z.enum(["read", "promote", "badge", "review"]).default("read") }).strict().safeParse(body);
+    if (!parsed.success) return apiError("Token scope must be read, promote, badge, or review.", 400);
     scope = parsed.data.scope;
   }
 
@@ -30,12 +30,18 @@ export async function POST(request: Request, context: Context) {
       select: {
         id: true,
         baselineSnapshot: { select: { id: true, versionLabel: true, notes: true, createdAt: true, contract: true } },
+        candidateSnapshot: { select: { id: true } },
       },
     });
     if (!workspace) return apiError("Workspace not found.", 404);
     if (!workspace.baselineSnapshot) return apiError("Set a baseline snapshot before creating a CI token.", 409);
+    if (scope === "review" && !workspace.candidateSnapshot) return apiError("Set a candidate snapshot before creating a review link.", 409);
 
-    const issued = createBaselineToken(authResult.userId, workspace.id, scope);
+    const issued = createBaselineToken(authResult.userId, workspace.id, scope, Date.now(), process.env.AUTH_SECRET,
+      scope === "review" && workspace.candidateSnapshot ? {
+        baselineSnapshotId: workspace.baselineSnapshot.id,
+        candidateSnapshotId: workspace.candidateSnapshot.id,
+      } : undefined);
     if (!issued) return apiError("Baseline token signing is unavailable.", 503);
     const audit = decodeBaselinePromotionNotes(workspace.baselineSnapshot.notes);
     return NextResponse.json({

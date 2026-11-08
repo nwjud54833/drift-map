@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { useSpatialUIStore } from "@/stores/spatial-ui-store";
 import { submitEarlyAccessRequest } from "@/lib/client/early-access";
+import { getProCheckoutUrl } from "@/lib/client/pro-checkout";
 import { useTiltCard } from "./use-tilt-card";
 
 /**
@@ -211,6 +212,7 @@ export function LandingCta({ onOpenWorkbench }: { onOpenWorkbench: () => void })
 }
 
 export function PricingSection({ onOpenWorkbench }: { onOpenWorkbench: () => void }) {
+  const checkoutUrl = getProCheckoutUrl();
   const [email, setEmail] = useState("");
   const [githubOrg, setGithubOrg] = useState("");
   const [repositoryCount, setRepositoryCount] = useState("");
@@ -279,6 +281,7 @@ export function PricingSection({ onOpenWorkbench }: { onOpenWorkbench: () => voi
               <li className="flex gap-2"><span className="text-sky-300">◷</span><span>Automatic pull request comparisons across branches</span></li>
               <li className="flex gap-2"><span className="text-sky-300">◷</span><span>Team review history for contract changes</span></li>
             </ul>
+            {checkoutUrl && <a href={checkoutUrl} target="_blank" rel="noopener noreferrer" className="btn-geist-primary mb-4 inline-flex rounded-xl px-4 py-2.5 text-sm">Upgrade to Team CI Cloud <span aria-hidden="true" className="ml-2">↗</span></a>}
             {!submitted && (
               <form onSubmit={requestEarlyAccess} className="space-y-3" aria-label="Request Team Cloud early access">
                 <label className="block text-xs text-[#D3D4DA]">

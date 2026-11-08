@@ -29,7 +29,7 @@ describe("GET /api/health", () => {
       status: "ok",
       db: "connected",
       commit: "release-commit",
-      version: "2.5.5",
+      version: "2.5.6",
     });
     expect(queryRawMock).toHaveBeenCalledOnce();
   });
@@ -45,7 +45,7 @@ describe("GET /api/health", () => {
       status: "degraded",
       db: "error",
       commit: "release-commit",
-      version: "2.5.5",
+      version: "2.5.6",
     });
   });
 

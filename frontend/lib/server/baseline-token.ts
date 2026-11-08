@@ -3,13 +3,20 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 const TOKEN_AUDIENCE = "driftmap:workspace-baseline";
 const TOKEN_VERSION = "v1";
 const TOKEN_LIFETIME_SECONDS = 90 * 24 * 60 * 60;
-export type BaselineTokenScope = "read" | "promote" | "badge";
+export type BaselineTokenScope = "read" | "promote" | "badge" | "review";
 
 export interface BaselineTokenClaims {
   userId: string;
   workspaceId: string;
   expiresAt: number;
   scope: BaselineTokenScope;
+  baselineSnapshotId?: string;
+  candidateSnapshotId?: string;
+}
+
+export interface ReviewSnapshotIds {
+  baselineSnapshotId: string;
+  candidateSnapshotId: string;
 }
 
 function signingSecret(secret = process.env.AUTH_SECRET): string | null {
@@ -26,9 +33,13 @@ export function createBaselineToken(
   scope: BaselineTokenScope = "read",
   now = Date.now(),
   secretValue = process.env.AUTH_SECRET,
+  reviewSnapshots?: ReviewSnapshotIds,
 ): { token: string; expiresAt: number } | null {
   const secret = signingSecret(secretValue);
   if (!secret || !userId || !workspaceId) return null;
+  if (scope === "review" && (!reviewSnapshots
+    || !/^[0-9a-f-]{36}$/i.test(reviewSnapshots.baselineSnapshotId)
+    || !/^[0-9a-f-]{36}$/i.test(reviewSnapshots.candidateSnapshotId))) return null;
 
   const issuedAt = Math.floor(now / 1000);
   const expiresAt = issuedAt + TOKEN_LIFETIME_SECONDS;
@@ -37,6 +48,7 @@ export function createBaselineToken(
     scope,
     sub: userId,
     wid: workspaceId,
+    ...(scope === "review" && reviewSnapshots ? { bid: reviewSnapshots.baselineSnapshotId, cid: reviewSnapshots.candidateSnapshotId } : {}),
     iat: issuedAt,
     exp: expiresAt,
   })).toString("base64url");
@@ -68,13 +80,17 @@ export function verifyBaselineToken(
     if (claims.aud !== TOKEN_AUDIENCE && claims.aud !== "driftmap:workspace-baseline:read"
       || typeof claims.sub !== "string" || claims.sub.length === 0
       || claims.wid !== expectedWorkspaceId
-      || (scope !== "read" && scope !== "promote" && scope !== "badge")
+      || (scope !== "read" && scope !== "promote" && scope !== "badge" && scope !== "review")
       || scope !== requiredScope
       || !Number.isSafeInteger(claims.iat) || !Number.isSafeInteger(claims.exp)
       || (claims.iat as number) > nowSeconds
       || (claims.exp as number) <= nowSeconds
       || (claims.exp as number) - (claims.iat as number) > TOKEN_LIFETIME_SECONDS) return null;
-    return { userId: claims.sub, workspaceId: expectedWorkspaceId, expiresAt: claims.exp as number, scope };
+    if (scope === "review" && (typeof claims.bid !== "string" || typeof claims.cid !== "string")) return null;
+    return {
+      userId: claims.sub, workspaceId: expectedWorkspaceId, expiresAt: claims.exp as number, scope,
+      ...(scope === "review" ? { baselineSnapshotId: claims.bid as string, candidateSnapshotId: claims.cid as string } : {}),
+    };
   } catch {
     return null;
   }

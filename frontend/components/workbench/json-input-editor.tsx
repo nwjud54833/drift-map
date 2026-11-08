@@ -29,6 +29,7 @@ export interface JsonInputEditorProps {
   /** Renders an extra action, e.g. "Load sample". */
   extraActions?: ReactNode;
   sampleAction?: { label: string; onSelect: () => void };
+  readOnly?: boolean;
   className?: string;
 }
 
@@ -156,6 +157,7 @@ export default function JsonInputEditor({
   onFile,
   extraActions,
   sampleAction,
+  readOnly = false,
   className,
 }: JsonInputEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -220,6 +222,7 @@ export default function JsonInputEditor({
 
   /** Keeps the caret indented instead of tabbing out of the editor. */
   function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (readOnly) return;
     if (event.key !== "Tab" || event.shiftKey) return;
     event.preventDefault();
     const element = event.currentTarget;
@@ -250,6 +253,7 @@ export default function JsonInputEditor({
   function onDrop(event: DragEvent<HTMLElement>) {
     event.preventDefault();
     setDragging(false);
+    if (readOnly) return;
     readFile(event.dataTransfer.files?.[0]);
   }
 
@@ -264,7 +268,7 @@ export default function JsonInputEditor({
 
   return (
     <div className={["je", className ?? ""].filter(Boolean).join(" ")}>
-      <div className="je-toolbar">
+      {!readOnly && <div className="je-toolbar">
         <label className="je-label" htmlFor={id}>{label}</label>
         <div className="je-actions">
           {sampleAction && (
@@ -286,7 +290,7 @@ export default function JsonInputEditor({
           </Button>
           {extraActions}
         </div>
-      </div>
+      </div>}
 
       {hint && <p className="je-hint" id={hintId}>{hint}</p>}
 
@@ -320,6 +324,7 @@ export default function JsonInputEditor({
             ref={textareaRef}
             className="je-textarea"
             value={value}
+            readOnly={readOnly}
             onChange={(event) => onChange(event.target.value)}
             onScroll={syncFromTextarea}
             onSelect={syncFromTextarea}
@@ -343,6 +348,7 @@ export default function JsonInputEditor({
         ref={fileInputRef}
         className="sr-only"
         type="file"
+        disabled={readOnly}
         accept=".json,.yaml,.yml,application/json,application/yaml,text/yaml"
         onChange={onFileInput}
         tabIndex={-1}

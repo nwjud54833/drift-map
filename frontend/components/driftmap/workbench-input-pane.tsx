@@ -59,11 +59,12 @@ export interface WorkbenchInputPaneProps {
   streamedCandidate: string | null;
   /** Reports the combined byte size of both editors so the toolbar can show the 2 MB cap. */
   onDraftSizeChange: (bytes: number) => void;
+  readOnly?: boolean;
 }
 
 export const WorkbenchInputPane = forwardRef<WorkbenchInputHandle, WorkbenchInputPaneProps>(
   function WorkbenchInputPane(
-    { baseline, candidate, activeSide, onActiveSideChange, onApply, onFile, streamedCandidate, onDraftSizeChange },
+    { baseline, candidate, activeSide, onActiveSideChange, onApply, onFile, streamedCandidate, onDraftSizeChange, readOnly = false },
     ref,
   ) {
     const [drafts, setDrafts] = useState<{ before: string; after: string }>({ before: "", after: "" });
@@ -120,6 +121,7 @@ export const WorkbenchInputPane = forwardRef<WorkbenchInputHandle, WorkbenchInpu
           onChange={(value) => setDrafts((current) => ({ ...current, before: value }))}
           onApply={() => onApply("before", draftsRef.current.before)}
           onFile={(file) => onFile("before", file)}
+          readOnly={readOnly}
         />
 
         <EditorBlock
@@ -134,6 +136,7 @@ export const WorkbenchInputPane = forwardRef<WorkbenchInputHandle, WorkbenchInpu
           onChange={(value) => setDrafts((current) => ({ ...current, after: value }))}
           onApply={() => onApply("after", draftsRef.current.after)}
           onFile={(file) => onFile("after", file)}
+          readOnly={readOnly}
         />
       </div>
     );
@@ -152,6 +155,7 @@ function EditorBlock({
   onChange,
   onApply,
   onFile,
+  readOnly,
 }: {
   side: Side;
   dotClass: string;
@@ -164,6 +168,7 @@ function EditorBlock({
   onChange: (value: string) => void;
   onApply: () => void;
   onFile: (file: File) => void;
+  readOnly: boolean;
 }) {
   const validation = useMemo(() => validate(value), [value]);
   const editorId = `editor-${side}`;
@@ -200,9 +205,10 @@ function EditorBlock({
         placeholder={`{\n  "id": "ORD-1001",\n  "status": "shipped"\n}`}
         onChange={onChange}
         onFile={onFile}
+        readOnly={readOnly}
       />
 
-      <div className="flex flex-wrap items-center gap-2 mt-2">
+      {!readOnly && <div className="flex flex-wrap items-center gap-2 mt-2">
         <button
           type="button"
           onClick={onApply}
@@ -214,7 +220,7 @@ function EditorBlock({
         {snapshot && (
           <span className="text-[10px] font-mono text-[#5E606E] ml-auto truncate">Saved: {snapshot.versionLabel}</span>
         )}
-      </div>
+      </div>}
     </div>
   );
 }
