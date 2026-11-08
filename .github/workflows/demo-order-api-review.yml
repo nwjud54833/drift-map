@@ -18,12 +18,16 @@ jobs:
       - name: Post the DriftMap sticky review comment
         id: review
         continue-on-error: true
-        uses: ./
+        uses: nwjud54833/drift-map@v2.5.10
         with:
           baseline-path: examples/demo/order-api/v1.json
           candidate-path: examples/demo/order-api/v2.json
           fail-on: breaking
           github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build the local CLI used by the report assertion
+        run: |
+          npm ci --prefix packages/driftmap
+          npm run build --prefix packages/driftmap
       - name: Verify the demo contains a breaking Order API finding
         env:
           REVIEW_OUTCOME: ${{ steps.review.outcome }}
@@ -39,3 +43,4 @@ jobs:
           test "$result" -eq 1
           grep -F '| BREAKING |' "$RUNNER_TEMP/order-api-report.md"
           grep -F '/customer/email' "$RUNNER_TEMP/order-api-report.md"
+          grep -F 'Inspect full diff in DriftMap Workbench' "$RUNNER_TEMP/order-api-report.md"

@@ -1,0 +1,25 @@
+{
+  "order_id": "ord_2026_1042",
+  "status": "processing",
+  "customer": {
+    "id": "cus_8421",
+    "display_name": "Sam Rivera"
+  },
+  "line_items": [
+    {
+      "sku": "trail-jacket-m",
+      "quantity": 1,
+      "unit_price": 89.5
+    }
+  ],
+  "total": {
+    "amount": 89.5,
+    "currency": "USD"
+  },
+  "created_at": "2026-11-08T10:24:00Z",
+  "tracking_metadata": {
+    "carrier": "ParcelCo",
+    "tracking_number": "PKG-2026-1042",
+    "estimated_delivery": "2026-11-16"
+  }
+}
