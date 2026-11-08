@@ -88,8 +88,9 @@ PR #11 from `feat/cli-dark-theme` to `test-driftmap-action` triggered [run 42393
 
 - Added a required authenticated onboarding survey, secure profile save, an admin-only aggregate survey export, and a one-to-one profile model with completion status.
 - Existing accounts are backfilled as survey-complete during the additive migration so only new users are gated. `DRIFTMAP_ADMIN_EMAILS` allowlists the aggregate-only survey export; the export contains category counts and no personal email data.
-- Prisma schema validation and client generation passed. Prisma's offline schema diff matches the new `surveyCompleted` column and `UserProfile` table. A migration apply test could not run locally because this host has no local PostgreSQL service, `psql`, Docker, or process `DATABASE_URL`; the stale local Neon credential was not used. Production Vercel builds apply migrations before publishing.
-- Release checks passed: lint, typecheck, production build, 357 frontend tests (34 files, including previously undiscovered TSX tests), and 22 CLI/Action tests. Production endpoint and deployed migration status are recorded after rollout.
+- Prisma schema validation and client generation passed. Prisma's offline schema diff matches the new `surveyCompleted` column and `UserProfile` table. A migration apply test could not run locally because this host has no local PostgreSQL service, `psql`, Docker, or process `DATABASE_URL`; the stale local Neon credential was not used. The successful Vercel production build ran the configured `prisma migrate deploy` step before publishing.
+- Release checks passed: lint, typecheck, production build, 357 frontend tests (34 files, including previously undiscovered TSX tests), and 22 CLI/Action tests.
+- Production `/api/health` returned HTTP 200, `db: connected`, version `2.5.11`, commit `77aa5f963cd1e3fa7a4bbfaa327e806a490e6d32`. The unauthenticated onboarding page redirected to sign-in (307), profile POST returned 401, and survey export returned 403.
 
 ## Database persistence and smoke test
 
