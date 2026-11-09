@@ -35,7 +35,7 @@ interface Step {
 const STEPS: readonly Step[] = [
   {
     badge: "01 · INPUT",
-    meta: "JSON / YAML ≤ 2 MB",
+    meta: "JSON samples · OpenAPI 3.0 JSON/YAML · ≤ 2 MB/file",
     title: "Add samples",
     body: "Paste raw JSON payloads or import OpenAPI 3.0 specs in JSON or YAML. Group samples into baseline and candidate sets inside a local workspace.",
     panel: {
@@ -92,8 +92,7 @@ export function HowItWorksSection() {
             </h2>
           </div>
           <p className="text-sm text-[#9496A1] max-w-md">
-            No custom DSL or manual JSON Schema authoring required. Drop raw response bodies or OpenAPI documents and let
-            evidence guide the review.
+            DriftMap compares baseline and candidate API payloads or OpenAPI 3.0 contracts to show structural differences that may affect consumers. It infers paths, observed types, nullability, and requiredness from the inputs, then presents each change with compatibility guidance and evidence.
           </p>
         </div>
 

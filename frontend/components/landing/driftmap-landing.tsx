@@ -158,7 +158,7 @@ export default function DriftmapLanding() {
           <div className="dm-hero-inner">
             <div className="dm-hero-copy">
               <span className="dm-eyebrow">JSON contract review</span>
-              <h1 id="hero-heading">Know exactly which JSON changes will break your consumers.</h1>
+              <h1 id="hero-heading">See which JSON changes could break your consumers.</h1>
               <p>
                 DriftMap infers a structural contract from real payload samples and classifies every difference as breaking,
                 warning, safe, or info — so you review risk instead of formatting noise.
@@ -174,7 +174,7 @@ export default function DriftmapLanding() {
               <div className="dm-hero-notes">
                 <span><Check size={13} aria-hidden="true" /> OpenAPI 3.0 JSON &amp; YAML</span>
                 <span><Check size={13} aria-hidden="true" /> Local-first, cloud optional</span>
-                <span><Check size={13} aria-hidden="true" /> IndexedDB · no upload by default</span>
+                <span><Check size={13} aria-hidden="true" /> IndexedDB · cloud sync is separate</span>
               </div>
             </div>
             <HeroDiagram />
@@ -260,7 +260,7 @@ export default function DriftmapLanding() {
             <Link href="/terms">Terms</Link>
           </nav>
           <small className="dm-footer-legal">
-            © 2026 DriftMap · Local data stays in this browser unless you explicitly switch to cloud.
+            © 2026 DriftMap · Local workspaces use IndexedDB; review links can encode review data in their URL.
           </small>
         </div>
       </footer>

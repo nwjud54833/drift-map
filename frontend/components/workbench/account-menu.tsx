@@ -59,7 +59,7 @@ export function AccountMenu({ user }: { user: AccountUser | null }) {
           <MenuSeparator />
           <div className="dm-account-note">
             <UserRound size={13} aria-hidden="true" />
-            Cloud workspaces are saved to your account. Local browser data is not uploaded.
+            Cloud workspaces are saved to your account. Local data is not synced automatically; sharing a review link can include it in the URL.
           </div>
         </>
       )}

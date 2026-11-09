@@ -821,7 +821,7 @@ export default function ContractAtlasClient() {
           <span>
             {mode === "cloud"
               ? "Cloud mode · snapshots are saved to your account"
-              : "Local mode: data stays in this browser · not synced to cloud"}
+              : "Local mode: IndexedDB storage · cloud sync off · review links can encode review data"}
           </span>
           <button type="button" onClick={() => setRawOpen(!rawOpen)}>
             <FileJson size={13} aria-hidden="true" />{rawOpen ? "Hide raw source" : "View raw source"}

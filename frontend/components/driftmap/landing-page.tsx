@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useSpatialUIStore } from "@/stores/spatial-ui-store";
@@ -18,7 +19,7 @@ import { LandingCta, DeepInspectionSection, LimitationsSection, PricingSection, 
  * sticky glass header, command palette and modals are provided once by the root
  * layout so both routes share them.
  */
-export function LandingPage() {
+export function LandingPage({ faq }: { faq?: ReactNode }) {
   const router = useRouter();
   const setCenterMode = useSpatialUIStore((state) => state.setCenterMode);
 
@@ -54,6 +55,7 @@ export function LandingPage() {
       <DeepInspectionSection onOpenWorkbench={openWorkbench} onLaunchGraph={launchGraph} />
       <LimitationsSection />
       <PricingSection onOpenWorkbench={openWorkbench} />
+      {faq}
       <LandingCta onOpenWorkbench={openWorkbench} />
       <SiteFooter onOpenWorkbench={openWorkbench} onLaunchGraph={launchGraph} />
     </main>

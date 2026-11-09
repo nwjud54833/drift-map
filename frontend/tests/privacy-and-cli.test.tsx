@@ -12,8 +12,8 @@ describe("privacy policy and CLI hero snippet", () => {
     expect(html).toContain("Privacy Policy");
     expect(html).toContain("IndexedDB");
     expect(html).toContain("Google OAuth");
-    expect(html).toContain("Neon PostgreSQL");
-    expect(html).toContain("request deletion");
+    expect(html).toContain("PostgreSQL database through the Neon adapter");
+    expect(html).toContain("does not currently provide a self-service account");
   });
 
   it("renders the terms page", () => {
@@ -24,7 +24,7 @@ describe("privacy policy and CLI hero snippet", () => {
 
   it("renders the npx command and one-click copy control", () => {
     const html = renderToStaticMarkup(<CliInstallSnippet />);
-    expect(DRIFTMAP_CLI_COMMAND).toBe("npx driftmap diff --baseline main.json --candidate candidate.json");
+    expect(DRIFTMAP_CLI_COMMAND).toBe("npx driftmap-cli diff main.json candidate.json");
     expect(html).toContain(DRIFTMAP_CLI_COMMAND);
     expect(html).toContain('aria-label="Copy CLI command"');
   });

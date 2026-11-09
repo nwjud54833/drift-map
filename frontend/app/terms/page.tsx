@@ -1,10 +1,7 @@
-import type { Metadata } from "next";
 import Link from "next/link";
+import { SEO_METADATA } from "@/lib/seo/metadata";
 
-export const metadata: Metadata = {
-  title: "Terms of Service · DriftMap",
-  description: "Terms for using DriftMap API contract review and team CI services.",
-};
+export const metadata = SEO_METADATA.terms;
 
 const sections = [
   { title: "Using DriftMap", body: "DriftMap provides tools for reviewing API contracts and schema changes. You may use the service only in compliance with applicable law and these terms. You are responsible for your account activity and for ensuring that you have the rights needed to submit any content you choose to process or store." },

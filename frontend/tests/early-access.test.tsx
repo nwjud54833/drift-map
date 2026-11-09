@@ -16,7 +16,7 @@ describe("Team Cloud early access conversion", () => {
     expect(html).toContain('name="githubOrg"');
     expect(html).toContain('name="repositoryCount"');
     expect(html).toContain("Sign in for Cloud Workspace Sync");
-    expect(html).toContain("pricing and availability have not been announced");
+    expect(html).toContain("This page does not list a price.");
   });
 
   it("submits a waitlist request and reports success immediately", async () => {

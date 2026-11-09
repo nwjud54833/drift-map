@@ -1,0 +1,21 @@
+# DriftMap
+
+> DriftMap is an API contract testing tool that compares JSON payload samples and OpenAPI 3.0 documents to help teams review compatibility changes.
+
+DriftMap infers structural contracts from samples or specifications, compares a baseline with a candidate, and classifies changes as breaking, warning, safe, or informational. It provides a browser Workbench, a command-line interface, and a GitHub Action for CI checks.
+
+Local Workbench comparisons run in the browser and local workspaces are saved in IndexedDB. Cloud sync sends selected snapshots to DriftMap. A local Share Review Link embeds compressed review data in its URL; anyone who receives that URL can inspect the shared review. Submitting early-access or onboarding forms sends the entered fields to DriftMap, and Google sign-in sends authentication information to Google.
+
+## Main features
+
+- Compare JSON payload samples or OpenAPI 3.0 documents in JSON or YAML. Each imported payload or specification is limited to 2 MB; remote OpenAPI references are not fetched.
+- Infer paths, observed types, nullability, and requiredness from inputs.
+- Review changes with compatibility classifications and before/after evidence.
+- Run comparisons locally with `npx driftmap-cli diff main.json candidate.json` or gate CI with the GitHub Action.
+
+## Key pages
+
+- [DriftMap home](https://driftmap.in/)
+- [API contract Workbench](https://driftmap.in/workbench)
+- [Privacy Policy](https://driftmap.in/privacy)
+- [Terms of Service](https://driftmap.in/terms)

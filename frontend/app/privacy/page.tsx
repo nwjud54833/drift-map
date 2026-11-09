@@ -1,10 +1,7 @@
-import type { Metadata } from "next";
 import Link from "next/link";
+import { SEO_METADATA } from "@/lib/seo/metadata";
 
-export const metadata: Metadata = {
-  title: "Privacy Policy · DriftMap",
-  description: "How DriftMap handles browser data, Google sign-in, synced workspaces, and onboarding survey responses.",
-};
+export const metadata = SEO_METADATA.privacy;
 
 export default function PrivacyPage() {
   return (
@@ -24,35 +21,42 @@ export default function PrivacyPage() {
           <section className="py-8">
             <h2 className="text-xl font-semibold">Local-first by default</h2>
             <p className="mt-3 text-sm leading-7 text-[#b1b1bd]">
-              The browser Workbench processes imported samples and inferred contracts locally and stores its default workspace data in IndexedDB. Your payloads are not uploaded to DriftMap by default. Cloud storage is used only when you explicitly enable and use workspace sync; data sent to a synced workspace is handled as described below.
+              Local Workbench comparisons process imported samples in the browser and store local workspace data in IndexedDB. Cloud sync sends the workspace snapshots you choose to sync to DriftMap. If you create a local Share Review Link, compressed review data is embedded in its URL; anyone who receives the URL can inspect that review, and opening it makes a request to DriftMap. Submitting the early-access or onboarding forms sends the fields you enter to DriftMap.
             </p>
           </section>
 
           <section className="py-8">
             <h2 className="text-xl font-semibold">Google sign-in</h2>
             <p className="mt-3 text-sm leading-7 text-[#b1b1bd]">
-              Google OAuth is used to authenticate you and identify the owner of a synced workspace. DriftMap uses the account identity required for sign-in and workspace ownership, not for advertising or unrelated profiling.
+              Google OAuth requests the openid, email, and profile scopes from Google. DriftMap uses the returned account identity to authenticate you and associate synced workspaces with their owner. If your Google profile includes a photo, the browser requests that image from its image URL to display your avatar.
+            </p>
+          </section>
+
+          <section className="py-8">
+            <h2 className="text-xl font-semibold">External resources</h2>
+            <p className="mt-3 text-sm leading-7 text-[#b1b1bd]">
+              The standalone Spatial prototype at <code>/driftmap-v3-spatial.html</code> loads Tailwind from cdn.tailwindcss.com and fonts from Google Fonts. Those asset requests send ordinary request metadata to the providers. The prototype comparison code does not submit the sample payloads.
             </p>
           </section>
 
           <section className="py-8">
             <h2 className="text-xl font-semibold">Synced workspaces and survey responses</h2>
             <p className="mt-3 text-sm leading-7 text-[#b1b1bd]">
-              If you enable workspace sync, cloud baselines and related workspace data are securely stored in DriftMap’s access-controlled Neon PostgreSQL database. If you complete the optional onboarding survey, your company-size range, primary API type, and CI/CD tool are stored with your user profile. Admin reporting uses aggregate category counts and does not return individual survey records or email addresses.
+              If you enable workspace sync, selected snapshots and related workspace data are stored in DriftMap’s PostgreSQL database through the Neon adapter. Workspace routes require an authenticated owner session. If you complete the optional onboarding survey, your company-size range, primary API type, and CI/CD tool are stored with your user profile. The admin survey export returns aggregate category counts rather than individual survey records or email addresses.
             </p>
           </section>
 
           <section className="py-8">
             <h2 className="text-xl font-semibold">Retention and deletion</h2>
             <p className="mt-3 text-sm leading-7 text-[#b1b1bd]">
-              Browser data remains in your browser until you clear it. Synced baselines and survey responses remain in cloud storage until they are removed or you request deletion. To request deletion of cloud data associated with your account, contact DriftMap support through the support channel provided with your account or service communications and identify the account or workspace you control. We may verify ownership before processing the request.
+              Local workspaces are stored in IndexedDB and can be deleted in the Workbench or by clearing this site&apos;s browser storage. The Workbench also provides deletion for synced workspaces and snapshots. The application does not currently provide a self-service account, survey-profile, or waitlist deletion control, and this page does not state a retention period or deletion timeline.
             </p>
           </section>
 
           <section className="py-8">
             <h2 className="text-xl font-semibold">Contact</h2>
             <p className="mt-3 text-sm leading-7 text-[#b1b1bd]">
-              For privacy questions or data requests, use the support channel provided with your account or service communications. Do not send account identifiers or other sensitive details through public channels.
+              The application does not currently publish a privacy contact address or an in-app data deletion request form. Do not send account identifiers or other sensitive details through public channels.
             </p>
           </section>
         </div>

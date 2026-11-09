@@ -1,14 +1,11 @@
-import type { Metadata } from "next";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
+import { SEO_METADATA } from "@/lib/seo/metadata";
 import { WorkbenchPage } from "@/components/driftmap/workbench-page";
 
-export const metadata: Metadata = {
-  title: "Workbench · DriftMap",
-  description: "Compare real JSON payloads or OpenAPI 3.0 contracts, infer the structural contract, and inspect classified semantic drift.",
-};
+export const metadata = SEO_METADATA.workbench;
 
 export default async function WorkbenchRoute() {
   const session = await auth();

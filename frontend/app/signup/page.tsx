@@ -1,6 +1,6 @@
-import type { Metadata } from "next";
 import { AuthPage } from "@/components/auth/auth-page";
+import { SEO_METADATA } from "@/lib/seo/metadata";
 
-export const metadata: Metadata = { title: "Get started · DriftMap", description: "Create your DriftMap account with Google and save cloud workspaces." };
+export const metadata = SEO_METADATA.signUp;
 
 export default function SignUpPage() { return <AuthPage mode="signup" />; }

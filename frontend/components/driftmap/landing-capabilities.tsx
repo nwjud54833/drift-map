@@ -16,7 +16,7 @@ import { useTiltCard } from "./use-tilt-card";
 
 const ISO_CAPTIONS: Record<number, string> = {
   0: "Showing all 3 stepped planes in isometric cascade — click any plane to pop forward at 0°.",
-  1: "Focused Plane 01 (0° flat): raw JSON samples stored locally in IndexedDB with zero server upload.",
+  1: "Focused Plane 01 (0° flat): raw JSON samples are stored in this browser's IndexedDB in local mode.",
   2: "Focused Plane 02 (0° flat): wildcard array indices (/items/0, /items/1) collapsed into /items/*/sku.",
   3: "Focused Plane 03 (0° flat): semantic compatibility rules score every drift with rule citations.",
 };
@@ -123,15 +123,15 @@ function RiskTaxonomyCard() {
         </div>
         <h3 className="text-xl font-semibold text-white mb-2.5">Semantic drift classification</h3>
         <p className="text-sm text-[#9496A1] leading-relaxed mb-6">
-          Separates breaking changes (removed fields, narrowed types) from warnings (new nullability, required-to-optional
-          shifts), safe additions, and informational notes.
+          Separates breaking changes (such as changed inferred JSON kinds or fields becoming required) from warnings (such as
+          response nullability or newly required response fields), safe additions, and informational changes such as fields becoming optional.
         </p>
       </div>
 
       <div className="relative z-10 space-y-2 font-mono text-xs">
         {[
           { severity: "breaking", text: "Field removed · Type narrowed" },
-          { severity: "warning", text: "Became nullable · Req → Opt" },
+          { severity: "warning", text: "Response became nullable" },
           { severity: "safe", text: "Optional field added" },
           { severity: "info", text: "Unchanged baseline contract" },
         ].map(({ severity, text }) => (
@@ -370,12 +370,12 @@ function LocalFirstCard() {
     <div ref={ref} className="lg:col-span-6 obsidian-card obsidian-card-spotlight obsidian-card-interactive rounded-2xl p-6 sm:p-8 flex flex-col justify-between">
       <div className="relative z-10">
         <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-xs font-mono text-emerald-300 mb-4">
-          <span>ZERO DEFAULT TELEMETRY</span>
+          <span>LOCAL WORKSPACE STORAGE</span>
         </div>
         <h3 className="text-xl font-semibold text-white mb-2.5">Local-first privacy</h3>
         <p className="text-sm text-[#9496A1] leading-relaxed mb-6">
-          Payloads stay in your browser via IndexedDB by default. Nothing is uploaded unless you sign in and explicitly sync a
-          workspace.
+          Local comparisons run in the browser and local workspaces are stored in IndexedDB. Cloud sync sends selected snapshots;
+          sharing a local review link embeds compressed review data in its URL.
         </p>
       </div>
 
@@ -385,16 +385,16 @@ function LocalFirstCard() {
             <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
             Browser storage engine
           </span>
-          <span className="text-white text-right">IndexedDB (`contract-atlas`)</span>
+            <span className="text-white text-right">IndexedDB (`contract-atlas`) · local mode</span>
         </div>
         <div className="flex items-center justify-between gap-3">
           <span className="text-[#9496A1]">Outbound payload calls</span>
-          <span className="text-emerald-400 font-semibold text-right">0 requests (offline-ready)</span>
+          <span className="text-emerald-400 font-semibold text-right">No automatic payload sync</span>
         </div>
         <div className="pt-1">
           <div className="flex justify-between gap-2 text-[10px] text-[#5E606E] mb-1">
             <span>DOCUMENT IMPORT CAP</span>
-            <span>2.0 MB MAX PER SPEC</span>
+            <span>2 MB MAX PER FILE</span>
           </div>
           <div className="w-full h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
             <div className="w-1/4 h-full bg-gradient-to-r from-emerald-400 to-sky-400 rounded-full" />

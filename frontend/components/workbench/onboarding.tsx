@@ -63,11 +63,11 @@ export function Onboarding({ mode, onImport, onLoadSample, onDismiss }: Onboardi
       </div>
 
       <div className="ca-onboarding-note ca-onboarding-mode">
-        <StatusPill mode={mode}>{mode === "cloud" ? "Cloud mode: snapshots are saved to your account" : "Local mode: data stays in this browser"}</StatusPill>
+        <StatusPill mode={mode}>{mode === "cloud" ? "Cloud mode: snapshots are saved to your account" : "Local mode: IndexedDB storage; cloud sync off"}</StatusPill>
         <span>
           {mode === "cloud"
-            ? "Local browser data is not uploaded and is not merged into cloud workspaces."
-            : "Nothing is uploaded. Switching to cloud does not migrate local data — there is no automatic sync."}
+            ? "Local browser data is not uploaded or merged into cloud workspaces automatically."
+            : "There is no automatic cloud sync. Sharing a review link embeds compressed review data in the URL; cloud sync is a separate action."}
           <span className="ca-onboarding-arrow"><ArrowRight size={12} aria-hidden="true" /> Read about storage modes in the footer.</span>
         </span>
       </div>

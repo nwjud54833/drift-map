@@ -292,7 +292,7 @@ export function WorkbenchShell(props: WorkbenchShellProps) {
   const signedInAs = account?.email ?? account?.name ?? null;
   const modeStatus = mode === "cloud"
     ? signedInAs ? `Cloud mode: signed in as ${signedInAs}` : "Cloud mode: signed in"
-    : "Local mode: data stays in this browser";
+    : "Local mode: IndexedDB storage; cloud sync is off";
 
   return (
     <div className="ca-app">

@@ -28,7 +28,7 @@ export function AuthPage({ mode }: { mode: "signin" | "signup" }) {
         <div className="auth-divider"><span>or</span></div>
         <Link href="/workbench" onClick={() => writeWorkbenchMode(browserPreferenceStorage(), "local")} className="auth-local-link"><span>Continue locally</span><ArrowRight size={15} aria-hidden="true" /></Link>
         <p className="auth-local-note">Your local workspace does not require an account.</p>
-        <div className="auth-trust-note"><ShieldCheck size={14} aria-hidden="true" /><span>Your Google account is used only for authentication.</span></div>
+        <div className="auth-trust-note"><ShieldCheck size={14} aria-hidden="true" /><span>Google sign-in authenticates you and associates your cloud workspace with your account.</span></div>
         <p className="auth-switch">{isSignUp ? "Already have an account?" : "New to DriftMap?"} <Link href={isSignUp ? "/signin" : "/signup"}>{isSignUp ? "Sign in" : "Get started"}</Link></p>
       </section>
     </main>

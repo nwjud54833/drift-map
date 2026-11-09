@@ -227,20 +227,19 @@ export function LandingHero() {
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse-dot shadow-[0_0_8px_#34D399]" />
             <span className="text-[11px] font-mono uppercase tracking-[0.14em] text-[#F4F4F6] font-medium">API CONTRACT REVIEW</span>
             <span className="text-white/20" aria-hidden="true">·</span>
-            <span className="text-[11px] font-mono text-[#9496A1]">Zero-upload IndexedDB engine</span>
+            <span className="text-[11px] font-mono text-[#9496A1]">Local-first IndexedDB review</span>
           </div>
 
           <h1 className="text-3xl sm:text-5xl lg:text-[56px] font-semibold tracking-tightest leading-[1.08] text-gradient-metallic mb-6">
-            Know exactly which JSON changes will break your consumers.
+            See which JSON changes could break your consumers.
           </h1>
 
           <p className="text-base sm:text-lg text-[#9496A1] leading-relaxed max-w-2xl mx-auto font-normal mb-8">
-            DriftMap infers a structural contract from real payload samples and classifies every drift as{" "}
+            DriftMap is an API contract testing tool for JSON payloads and OpenAPI 3.0 documents. It helps teams find compatibility risks by inferring each contract, comparing a baseline with a candidate, and classifying changes as{" "}
             <span className="text-rose-400 font-mono text-sm">breaking</span>,{" "}
             <span className="text-amber-400 font-mono text-sm">warning</span>,{" "}
             <span className="text-emerald-400 font-mono text-sm">safe</span>, or{" "}
-            <span className="text-sky-400 font-mono text-sm">info</span>{" "}
-            — so you review risk, not formatting noise.
+            <span className="text-sky-400 font-mono text-sm">informational</span>.
           </p>
 
           <div className="flex flex-wrap items-center justify-center gap-3 mb-9">
@@ -252,7 +251,7 @@ export function LandingHero() {
             </button>
 
             <a href="#team-ci-cloud" className="btn-geist-secondary px-4 py-2.5 rounded-xl text-sm inline-flex items-center gap-2">
-              <span>Secure Team CI Cloud</span>
+              <span>Team CI Cloud</span>
             </a>
 
             <a href="#deep-inspection" className="btn-geist-secondary px-4 py-2.5 rounded-xl text-sm inline-flex items-center gap-2 text-emerald-300">
@@ -298,7 +297,7 @@ export function LandingHero() {
                 <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
                 <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
               </svg>
-              IndexedDB · no upload by default
+              IndexedDB · cloud sync is separate
             </span>
           </div>
         </div>

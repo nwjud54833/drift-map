@@ -4,7 +4,7 @@ export default function robots(): MetadataRoute.Robots {
   return {
     rules: {
       userAgent: "*",
-      allow: ["/", "/workbench"],
+      allow: ["/", "/workbench", "/privacy", "/terms"],
       disallow: "/api/",
     },
     sitemap: "https://driftmap.in/sitemap.xml",

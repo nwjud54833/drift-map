@@ -136,9 +136,9 @@ const SCOPE_ITEMS = [
   { n: "01", title: "Evidence-based inference, not a formal schema validator", body: "Inference is evidence-based, not a formal schema validator — rare fields missing from your samples won't appear in the inferred contract." },
   { n: "02", title: "No fuzzy field rename matching", body: "Field renames appear as a removal plus an addition; fuzzy rename matching is not performed." },
   { n: "03", title: "OpenAPI 3.0 only (JSON & YAML)", body: "OpenAPI 3.0 only (JSON and YAML); OpenAPI 3.1 and Swagger 2.0 are not parsed, and external $ref URLs are rejected." },
-  { n: "04", title: "2 MB document import ceiling", body: "Imports are capped at 2 MB per payload or specification document to keep in-browser parsing responsive." },
+  { n: "04", title: "2 MB document import ceiling", body: "Imports are capped at 2 MB per JSON payload or OpenAPI specification document." },
   { n: "05", title: "Heuristic compatibility guidance", body: "Classifications are heuristic compatibility guidance, not a guarantee of runtime safety." },
-  { n: "06", title: "Browser-scoped IndexedDB persistence", body: "Local data lives in your browser's IndexedDB unless you explicitly sign in and sync." },
+  { n: "06", title: "Browser-scoped IndexedDB persistence", body: "Local workspaces are stored in this browser's IndexedDB. Cloud sync sends selected snapshots, and a local review link embeds its review data in the URL." },
 ] as const;
 
 export function LimitationsSection() {
@@ -232,7 +232,7 @@ export function PricingSection({ onOpenWorkbench }: { onOpenWorkbench: () => voi
     setSubmitting(false);
     if (result.ok) {
       setSubmitted(true);
-      setMessage("You’re on the Team Cloud early access list. We’ll follow up by email.");
+      setMessage("Request received. Your email is saved for Team Cloud early access.");
     } else {
       setMessage(result.message);
     }
@@ -335,7 +335,7 @@ export function PricingSection({ onOpenWorkbench }: { onOpenWorkbench: () => voi
             <a href="/signin" className="mt-4 inline-flex text-sm text-[#AEB0BA] underline underline-offset-4 hover:text-white">
               Already have an account? Sign in for Cloud Workspace Sync
             </a>
-            <p className="text-xs text-[#777985] mt-3">Team baseline tracking is planned; pricing and availability have not been announced.</p>
+            <p className="text-xs text-[#777985] mt-3">Team baseline tracking is shown as early access. This page does not list a price.</p>
           </article>
         </div>
       </div>

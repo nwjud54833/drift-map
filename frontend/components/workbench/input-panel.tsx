@@ -141,8 +141,8 @@ export function InputPanel({
 
         <p className="ca-input-note">
           {mode === "cloud"
-            ? "Saved to your cloud workspace. Local browser data is not uploaded or merged."
-            : "Saved to this browser only (IndexedDB). Nothing is uploaded, and there is no automatic sync to cloud."}
+            ? "Saved to your cloud workspace. Existing local browser data is not uploaded or merged automatically."
+            : "Saved to this browser's IndexedDB. Cloud sync is off; a shared review link can include compressed review data in its URL."}
           {other === null && " The other side is still empty, so no comparison is shown yet."}
         </p>
       </div>

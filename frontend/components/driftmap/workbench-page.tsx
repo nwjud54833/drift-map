@@ -885,6 +885,7 @@ export function WorkbenchPage() {
 
   return (
     <main id="view-workbench" className="relative z-10 flex-1 flex flex-col min-w-0">
+      <h1 className="sr-only">API contract workbench</h1>
       {!isReadOnlyReview && <WorkbenchToolbar
         workspaces={workspaces}
         active={active}
@@ -1013,7 +1014,7 @@ export function WorkbenchPage() {
         <span>
           {mode === "cloud"
             ? `Cloud mode · snapshots are saved to your account${session?.user?.email ? ` (${session.user.email})` : ""}`
-            : "Local mode · data stays in this browser (IndexedDB) · not synced to cloud"}
+            : "Local mode · IndexedDB storage · cloud sync is off"}
         </span>
         <span className="flex flex-wrap items-center gap-3">
           {!isReadOnlyReview && <span>⌘K commands · ↑↓ / JK rows · ⌘C report · ⌘S export</span>}

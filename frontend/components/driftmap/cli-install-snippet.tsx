@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-export const DRIFTMAP_CLI_COMMAND = "npx driftmap diff --baseline main.json --candidate candidate.json";
+export const DRIFTMAP_CLI_COMMAND = "npx driftmap-cli diff main.json candidate.json";
 
 export function CliInstallSnippet() {
   const [copyState, setCopyState] = useState<"idle" | "copied" | "unavailable">("idle");

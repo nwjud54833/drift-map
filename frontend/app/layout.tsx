@@ -40,8 +40,9 @@ const themeInitScript = `(function(){try{var k="driftmap.theme";var v=localStora
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://driftmap.in"),
-  title: "DriftMap — API Contract Review & Semantic Drift Engine",
-  description: "Review API contract changes with private schema gating built for secure team CI.",
+  title: "DriftMap API Contract Testing",
+  description: "Compare JSON payloads and OpenAPI 3.0 contracts. DriftMap infers schemas, classifies compatibility changes, and supports browser review and CI.",
+  alternates: { canonical: "/" },
   openGraph: {
     type: "website",
     url: "/",
