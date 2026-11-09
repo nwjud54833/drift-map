@@ -9,6 +9,11 @@ const frontendRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 // offline so a developer's .env.local database is never migrated implicitly.
 if (process.env.VERCEL !== "1") process.exit(0);
 
+if (process.env.VERCEL_ENV !== "production") {
+  console.log(`Skipping Prisma migrations: VERCEL_ENV is ${process.env.VERCEL_ENV || "unset"}, not production`);
+  process.exit(0);
+}
+
 const configuredUrl = process.env.DATABASE_URL_UNPOOLED?.trim() || process.env.DATABASE_URL?.trim();
 if (!configuredUrl) throw new Error("Vercel builds require DATABASE_URL or DATABASE_URL_UNPOOLED to deploy Prisma migrations.");
 
