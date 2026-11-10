@@ -242,11 +242,11 @@
       <div class="lg:col-span-7 space-y-6">
         <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.04] border border-white/10 text-xs font-mono text-zinc-300">
           <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-          <span>API CONTRACT REVIEW · ZERO-UPLOAD INDEXEDDB ENGINE</span>
+          <span>API CONTRACT REVIEW · LOCAL BROWSER COMPARISON</span>
         </div>
 
         <h1 class="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white leading-[1.08]">
-          Know exactly which <span class="text-transparent bg-clip-text bg-gradient-to-r from-rose-400 via-amber-300 to-sky-400">JSON changes</span> will break your consumers.
+          See which <span class="text-transparent bg-clip-text bg-gradient-to-r from-rose-400 via-amber-300 to-sky-400">JSON changes</span> could break your consumers.
         </h1>
 
         <p class="text-base sm:text-lg text-zinc-400 max-w-2xl leading-relaxed">
@@ -284,7 +284,7 @@
           <div class="p-3 rounded-xl bg-[#0A0A0D]/90 border border-white/10 flex items-center gap-3">
             <div class="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-400/30 flex items-center justify-center text-emerald-400 font-mono text-xs font-bold">0KB</div>
             <div>
-              <div class="text-xs font-semibold text-white">Zero Telemetry Upload</div>
+              <div class="text-xs font-semibold text-white">Browser-Local Sample Processing</div>
               <div class="text-[11px] text-zinc-400">IndexedDB local storage engine</div>
             </div>
           </div>
@@ -476,7 +476,7 @@
             <div id="spatial-plane-1" data-plane="1" class="spatial-plane cursor-pointer rounded-xl p-4 bg-[#0D0D14]/95 border-2 border-sky-400/45 shadow-2xl shadow-sky-500/10" style="transform: translateZ(-20px);">
               <div class="flex items-center justify-between mb-2">
                 <span class="text-xs font-mono font-bold text-sky-400">PLANE 01 · RAW JSON & OPENAPI 3.0 SAMPLES</span>
-                <span class="text-[10px] font-mono px-2 py-0.5 rounded badge-info">ZERO-UPLOAD INPUT</span>
+                <span class="text-[10px] font-mono px-2 py-0.5 rounded badge-info">BROWSER-LOCAL INPUT</span>
               </div>
               <pre class="font-mono text-[10px] text-zinc-400 overflow-x-auto leading-relaxed">{ "data": { "order_id": "ord_991", "currency": "USD", "items": [{ "sku": "PRO-1", "unit_cents": 4900 }] } }</pre>
             </div>
@@ -531,7 +531,7 @@
           </div>
           <h3 class="text-lg font-bold text-white">Paste Raw JSON or OpenAPI 3.0</h3>
           <p class="text-sm text-zinc-400 leading-relaxed">
-            Drop one or more production webhook payloads, response snapshots, or OpenAPI 3.0 (JSON/YAML) documents directly into the browser. Nothing leaves your machine.
+            Drop one or more webhook payloads, response snapshots, or OpenAPI 3.0 (JSON/YAML) documents into this browser-based prototype. Its comparison code runs in the browser; the page also requests its Tailwind script and fonts from external providers. Sharing data is not implemented here.
           </p>
           <div class="p-3 rounded-lg bg-[#050508] border border-white/10 font-mono text-[11px] text-zinc-300">
             POST /v1/orders/webhook → 3 samples loaded
@@ -622,7 +622,7 @@
       <div>
         <div class="text-xs font-mono uppercase tracking-widest text-zinc-400 mb-1">Transparent Boundaries</div>
         <h2 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Engineering Scope & Known Limitations</h2>
-        <p class="text-sm text-zinc-400 mt-1">DriftMap is built for fast, deterministic browser-local contract analysis with explicit engineering guardrails.</p>
+        <p class="text-sm text-zinc-400 mt-1">This prototype demonstrates browser-local contract analysis with explicit engineering guardrails.</p>
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -639,7 +639,7 @@
         <div class="glass-card rounded-xl p-5 space-y-2">
           <div class="text-xs font-mono text-emerald-400">MEMORY CEILING</div>
           <h3 class="text-sm font-bold text-white">2.0 MB Document Limit</h3>
-          <p class="text-xs text-zinc-400 leading-relaxed">Enforces a 2.0 MB ceiling per document inside the browser IndexedDB (<code class="font-mono">contract-atlas</code>) store to guarantee 60fps UI responsiveness.</p>
+          <p class="text-xs text-zinc-400 leading-relaxed">Limits each imported payload or specification document to 2 MB. This does not guarantee a particular frame rate.</p>
         </div>
         <div class="glass-card rounded-xl p-5 space-y-2">
           <div class="text-xs font-mono text-rose-400">COMPATIBILITY RULES</div>
@@ -981,7 +981,7 @@
       <div class="p-5 space-y-4">
         <pre id="pr-markdown-output" class="p-4 rounded-xl bg-[#050508] border border-white/10 font-mono text-xs text-zinc-200 overflow-x-auto max-h-80 overflow-y-auto leading-relaxed"></pre>
         <div class="flex items-center justify-between">
-          <span class="text-xs font-mono text-zinc-400">Generated locally via contract-atlas (0 bytes uploaded)</span>
+          <span class="text-xs font-mono text-zinc-400">Generated locally; prototype samples are not sent to its external asset providers</span>
           <button id="pr-copy-btn" type="button" class="px-4 py-2 rounded-xl bg-sky-500 text-black font-semibold text-xs font-mono hover:bg-sky-400 transition">
             Copy PR Markdown to Clipboard
           </button>
@@ -997,14 +997,14 @@
         <span class="text-xs font-mono px-2 py-0.5 rounded badge-info">LOCAL-FIRST PRIVACY</span>
         <button id="auth-close-btn" type="button" class="text-xs font-mono text-zinc-400 hover:text-white">ESC</button>
       </div>
-      <h3 class="text-lg font-bold text-white">Sign in for Optional Encrypted Snapshot Sync</h3>
+      <h3 class="text-lg font-bold text-white">Optional workspace sync</h3>
       <p class="text-xs text-zinc-400 leading-relaxed">
-        By default, DriftMap stores all schemas and payload snapshots locally in your browser's <code class="font-mono text-sky-300">IndexedDB (contract-atlas)</code>. Signing in enables end-to-end encrypted team snapshot sharing.
+        This standalone prototype stores its sample snapshots in this browser's <code class="font-mono text-sky-300">IndexedDB (contract-atlas)</code>. Its local demo sign-in does not connect to DriftMap accounts or provide cloud sync.
       </p>
       <div class="space-y-3 pt-1">
         <input id="auth-email-input" type="email" placeholder="engineer@company.dev" class="w-full bg-[#050508] border border-white/15 rounded-xl px-3.5 py-2.5 text-xs font-mono text-white focus:outline-none focus:border-sky-400" />
         <button id="auth-submit-btn" type="button" class="w-full py-2.5 rounded-xl bg-white text-black font-semibold text-xs hover:bg-zinc-200 transition">
-          Continue with Local Passkey / Magic Link
+          Start Local Demo Session
         </button>
       </div>
     </div>
@@ -1436,8 +1436,8 @@
         },
         '1': {
           tag: 'PLANE 01 · RAW JSON PAYLOADS & OPENAPI 3.0',
-          title: 'Zero-Upload Multi-Sample Ingestion',
-          desc: 'Ingests raw JSON response bodies or OpenAPI 3.0 YAML/JSON specifications up to 2.0 MB. Automatically parses nested objects and heterogeneous arrays without uploading data.'
+          title: 'Browser-Based Multi-Sample Ingestion',
+          desc: 'Ingests raw JSON response bodies or OpenAPI 3.0 YAML/JSON specifications up to 2 MB. The comparison runs in this browser; the page requests its Tailwind script and fonts from external providers.'
         },
         '2': {
           tag: 'PLANE 02 · INFERRED WILDCARD TREE (/items/*/sku)',
@@ -2286,7 +2286,7 @@
         });
 
         lines.push('');
-        lines.push('_Generated locally by **DriftMap v3.0 SPATIAL** (`contract-atlas` IndexedDB engine · 0 telemetry)_');
+        lines.push('_Generated in this browser by the standalone DriftMap Spatial prototype._');
         return lines.join('\n');
       }
 
