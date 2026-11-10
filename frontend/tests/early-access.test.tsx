@@ -50,7 +50,7 @@ describe("Team Cloud early access conversion", () => {
       onOpenDrawer={() => undefined} onFormatJSON={() => undefined} onInferAndCompare={() => undefined}
       streaming={false} onToggleStreaming={() => undefined} payloadBytes={0} onCopyMarkdown={() => undefined}
       onExportCI={() => undefined} onExportJSON={() => undefined} onShareReview={() => undefined} sharingReview={false}
-      pending={false} onLoadExampleDiff={() => undefined} cloudStatus={null} onSignIn={() => undefined}
+      pending={false} onLoadExampleDiff={() => undefined} cloudStatus={null} usageDisplay={{ state: "hidden" }} onSignIn={() => undefined}
     />);
     expect(toolbar).toContain('href="https://buy.stripe.com/test_123"');
     expect(toolbar).toContain('aria-label="Load Example Diff"');

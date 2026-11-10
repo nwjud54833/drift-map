@@ -1254,7 +1254,7 @@ export function PricingSection({ onOpenWorkbench }: { onOpenWorkbench: () => voi
             <h3 className="h3">Local review</h3>
             <p className="p">Review payload changes in your browser with files you provide.</p>
             <div style={{ marginTop: 16 }}>
-              <div className="li"><span className="dot" aria-hidden="true" /><span>In-browser workbench saved to IndexedDB</span></div>
+              <div className="li"><span className="dot" aria-hidden="true" /><span>Unlimited local comparisons in your browser, saved to IndexedDB</span></div>
               <div className="li"><span className="dot" aria-hidden="true" /><span>Inspect baseline and candidate contracts in your browser</span></div>
               <div className="li"><span className="dot" aria-hidden="true" /><span>Export review findings for your team workflows</span></div>
             </div>
@@ -1275,6 +1275,9 @@ export function PricingSection({ onOpenWorkbench }: { onOpenWorkbench: () => voi
             <div className="li"><span className="dot" aria-hidden="true" /><span>Automatic pull request comparisons across branches</span></div>
             <div className="li"><span className="dot" aria-hidden="true" /><span>Team review history for contract changes</span></div>
           </div>
+          <p className="p" style={{ marginTop: 16 }}>
+            Cloud comparison limits per UTC month: Free 50, Pro 1,000, Team 5,000. Local browser diffs are unlimited and do not use cloud runs.
+          </p>
 
           {checkoutUrl ? (
             <a className="btn bp" style={{ marginTop: 24 }} href={checkoutUrl} target="_blank" rel="noopener noreferrer">

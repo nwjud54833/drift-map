@@ -7,7 +7,8 @@ import { inferContract } from "@/lib/contract/infer";
 import { parsePayloadText } from "@/lib/contract/parse";
 import type { ChangeKind, ContractDirection, SnapshotSource, StoredContract } from "@/lib/contract/types";
 import { prisma } from "@/lib/db/prisma";
-import { apiError, isUuid, readJsonBody, requireAuthenticatedUser } from "@/lib/server/api";
+import { apiError, isUuid, readJsonBody, requireAuthenticatedUser, usageLimitResponse } from "@/lib/server/api";
+import { consumeCloudRun } from "@/lib/plans/usage";
 
 const directions = ["response", "request", "event"] as const;
 const sideSchema = z.object({
@@ -104,7 +105,13 @@ export async function POST(request: Request) {
     return apiError("Request body must be valid JSON.", 400);
   }
 
-  if ("baselineSnapshotId" in body) return saveSnapshotDiff(body, userId);
+  if ("baselineSnapshotId" in body) {
+    // Saved snapshot pairs still run compareContracts on the server, so they
+    // consume the same monthly cloud allowance as raw-payload comparisons.
+    const claim = await consumeCloudRun(userId);
+    if (!claim.ok) return usageLimitResponse(claim.usage);
+    return saveSnapshotDiff(body, userId);
+  }
 
   let baselineSamples;
   let candidateSamples;
@@ -116,6 +123,13 @@ export async function POST(request: Request) {
   }
 
   const direction = body.direction as ContractDirection;
+  // Metered: this request reaches the server to run a comparison. The run is
+  // claimed after input validation (so a malformed request costs nothing) and
+  // before the inference work (so the limit is a server-side gate, not a client
+  // courtesy). Local, in-browser diffs never reach this route.
+  const claim = await consumeCloudRun(userId);
+  if (!claim.ok) return usageLimitResponse(claim.usage);
+
   const baselineContract = inferContract(baselineSamples);
   const candidateContract = inferContract(candidateSamples);
   const changes = compareContracts(baselineContract, candidateContract, direction);

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { getMonthKeyResetsAt } from "@/lib/plans/limits";
+import type { UsageState } from "@/lib/plans/usage";
 
 export const MAX_API_BODY_BYTES = 4 * 1024 * 1024;
 export const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -26,6 +28,23 @@ export async function requireAuthenticatedUser(): Promise<{ ok: true; userId: st
 
 export function apiError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
+}
+
+/**
+ * The 429 a metered endpoint returns once a user's monthly cloud-run allowance
+ * is spent. Unlike `apiError`, `error` carries a stable machine-readable code
+ * and the human-readable sentence lives in `message`, so clients can branch on
+ * the code while still surfacing something a person can read.
+ */
+export function usageLimitResponse(usage: UsageState) {
+  return NextResponse.json(
+    {
+      error: "usage_limit_reached",
+      message: `You've used ${usage.cloudRuns} of ${usage.limit} cloud runs this month. Local diffs are still unlimited.`,
+      resetsAt: getMonthKeyResetsAt(usage.monthKey).toISOString(),
+    },
+    { status: 429 },
+  );
 }
 
 export async function readJsonBody(request: Request, maxBytes = MAX_API_BODY_BYTES): Promise<unknown> {

@@ -15,4 +15,8 @@ export const LANDING_FAQ_ITEMS = [
     question: "How do I run DriftMap in CI?",
     answer: "Run `npx driftmap-cli diff main.json candidate.json` to compare two local files. In GitHub Actions, configure the DriftMap Action with baseline-path and candidate-path inputs, then set fail-on to breaking or warning to choose the CI failure threshold.",
   },
+  {
+    question: "How many cloud comparisons are included?",
+    answer: "Local browser diffs are free and unlimited. Authenticated cloud comparisons are limited per UTC calendar month: Free includes 50 runs, Pro includes 1,000, and Team includes 5,000. The Workbench shows your current cloud usage. Team CI Cloud pricing and availability have not been announced.",
+  },
 ] as const;

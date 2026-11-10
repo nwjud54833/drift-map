@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Images } from "lucide-react";
 import type { ChangeSeverity, ContractDirection, ContractSnapshot, ImportArtifact, Workspace } from "@/lib/contract/types";
-import { buildDiff, compareContracts } from "@/lib/contract/compare";
+import { buildDiff } from "@/lib/contract/compare";
 import { OpenApiComparisonError } from "@/lib/contract/openapi";
 import { buildMarkdownReport, buildWorkspaceExport } from "@/lib/contract/export";
 import { sampleWarningsForSnapshots } from "@/lib/contract/sample-warnings";
@@ -15,6 +15,7 @@ import {
   createCloudWorkspace,
   deleteCloudSnapshot,
   deleteCloudWorkspace,
+  loadCloudUsage,
   loadCloudWorkbench,
   loadOrCreateCloudDiff,
   renameCloudSnapshot,
@@ -37,6 +38,7 @@ import { DriftAudioSynth } from "@/lib/driftmap/audio-synth";
 import { useRegisteredCommands } from "@/lib/driftmap/command-registry";
 import { browserPreferenceStorage, readActiveWorkspaceId, readWorkbenchMode, writeActiveWorkspaceId, writeWorkbenchMode } from "@/lib/workbench/preferences";
 import { parseImportArtifact } from "@/lib/workbench/import-artifact";
+import { compareLocalContracts } from "@/lib/workbench/local-comparison";
 import { useSpatialUIStore } from "@/stores/spatial-ui-store";
 import { toast, ToastRegion } from "@/components/ui/toast";
 import { WorkbenchInputPane, type WorkbenchInputHandle } from "./workbench-input-pane";
@@ -51,6 +53,9 @@ import { buildReviewPayload, decodeReviewState, encodeReviewState, parseReviewPa
 import { getExampleDiffPreset, type ExampleDiffPresetId } from "@/lib/workbench/example-presets";
 
 type WorkbenchMode = "local" | "cloud";
+type UsageDisplay =
+  | { state: "hidden" | "loading" | "error" }
+  | { state: "ready"; cloudRuns: number; limit: number };
 
 const LIVE_TRAFFIC_INTERVAL_MS = 1350;
 
@@ -109,12 +114,32 @@ export function WorkbenchPage() {
   const [reviewShareUrl, setReviewShareUrl] = useState<string | null>(null);
   const [reviewShareExpiry, setReviewShareExpiry] = useState<number | undefined>();
   const [reviewShareLoading, setReviewShareLoading] = useState(false);
+  const [usageDisplay, setUsageDisplay] = useState<UsageDisplay>({ state: "hidden" });
 
   const inputRef = useRef<WorkbenchInputHandle>(null);
   const centerRef = useRef<WorkbenchCenterHandle>(null);
   const restoredMode = useRef(false);
   const loadedMode = useRef<WorkbenchMode | null>(null);
   const trafficTick = useRef(0);
+
+  const refreshCloudUsage = useCallback(async () => {
+    if (sessionStatus !== "authenticated") return;
+    setUsageDisplay({ state: "loading" });
+    try {
+      const usage = await loadCloudUsage();
+      setUsageDisplay({ state: "ready", cloudRuns: usage.cloudRuns, limit: usage.limit });
+    } catch {
+      setUsageDisplay({ state: "error" });
+    }
+  }, [sessionStatus]);
+
+  useEffect(() => {
+    if (sessionStatus !== "authenticated") {
+      setUsageDisplay({ state: "hidden" });
+      return;
+    }
+    void refreshCloudUsage();
+  }, [sessionStatus, refreshCloudUsage]);
 
   /* ---------- Mode preference + data load ---------------------------------- */
 
@@ -282,7 +307,7 @@ export function WorkbenchPage() {
   const localChanges = useMemo(() => {
     if ((mode === "cloud" && !reviewPreview) || !hasComparison) return { changes: [], error: null as string | null };
     try {
-      return { changes: compareContracts(baseline!.contract, candidate!.contract, direction), error: null as string | null };
+      return { changes: compareLocalContracts(baseline!.contract, candidate!.contract, direction), error: null as string | null };
     } catch (reason) {
       return {
         changes: [],
@@ -316,14 +341,16 @@ export function WorkbenchPage() {
           direction,
         });
         setSavedDiffStatus("ready");
+        void refreshCloudUsage();
       })
       .catch((reason: unknown) => {
         if (cancelled) return;
         setSavedDiffStatus("error");
         setError(reason instanceof Error ? reason.message : "Unable to load the saved comparison.");
+        void refreshCloudUsage();
       });
     return () => { cancelled = true; };
-  }, [reviewPreview, mode, active, baseline, candidate, direction]);
+  }, [reviewPreview, mode, active, baseline, candidate, direction, refreshCloudUsage]);
 
   const savedDiffMatches = Boolean(savedDiff)
     && savedDiff!.workspaceId === active?.id
@@ -906,6 +933,7 @@ export function WorkbenchPage() {
         pending={pendingAction !== null || ciExportLoading}
         onLoadExampleDiff={(preset) => void loadExampleDiff(preset)}
         cloudStatus={sessionStatus === "authenticated" ? (session?.user?.email ?? "signed in") : null}
+        usageDisplay={usageDisplay}
         onSignIn={() => { window.location.href = "/signin"; }}
       />}
 
@@ -924,7 +952,7 @@ export function WorkbenchPage() {
       )}
 
       {error && (
-        <div className="px-4 sm:px-6 py-2 bg-rose-950/40 border-b border-rose-500/30 text-xs font-mono text-rose-200 flex items-center justify-between gap-3">
+        <div role="alert" className="px-4 sm:px-6 py-2 bg-rose-950/40 border-b border-rose-500/30 text-xs font-mono text-rose-200 flex items-center justify-between gap-3">
           <span className="min-w-0">{error}</span>
           <button type="button" onClick={() => setError(null)} className="text-rose-200 hover:text-white shrink-0">Dismiss</button>
         </div>

@@ -42,7 +42,7 @@ export default function PrivacyPage() {
           <section className="py-8">
             <h2 className="text-xl font-semibold">Synced workspaces and survey responses</h2>
             <p className="mt-3 text-sm leading-7 text-[#b1b1bd]">
-              If you enable workspace sync, selected snapshots and related workspace data are stored in DriftMap’s PostgreSQL database through the Neon adapter. Workspace routes require an authenticated owner session. If you complete the optional onboarding survey, your company-size range, primary API type, and CI/CD tool are stored with your user profile. The admin survey export returns aggregate category counts rather than individual survey records or email addresses.
+              If you enable workspace sync, selected snapshots and related workspace data are stored in DriftMap’s PostgreSQL database through the Neon adapter. Workspace routes require an authenticated owner session. Cloud comparison usage is recorded as a monthly count associated with your user account; the usage counter stores the UTC month and number of cloud runs. If you complete the optional onboarding survey, your company-size range, primary API type, and CI/CD tool are stored with your user profile. The admin survey export returns aggregate category counts rather than individual survey records or email addresses.
             </p>
           </section>
 

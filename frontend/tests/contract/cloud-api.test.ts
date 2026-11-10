@@ -1,9 +1,28 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { loadCloudWorkbench, loadOrCreateCloudDiff } from "@/lib/db/cloud-api";
+import { loadCloudUsage, loadCloudWorkbench, loadOrCreateCloudDiff } from "@/lib/db/cloud-api";
 
 afterEach(() => vi.unstubAllGlobals());
 
 describe("cloud diff hydration", () => {
+  it("loads the authenticated user's monthly cloud usage without caching", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ usage: { cloudRuns: 7, limit: 50 } }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(loadCloudUsage()).resolves.toEqual({ cloudRuns: 7, limit: 50 });
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/usage", { cache: "no-store" });
+  });
+
+  it("preserves the human-readable usage limit message for an inline Workbench notice", async () => {
+    const message = "You've used 50 of 50 cloud runs this month. Local diffs are still unlimited.";
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      error: "usage_limit_reached", message, resetsAt: "2026-12-01T00:00:00.000Z",
+    }), { status: 429 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(loadOrCreateCloudDiff("workspace-1", "before-1", "after-1", "response")).rejects.toThrow(message);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("reloads cloud workspaces, snapshot pointers, and saved OpenAPI snapshots", async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ workspaces: [{ id: "workspace-1" }] }), { status: 200 }))

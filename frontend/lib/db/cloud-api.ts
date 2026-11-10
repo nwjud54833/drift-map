@@ -3,7 +3,8 @@ import type { ContractChange, ContractDirection, ContractSnapshot, DiffSummary, 
 async function responseError(response: Response, fallback: string): Promise<string> {
   if (response.status === 401) return "Your session expired. Sign in again to use Cloud mode.";
   try {
-    const result = await response.json() as { error?: unknown };
+    const result = await response.json() as { error?: unknown; message?: unknown };
+    if (response.status === 429 && typeof result.message === "string" && result.message.trim()) return result.message;
     if (typeof result.error === "string" && result.error.trim()) return result.error;
   } catch { /* Use the safe fallback for non-JSON responses. */ }
   return fallback;
@@ -43,6 +44,16 @@ export async function loadCloudWorkbench(): Promise<{ workspaces: Workspace[]; s
     });
   });
   return { workspaces, snapshots };
+}
+
+export async function loadCloudUsage(): Promise<{ cloudRuns: number; limit: number }> {
+  const response = await fetch("/api/v1/usage", { cache: "no-store" });
+  if (!response.ok) throw new Error(await responseError(response, "Unable to load cloud usage."));
+  const result = await response.json() as { usage?: { cloudRuns?: unknown; limit?: unknown } };
+  if (typeof result.usage?.cloudRuns !== "number" || typeof result.usage.limit !== "number") {
+    throw new Error("Cloud usage response is invalid.");
+  }
+  return { cloudRuns: result.usage.cloudRuns, limit: result.usage.limit };
 }
 
 export async function createCloudWorkspace(name: string, direction: Workspace["direction"]): Promise<Workspace> {
@@ -106,7 +117,11 @@ export async function loadOrCreateCloudDiff(workspaceId: string, baselineSnapsho
   if (!response.ok) {
     if (response.status === 401) throw new Error("Your session expired. Sign in again to use Cloud mode.");
     let message = "Unable to load the saved comparison.";
-    try { const result = await response.json() as { error?: string }; if (typeof result.error === "string") message = result.error; } catch { /* keep generic safe message */ }
+    try {
+      const result = await response.json() as { error?: string; message?: string };
+      if (response.status === 429 && typeof result.message === "string" && result.message.trim()) message = result.message;
+      else if (typeof result.error === "string") message = result.error;
+    } catch { /* keep generic safe message */ }
     throw new Error(message);
   }
   const result = await response.json() as { diff: { id: string; summary: DiffSummary; changes: Array<Record<string, unknown>> } };

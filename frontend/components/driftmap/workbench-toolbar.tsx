@@ -36,6 +36,7 @@ export interface WorkbenchToolbarProps {
   pending: boolean;
   onLoadExampleDiff: (preset: ExampleDiffPresetId) => void;
   cloudStatus: string | null;
+  usageDisplay: { state: "hidden" | "loading" | "error" } | { state: "ready"; cloudRuns: number; limit: number };
   onSignIn: () => void;
 }
 
@@ -45,6 +46,15 @@ function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+}
+
+function usageLabel(usageDisplay: WorkbenchToolbarProps["usageDisplay"]): string | null {
+  switch (usageDisplay.state) {
+    case "hidden": return null;
+    case "loading": return "Loading cloud usage…";
+    case "error": return "Cloud usage unavailable";
+    case "ready": return `${usageDisplay.cloudRuns} of ${usageDisplay.limit} cloud runs used this month`;
+  }
 }
 
 export function WorkbenchToolbar({
@@ -67,10 +77,12 @@ export function WorkbenchToolbar({
   pending,
   onLoadExampleDiff,
   cloudStatus,
+  usageDisplay,
   onSignIn,
 }: WorkbenchToolbarProps) {
   const overCap = payloadBytes > MAX_IMPORT_BYTES;
   const checkoutUrl = getProCheckoutUrl();
+  const cloudUsageLabel = usageLabel(usageDisplay);
 
   return (
     <div className="bg-[#0A0A0D] border-b border-white/[0.08] px-4 sm:px-6 py-2.5">
@@ -144,6 +156,17 @@ export function WorkbenchToolbar({
             </svg>
             <span>Infer &amp; Compare</span>
           </button>
+
+          {cloudUsageLabel && (
+            <span
+              className="rounded-md border border-white/[0.08] bg-white/[0.03] px-2.5 py-1.5 text-[10px] font-mono text-[#9496A1]"
+              role="status"
+              aria-live="polite"
+              title="Only server-side Cloud mode comparisons use a cloud run. Local browser diffs are unlimited."
+            >
+              {cloudUsageLabel}
+            </span>
+          )}
 
           <button
             type="button"

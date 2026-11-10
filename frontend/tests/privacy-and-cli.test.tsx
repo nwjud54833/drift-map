@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import PrivacyPage from "@/app/privacy/page";
 import TermsPage from "@/app/terms/page";
-import { LandingV4, SiteFooter } from "@/components/driftmap/landing-v4";
+import { LandingV4, PricingSection, SiteFooter } from "@/components/driftmap/landing-v4";
 import { CliInstallSnippet, DRIFTMAP_CLI_COMMAND } from "@/components/driftmap/cli-install-snippet";
 
 describe("privacy policy and CLI hero snippet", () => {
@@ -12,6 +12,8 @@ describe("privacy policy and CLI hero snippet", () => {
     expect(html).toContain("IndexedDB");
     expect(html).toContain("Google OAuth");
     expect(html).toContain("PostgreSQL database through the Neon adapter");
+    expect(html).toContain("monthly count associated with your user account");
+    expect(html).toContain("UTC month and number of cloud runs");
     expect(html).toContain("does not currently provide a self-service account");
   });
 
@@ -43,5 +45,12 @@ describe("privacy policy and CLI hero snippet", () => {
     expect(html).not.toContain("MIT License");
     expect(html).toContain("Open the workbench");
     expect(html).toContain('id="capabilities"');
+  });
+
+  it("shows unlimited local diffs and the configured monthly cloud-run allowances", () => {
+    const pricing = renderToStaticMarkup(<PricingSection onOpenWorkbench={() => undefined} />);
+    expect(pricing).toContain("Unlimited local comparisons in your browser");
+    expect(pricing).toContain("Free 50, Pro 1,000, Team 5,000");
+    expect(pricing).toContain("Local browser diffs are unlimited and do not use cloud runs.");
   });
 });

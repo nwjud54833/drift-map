@@ -60,10 +60,29 @@ model User {
   emailVerified   DateTime?
   image           String?
   surveyCompleted Boolean         @default(false)
+  // A String rather than an enum so introducing a tier is a config change
+  // instead of a migration. Unknown values are normalised to "free" at read
+  // time; see lib/plans/limits.ts.
+  plan            String          @default("free")
   profile         UserProfile?
   accounts        Account[]
   sessions        Session[]
   workspaces      Workspace[]
+  usageCounters   UsageCounter[]
+}
+
+/** Monthly cloud comparison runs consumed by one user. */
+model UsageCounter {
+  id        String   @id @default(cuid())
+  userId    String
+  monthKey  String
+  cloudRuns Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, monthKey])
 }
 
 model UserProfile {
