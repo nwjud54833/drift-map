@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import { PricingSection } from "@/components/driftmap/landing-sections";
+import { PricingSection } from "@/components/driftmap/landing-v4";
 import { WorkbenchToolbar } from "@/components/driftmap/workbench-toolbar";
 import { submitEarlyAccessRequest } from "@/lib/client/early-access";
 import { getProCheckoutUrl } from "@/lib/client/pro-checkout";

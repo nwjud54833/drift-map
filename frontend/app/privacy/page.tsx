@@ -35,7 +35,7 @@ export default function PrivacyPage() {
           <section className="py-8">
             <h2 className="text-xl font-semibold">External resources</h2>
             <p className="mt-3 text-sm leading-7 text-[#b1b1bd]">
-              The standalone Spatial prototype at <code>/driftmap-v3-spatial.html</code> loads Tailwind from cdn.tailwindcss.com and fonts from Google Fonts. Those asset requests send ordinary request metadata to the providers. The prototype comparison code does not submit the sample payloads.
+              The standalone landing prototype at <code>/driftmap-v3-spatial.html</code> loads its fonts from Google Fonts. Those asset requests send ordinary request metadata to the provider. The prototype comparison code does not submit the sample payloads.
             </p>
           </section>
 

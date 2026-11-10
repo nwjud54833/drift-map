@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Inter, Instrument_Serif, JetBrains_Mono } from "next/font/google";
 import "./tokens.css";
 import "./globals.css";
 import "./primitives.css";
-import "./landing.css";
 import "./workbench.css";
+import "./landing-v4.css";
 import { Providers } from "./providers";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { ObsidianShell } from "@/components/driftmap/obsidian-shell";
@@ -22,6 +22,29 @@ const jetbrainsMono = JetBrains_Mono({
   weight: ["400", "500", "600"],
   style: ["normal", "italic"],
   variable: "--font-jetbrains-mono",
+  display: "swap",
+});
+
+// The landing design is set in Geist, Geist Mono and Instrument Serif. They are
+// self-hosted here for the same reason, so landing-v4.css can reference them
+// through these variables instead of a Google Fonts <link>.
+const geist = Geist({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-geist",
+  display: "swap",
+});
+const geistMono = Geist_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--font-geist-mono",
+  display: "swap",
+});
+const instrumentSerif = Instrument_Serif({
+  subsets: ["latin"],
+  weight: ["400"],
+  style: ["normal", "italic"],
+  variable: "--font-instrument-serif",
   display: "swap",
 });
 
@@ -77,7 +100,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
-      <body className={`${inter.variable} ${jetbrainsMono.variable} obsidian-surface min-h-screen flex flex-col selection:bg-white/20 selection:text-white`}>
+      <body className={`${inter.variable} ${jetbrainsMono.variable} ${geist.variable} ${geistMono.variable} ${instrumentSerif.variable} obsidian-surface min-h-screen flex flex-col selection:bg-white/20 selection:text-white`}>
         <ThemeProvider>
           <Providers>
             <ObsidianShell>{children}</ObsidianShell>

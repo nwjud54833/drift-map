@@ -2,9 +2,8 @@ import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import PrivacyPage from "@/app/privacy/page";
 import TermsPage from "@/app/terms/page";
-import DriftmapLanding from "@/components/landing/driftmap-landing";
+import { LandingV4, SiteFooter } from "@/components/driftmap/landing-v4";
 import { CliInstallSnippet, DRIFTMAP_CLI_COMMAND } from "@/components/driftmap/cli-install-snippet";
-import { SiteFooter } from "@/components/driftmap/landing-sections";
 
 describe("privacy policy and CLI hero snippet", () => {
   it("renders the local-first, OAuth, synced data, and deletion policy sections", () => {
@@ -37,11 +36,12 @@ describe("privacy policy and CLI hero snippet", () => {
     expect(html).toContain(">Terms</a>");
   });
 
-  it("keeps the legacy landing UI free of public source repository links", () => {
-    const html = renderToStaticMarkup(<DriftmapLanding />);
+  it("keeps the landing UI free of public source repository links", () => {
+    const html = renderToStaticMarkup(<LandingV4 />);
     expect(html).not.toContain("Read the README");
     expect(html).not.toContain("github.com/");
     expect(html).not.toContain("MIT License");
-    expect(html).toContain("Explore capabilities");
+    expect(html).toContain("Open the workbench");
+    expect(html).toContain('id="capabilities"');
   });
 });

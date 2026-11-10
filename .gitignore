@@ -29,6 +29,12 @@ coverage/
 # --- Local tooling metadata ---
 .freebuff/
 
+# --- Stray nested checkout ---
+# A full second clone of this repository used for release work. It carries its
+# own .git, so leaving it untracked would keep a permanent mass of noise in
+# `git status` and risk committing one repository into the other.
+drift-map/
+
 # --- Editors / OS ---
 .vscode/
 .idea/
