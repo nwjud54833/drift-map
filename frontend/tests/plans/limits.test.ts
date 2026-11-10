@@ -19,6 +19,7 @@ describe("PLAN_LIMITS", () => {
     expect(PLAN_LIMITS.free).toEqual({ cloudRunsPerMonth: 50, workspaces: 3, historyDays: 30 });
     expect(PLAN_LIMITS.pro).toEqual({ cloudRunsPerMonth: 1000, workspaces: Infinity, historyDays: 365 });
     expect(PLAN_LIMITS.team).toEqual({ cloudRunsPerMonth: 5000, workspaces: Infinity, historyDays: 365 });
+    expect(PLAN_LIMITS.founder).toEqual({ cloudRunsPerMonth: 1000, workspaces: Infinity, historyDays: 365 });
   });
 
   it("keeps each tier at least as generous as the one below it", () => {
@@ -80,6 +81,7 @@ describe("normalizePlan", () => {
     expect(normalizePlan("free")).toBe("free");
     expect(normalizePlan("pro")).toBe("pro");
     expect(normalizePlan("team")).toBe("team");
+    expect(normalizePlan("founder")).toBe("founder");
   });
 
   it("falls back to the most restrictive tier for anything else", () => {
@@ -102,6 +104,7 @@ describe("isPlan", () => {
   it("accepts only the declared tiers", () => {
     expect(isPlan("free")).toBe(true);
     expect(isPlan("team")).toBe(true);
+    expect(isPlan("founder")).toBe(true);
     expect(isPlan("Enterprise")).toBe(false);
     expect(isPlan(null)).toBe(false);
   });

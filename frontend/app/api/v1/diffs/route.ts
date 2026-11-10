@@ -8,7 +8,7 @@ import { parsePayloadText } from "@/lib/contract/parse";
 import type { ChangeKind, ContractDirection, SnapshotSource, StoredContract } from "@/lib/contract/types";
 import { prisma } from "@/lib/db/prisma";
 import { apiError, isUuid, readJsonBody, requireAuthenticatedUser, usageLimitResponse } from "@/lib/server/api";
-import { consumeCloudRun } from "@/lib/plans/usage";
+import { consumeCloudRun, refundCloudRun } from "@/lib/plans/usage";
 
 const directions = ["response", "request", "event"] as const;
 const sideSchema = z.object({
@@ -33,6 +33,19 @@ const sourceToDb: Record<SnapshotSource, "paste" | "file" | "fixture" | "workspa
   paste: "paste", file: "file", fixture: "fixture", "workspace-import": "workspace_import",
 };
 const kindToDb = (kind: ChangeKind): PrismaChangeKind => kind.replaceAll("-", "_") as PrismaChangeKind;
+
+async function compareWithRefund<T>(userId: string, monthKey: string, compare: () => T | Promise<T>): Promise<T> {
+  try {
+    return await compare();
+  } catch (error) {
+    try {
+      await refundCloudRun(userId, monthKey);
+    } catch (refundError) {
+      console.error("Failed to refund a cloud run after comparison failure.", refundError);
+    }
+    throw error;
+  }
+}
 
 /**
  * Lists persisted diffs for the session user. When `workspaceId` query
@@ -106,11 +119,14 @@ export async function POST(request: Request) {
   }
 
   if ("baselineSnapshotId" in body) {
+    const validation = await validateSnapshotDiff(body, userId);
+    if (!validation.ok) return validation.response;
+
     // Saved snapshot pairs still run compareContracts on the server, so they
     // consume the same monthly cloud allowance as raw-payload comparisons.
     const claim = await consumeCloudRun(userId);
     if (!claim.ok) return usageLimitResponse(claim.usage);
-    return saveSnapshotDiff(body, userId);
+    return saveSnapshotDiff(body, userId, claim.usage.monthKey);
   }
 
   let baselineSamples;
@@ -130,9 +146,12 @@ export async function POST(request: Request) {
   const claim = await consumeCloudRun(userId);
   if (!claim.ok) return usageLimitResponse(claim.usage);
 
-  const baselineContract = inferContract(baselineSamples);
-  const candidateContract = inferContract(candidateSamples);
-  const changes = compareContracts(baselineContract, candidateContract, direction);
+  const { baselineContract, candidateContract, changes } = await compareWithRefund(userId, claim.usage.monthKey, () => {
+    const baselineContract = inferContract(baselineSamples);
+    const candidateContract = inferContract(candidateSamples);
+    const changes = compareContracts(baselineContract, candidateContract, direction);
+    return { baselineContract, candidateContract, changes };
+  });
   const generatedAt = new Date().toISOString();
 
   try {
@@ -191,7 +210,22 @@ export async function POST(request: Request) {
   }
 }
 
-async function saveSnapshotDiff(body: z.infer<typeof snapshotDiffRequestSchema>, userId: string) {
+async function validateSnapshotDiff(body: z.infer<typeof snapshotDiffRequestSchema>, userId: string): Promise<{ ok: true } | { ok: false; response: NextResponse }> {
+  try {
+    const workspace = await prisma.workspace.findFirst({ where: { id: body.workspaceId, userId }, select: { id: true } });
+    if (!workspace) return { ok: false, response: apiError("Workspace or snapshot not found.", 404) };
+    const snapshots = await Promise.all([
+      prisma.contractSnapshot.findFirst({ where: { id: body.baselineSnapshotId, workspaceId: workspace.id }, select: { id: true } }),
+      prisma.contractSnapshot.findFirst({ where: { id: body.candidateSnapshotId, workspaceId: workspace.id }, select: { id: true } }),
+    ]);
+    if (snapshots.some((snapshot) => !snapshot)) return { ok: false, response: apiError("Workspace or snapshot not found.", 404) };
+    return { ok: true };
+  } catch {
+    return { ok: false, response: apiError("Unable to save the diff.", 500) };
+  }
+}
+
+async function saveSnapshotDiff(body: z.infer<typeof snapshotDiffRequestSchema>, userId: string, monthKey: string) {
   try {
     const result = await prisma.$transaction(async (tx) => {
       const workspace = await tx.workspace.findFirst({ where: { id: body.workspaceId, userId } });
@@ -202,7 +236,11 @@ async function saveSnapshotDiff(body: z.infer<typeof snapshotDiffRequestSchema>,
       ]);
       if (!baseline || !candidate) return null;
       const direction = workspace.direction as ContractDirection;
-      const changes = compareContracts(baseline.contract as unknown as StoredContract, candidate.contract as unknown as StoredContract, direction);
+      const changes = await compareWithRefund(userId, monthKey, () => compareContracts(
+        baseline.contract as unknown as StoredContract,
+        candidate.contract as unknown as StoredContract,
+        direction,
+      ));
       const diff = buildDiff(baseline.id, candidate.id, direction, changes);
       const unique = { baselineSnapshotId: baseline.id, candidateSnapshotId: candidate.id, direction };
       const saved = await tx.contractDiff.upsert({

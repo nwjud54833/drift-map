@@ -93,3 +93,15 @@ export async function consumeCloudRun(userId: string, now: Date = new Date()): P
     { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
   );
 }
+
+/**
+ * Return one previously claimed run to its original UTC month. The conditional
+ * update is atomic, so concurrent refunds cannot drive the counter below zero.
+ */
+export async function refundCloudRun(userId: string, monthKey: string): Promise<boolean> {
+  const refunded = await prisma.usageCounter.updateMany({
+    where: { userId, monthKey, cloudRuns: { gt: 0 } },
+    data: { cloudRuns: { decrement: 1 } },
+  });
+  return refunded.count === 1;
+}

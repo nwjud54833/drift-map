@@ -13,7 +13,7 @@
  * `PlanLimit` object directly into an HTTP response.
  */
 
-export type Plan = "free" | "pro" | "team";
+export type Plan = "free" | "pro" | "team" | "founder";
 
 export interface PlanLimit {
   /** Cloud comparison runs allowed per calendar month. */
@@ -28,6 +28,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimit> = {
   free: { cloudRunsPerMonth: 50, workspaces: 3, historyDays: 30 },
   pro: { cloudRunsPerMonth: 1000, workspaces: Infinity, historyDays: 365 },
   team: { cloudRunsPerMonth: 5000, workspaces: Infinity, historyDays: 365 },
+  founder: { cloudRunsPerMonth: 1000, workspaces: Infinity, historyDays: 365 },
 };
 
 export const DEFAULT_PLAN: Plan = "free";
@@ -35,7 +36,7 @@ export const DEFAULT_PLAN: Plan = "free";
 const MONTH_KEY_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 export function isPlan(value: unknown): value is Plan {
-  return value === "free" || value === "pro" || value === "team";
+  return value === "free" || value === "pro" || value === "team" || value === "founder";
 }
 
 /**

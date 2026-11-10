@@ -20,7 +20,7 @@ vi.mock("@/lib/db/prisma", () => ({
   },
 }));
 
-import { consumeCloudRun } from "@/lib/plans/usage";
+import { consumeCloudRun, refundCloudRun } from "@/lib/plans/usage";
 
 describe("consumeCloudRun", () => {
   let cloudRuns = 0;
@@ -38,10 +38,20 @@ describe("consumeCloudRun", () => {
     cloudRuns = 0;
     db.userFindUnique.mockResolvedValue({ plan: "free" });
     db.counterCreateMany.mockResolvedValue({ count: 1 });
-    db.counterUpdateMany.mockImplementation(async (args: { where: { cloudRuns: { lt: number } }; data: { cloudRuns: { increment: number } } }) => {
-      if (cloudRuns >= args.where.cloudRuns.lt) return { count: 0 };
-      cloudRuns += args.data.cloudRuns.increment;
-      return { count: 1 };
+    db.counterUpdateMany.mockImplementation(async (args: {
+      where: { cloudRuns: { lt?: number; gt?: number } };
+      data: { cloudRuns: { increment?: number; decrement?: number } };
+    }) => {
+      if (typeof args.where.cloudRuns.lt === "number") {
+        if (cloudRuns >= args.where.cloudRuns.lt) return { count: 0 };
+        cloudRuns += args.data.cloudRuns.increment ?? 1;
+        return { count: 1 };
+      }
+      if (typeof args.where.cloudRuns.gt === "number" && cloudRuns > args.where.cloudRuns.gt) {
+        cloudRuns -= args.data.cloudRuns.decrement ?? 1;
+        return { count: 1 };
+      }
+      return { count: 0 };
     });
     db.counterFindUnique.mockImplementation(async () => ({ cloudRuns }));
     db.transaction.mockImplementation(async (callback: (client: typeof tx) => Promise<unknown>) => callback(tx));
@@ -68,5 +78,18 @@ describe("consumeCloudRun", () => {
     expect(claims.filter((claim) => claim.ok)).toHaveLength(1);
     expect(cloudRuns).toBe(50);
     expect(claims.filter((claim) => !claim.ok).every((claim) => claim.usage.cloudRuns === 50)).toBe(true);
+  });
+
+  it("refunds one run only when the counter is above zero", async () => {
+    cloudRuns = 1;
+    await expect(refundCloudRun("user-1", "2026-11")).resolves.toBe(true);
+    expect(cloudRuns).toBe(0);
+    expect(db.counterUpdateMany).toHaveBeenCalledWith({
+      where: { userId: "user-1", monthKey: "2026-11", cloudRuns: { gt: 0 } },
+      data: { cloudRuns: { decrement: 1 } },
+    });
+
+    await expect(refundCloudRun("user-1", "2026-11")).resolves.toBe(false);
+    expect(cloudRuns).toBe(0);
   });
 });
