@@ -467,7 +467,8 @@ function SiteHeader() {
     <div id="site-header-wrap" className={`site-header-wrap${scrolled ? " scrolled" : ""}`}>
       <header className="w site-header">
         <Link href="/" className="brand-link">
-          <Image src="/brand/driftmap-horizontal@2x.webp" alt="DriftMap" width={102} height={30} priority />
+          <Image src="/brand/driftmap-icon-header.webp" alt="" width={26} height={26} priority />
+          <span>DriftMap</span>
         </Link>
         <nav className="nav-links" aria-label="Primary">
           <a className={SECTION_LINK_CLASS} href="#how">How it works</a>

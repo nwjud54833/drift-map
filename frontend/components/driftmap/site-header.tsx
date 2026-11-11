@@ -87,7 +87,8 @@ export function SiteHeader() {
         {/* Left: brand identity + single-line section anchors */}
         <div className="flex items-center gap-3 min-w-0 shrink-0">
           <Link href="/" className="group flex items-center gap-2.5 text-left focus:outline-none shrink-0">
-            <Image src="/brand/driftmap-horizontal@2x.webp" alt="DriftMap" width={96} height={28} priority />
+            <Image src="/brand/driftmap-icon-header.webp" alt="" width={28} height={28} priority />
+            <span className="font-semibold tracking-tight text-white text-sm whitespace-nowrap shrink-0">DriftMap</span>
             <span className="hidden sm:inline-flex items-center h-5 px-2 rounded text-[10px] font-mono font-medium bg-white/[0.05] text-[#9496A1] border border-white/[0.08] whitespace-nowrap shrink-0">
               SECURE TEAM CI
             </span>
