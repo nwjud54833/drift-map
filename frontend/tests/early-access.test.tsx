@@ -1,9 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
+import type { Workspace } from "@/lib/contract/types";
 import { PricingSection } from "@/components/driftmap/landing-v4";
+import { SiteHeader } from "@/components/driftmap/site-header";
 import { WorkbenchToolbar } from "@/components/driftmap/workbench-toolbar";
 import { submitEarlyAccessRequest } from "@/lib/client/early-access";
 import { getProCheckoutUrl } from "@/lib/client/pro-checkout";
+
+vi.mock("next/navigation", () => ({ usePathname: () => "/workbench" }));
+vi.mock("next-auth/react", () => ({ useSession: () => ({ status: "authenticated" }) }));
 
 afterEach(() => vi.unstubAllEnvs());
 
@@ -53,10 +58,58 @@ describe("Team Cloud early access conversion", () => {
       pending={false} onLoadExampleDiff={() => undefined} cloudStatus={null} onSignIn={() => undefined}
     />);
     expect(toolbar).toContain('href="https://buy.stripe.com/test_123"');
-    expect(toolbar).toContain('aria-label="Load Example Diff"');
+    expect(toolbar).toContain('aria-label="Try an example"');
     expect(toolbar).toContain("Payment Webhook Drift · Breaking");
     expect(toolbar).toContain("Order Fulfillment API · Warning + Safe");
     expect(toolbar).toContain("OpenAPI 3.0 Spec Upgrade");
+  });
+
+  it("keeps Infer & Compare in the default toolbar and exposes every advanced action in its menu", () => {
+    const workspace = {
+      id: "workspace-1",
+      name: "Orders",
+      direction: "response",
+      baselineSnapshotId: "baseline-1",
+      candidateSnapshotId: "candidate-1",
+    } as Workspace;
+    const toolbar = renderToStaticMarkup(<WorkbenchToolbar
+      workspaces={[workspace]} active={workspace} mode="cloud" onChangeMode={() => undefined} onSelectWorkspace={() => undefined}
+      onOpenDrawer={() => undefined} onFormatJSON={() => undefined} onInferAndCompare={() => undefined}
+      streaming={false} onToggleStreaming={() => undefined} payloadBytes={0} onCopyMarkdown={() => undefined}
+      onExportCI={() => undefined} onExportJSON={() => undefined} onShareReview={() => undefined} sharingReview={false}
+      pending={false} onLoadExampleDiff={() => undefined} cloudStatus="owner" onSignIn={() => undefined}
+    />);
+
+    expect(toolbar).toContain("Infer &amp; Compare");
+    expect((toolbar.match(/btn-geist-primary/g) ?? [])).toHaveLength(1);
+    expect(toolbar).toContain("Try an example");
+    const menuStart = toolbar.indexOf("<details");
+    const menuEnd = toolbar.indexOf("</details>", menuStart);
+    const advancedMenu = toolbar.slice(menuStart, menuEnd);
+    for (const item of [
+      "Format JSON",
+      "Simulate live traffic",
+      "Copy Markdown",
+      "Use in CI / GitHub Action",
+      "Share Review Link",
+      "Export JSON",
+      "Team CI Cloud · Early Access",
+    ]) {
+      expect(advancedMenu).toContain(item);
+    }
+  });
+
+  it("keeps header utilities in Advanced and leaves one account control", () => {
+    const header = renderToStaticMarkup(<SiteHeader />);
+    const menuStart = header.indexOf("<details");
+    const menuEnd = header.indexOf("</details>", menuStart);
+    const advancedMenu = header.slice(menuStart, menuEnd);
+
+    for (const item of ["FX Off", "Command palette", "Tokens", "Cloud ready"]) {
+      expect(advancedMenu).toContain(item);
+    }
+    expect(header).toContain(">Account</a>");
+    expect(header).not.toContain("Open workbench");
   });
 
   it("does not render unsafe checkout URLs", () => {

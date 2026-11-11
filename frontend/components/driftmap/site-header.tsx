@@ -42,7 +42,7 @@ function AudioSynthToggle() {
           </svg>
         )}
       </span>
-      <span id="audio-synth-label" className="hidden md:inline whitespace-nowrap">{enabled ? "FX On" : "FX Off"}</span>
+      <span id="audio-synth-label" className="whitespace-nowrap">{enabled ? "FX On" : "FX Off"}</span>
       <span
         id="audio-eq-bars"
         aria-hidden="true"
@@ -83,9 +83,9 @@ export function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-white/[0.08] bg-[#030304]/85 backdrop-blur-xl">
-      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
+      <div className="max-w-[1440px] mx-auto px-3 sm:px-6 h-14 flex items-center justify-between gap-1 sm:gap-3">
         {/* Left: brand identity + single-line section anchors */}
-        <div className="flex items-center gap-3 min-w-0 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink-0">
           <Link href="/" className="group flex items-center gap-2.5 text-left focus:outline-none shrink-0">
             <Image src="/brand/driftmap-icon-header.webp" alt="" width={28} height={28} priority />
             <span className="font-semibold tracking-tight text-white text-sm whitespace-nowrap shrink-0">DriftMap</span>
@@ -117,9 +117,9 @@ export function SiteHeader() {
             <Link
               href="/"
               id="tab-btn-landing"
-              className="h-7 px-3 rounded-md text-xs font-medium whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 transition-all duration-150 text-[#9496A1] hover:text-white"
+              className="h-7 px-1 sm:px-3 rounded-md text-[10px] sm:text-xs font-medium whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 transition-all duration-150 text-[#9496A1] hover:text-white"
             >
-              <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+              <svg className="hidden sm:block w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
                 <rect x="3" y="3" width="18" height="18" rx="3" />
                 <path d="M3 9h18" />
               </svg>
@@ -130,7 +130,7 @@ export function SiteHeader() {
               href="/"
               id="tab-btn-landing"
               aria-current="page"
-              className="h-7 px-3 rounded-md text-xs font-medium whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 transition-all duration-150 bg-white text-[#030304] shadow-sm"
+              className="h-7 px-1 sm:px-3 rounded-md text-[10px] sm:text-xs font-medium whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 transition-all duration-150 bg-white text-[#030304] shadow-sm"
             >
               <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
                 <rect x="3" y="3" width="18" height="18" rx="3" />
@@ -145,9 +145,9 @@ export function SiteHeader() {
               href="/workbench"
               id="tab-btn-workbench"
               aria-current="page"
-              className="h-7 px-3 rounded-md text-xs font-medium whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 transition-all duration-150 bg-white text-[#030304] shadow-sm"
+              className="h-7 px-1 sm:px-3 rounded-md text-[10px] sm:text-xs font-medium whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 transition-all duration-150 bg-white text-[#030304] shadow-sm"
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+              <span className="hidden sm:block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
               <span>Workbench</span>
               <span className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-mono leading-none bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 whitespace-nowrap shrink-0">
                 LIVE
@@ -157,9 +157,9 @@ export function SiteHeader() {
             <Link
               href="/workbench"
               id="tab-btn-workbench"
-              className="h-7 px-3 rounded-md text-xs font-medium whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 transition-all duration-150 text-[#9496A1] hover:text-white"
+              className="h-7 px-1 sm:px-3 rounded-md text-[10px] sm:text-xs font-medium whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 transition-all duration-150 text-[#9496A1] hover:text-white"
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+              <span className="hidden sm:block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
               <span>Workbench</span>
               <span className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-mono leading-none bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 whitespace-nowrap shrink-0">
                 LIVE
@@ -168,58 +168,58 @@ export function SiteHeader() {
           )}
         </div>
 
-        {/* Right: uniform h-8 single-line utility cluster */}
-        <div className="flex items-center gap-2 shrink-0">
-          <AudioSynthToggle />
-
-          <button
-            type="button"
-            onClick={openCommandPalette}
-            title="Open Command Palette (⌘K or Ctrl+K)"
-            aria-keyshortcuts="Meta+K Control+K"
-            className="h-8 px-2.5 rounded-lg text-xs font-mono whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 text-[#9496A1] hover:text-white bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.08] transition-all"
-          >
-            <svg className="w-3.5 h-3.5 text-[#9496A1] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-              <circle cx="11" cy="11" r="8" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-            <span className="hidden sm:inline whitespace-nowrap">Command</span>
-            <kbd className="px-1.5 py-0.5 text-[10px] leading-none rounded bg-[#030304] text-white/80 border border-white/[0.12] shrink-0">⌘K</kbd>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => openModal("tokens")}
-            title="Inspect and copy the Obsidian theme CSS tokens"
-            className="hidden md:inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-mono whitespace-nowrap shrink-0 text-[#9496A1] hover:text-white bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.08] transition-all"
-          >
-            <span className="w-2 h-2 rounded-full bg-rose-400 shrink-0" />
-            <span className="whitespace-nowrap">Tokens</span>
-          </button>
-
+        {/* Right: one account entry and a compact menu for secondary utilities. */}
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           {status === "authenticated" ? (
-            <Link
-              href="/workbench"
-              className="hidden xl:inline-flex items-center h-8 px-2 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 text-emerald-400 hover:text-white transition-colors"
-            >
-              Cloud ready
+            <Link href="/workbench" className="h-8 px-1 sm:px-2 inline-flex items-center text-[11px] sm:text-xs font-medium text-emerald-300 hover:text-white transition-colors">
+              Account
             </Link>
           ) : (
-            <Link
-              href="/signin"
-              className="hidden xl:inline-flex items-center h-8 px-2 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 text-zinc-400 hover:text-white transition-colors"
-            >
+            <Link href="/signin" className="h-8 px-1 sm:px-2 inline-flex items-center text-[11px] sm:text-xs font-medium text-zinc-300 hover:text-white transition-colors">
               Sign in
             </Link>
           )}
 
-          <Link
-            href="/workbench"
-            className="btn-geist-primary h-8 px-3.5 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 inline-flex items-center gap-1.5"
-          >
-            <span className="whitespace-nowrap">{isWorkbench ? "Workbench" : "Open workbench"}</span>
-            <span aria-hidden="true" className="shrink-0">→</span>
-          </Link>
+          <details className="relative shrink-0">
+            <summary
+              aria-label="Advanced header tools"
+              className="h-8 px-1 sm:px-2.5 rounded-lg text-[10px] sm:text-xs font-mono whitespace-nowrap inline-flex list-none cursor-pointer items-center gap-1 sm:gap-1.5 text-[#C3C4CC] hover:text-white bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.1] [&::-webkit-details-marker]:hidden"
+            >
+              Advanced
+              <svg className="w-3 h-3 text-[#9496A1]" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="m4 6 4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            </summary>
+            <div className="absolute right-0 top-full z-[60] mt-2 w-56 rounded-xl border border-white/[0.12] bg-[#0A0A0D] p-2 shadow-2xl flex flex-col gap-2">
+              <AudioSynthToggle />
+              <button
+                type="button"
+                onClick={openCommandPalette}
+                title="Open Command Palette (⌘K or Ctrl+K)"
+                aria-keyshortcuts="Meta+K Control+K"
+                className="h-8 px-2.5 rounded-lg text-xs font-mono whitespace-nowrap inline-flex items-center gap-1.5 text-[#9496A1] hover:text-white bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.08] transition-all"
+              >
+                <svg className="w-3.5 h-3.5 text-[#9496A1] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <span>Command palette</span>
+                <kbd className="ml-auto px-1.5 py-0.5 text-[10px] leading-none rounded bg-[#030304] text-white/80 border border-white/[0.12]">⌘K</kbd>
+              </button>
+              <button
+                type="button"
+                onClick={() => openModal("tokens")}
+                title="Inspect and copy the Obsidian theme CSS tokens"
+                className="h-8 px-2.5 rounded-lg text-xs font-mono inline-flex items-center gap-1.5 text-[#9496A1] hover:text-white bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.08] transition-all"
+              >
+                <span className="w-2 h-2 rounded-full bg-rose-400 shrink-0" />
+                Tokens
+              </button>
+              {status === "authenticated" && (
+                <Link href="/workbench" className="px-2.5 py-1.5 rounded-lg text-xs font-mono text-emerald-300 hover:bg-white/[0.05]">
+                  Cloud ready
+                </Link>
+              )}
+            </div>
+          </details>
         </div>
       </div>
     </header>
