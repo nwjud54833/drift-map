@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import {
   useCallback,
   useEffect,
@@ -466,8 +467,7 @@ function SiteHeader() {
     <div id="site-header-wrap" className={`site-header-wrap${scrolled ? " scrolled" : ""}`}>
       <header className="w site-header">
         <Link href="/" className="brand-link">
-          <DriftMapMark />
-          <span>DriftMap</span>
+          <Image src="/brand/driftmap-horizontal@2x.webp" alt="DriftMap" width={102} height={30} priority />
         </Link>
         <nav className="nav-links" aria-label="Primary">
           <a className={SECTION_LINK_CLASS} href="#how">How it works</a>
@@ -484,16 +484,6 @@ function SiteHeader() {
         </div>
       </header>
     </div>
-  );
-}
-
-function DriftMapMark() {
-  return (
-    <svg width="26" height="26" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-      <rect x="1" y="1" width="26" height="26" rx="8" fill="#0A0A0A" stroke="#9AA8FF" strokeWidth="1.5" />
-      <path d="M8 10h7M8 14h12M8 18h6" stroke="#F4F2EE" strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M17 18h3" stroke="#F4786C" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
   );
 }
 
@@ -1404,7 +1394,7 @@ export function SiteFooter({ onOpenWorkbench, onLaunchGraph }: {
     <footer className="w" style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 20, paddingTop: 48, paddingBottom: 48, marginTop: 96, borderTop: "1px solid var(--line-hairline)" }}>
       <div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 600, fontSize: 15, color: "var(--text-primary)" }}>
-          <DriftMapMark />
+          <Image src="/brand/driftmap-icon.webp" alt="" width={26} height={26} />
           <span>DriftMap</span>
         </div>
         <div style={{ marginTop: 4, fontSize: 13, color: "var(--text-tertiary)" }}>Private schema gating for team CI</div>

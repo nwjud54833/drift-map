@@ -1,25 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { DriftAudioSynth } from "@/lib/driftmap/audio-synth";
 import { useSpatialUIStore } from "@/stores/spatial-ui-store";
-
-/* --------------------------------------------------------------------------
- * DriftMap mark — the reference build's inline SVG, unchanged.
- * ------------------------------------------------------------------------ */
-
-export function DriftMapMark({ className = "w-3.5 h-3.5 text-white" }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h6l4 12h6M4 18h5m7-12h4" />
-      <circle cx="10" cy="6" r="2" fill="#FB7185" stroke="none" />
-      <circle cx="14" cy="18" r="2" fill="#34D399" stroke="none" />
-    </svg>
-  );
-}
 
 /* --------------------------------------------------------------------------
  * Audio synthesizer toggle with animated equaliser bars
@@ -100,11 +87,7 @@ export function SiteHeader() {
         {/* Left: brand identity + single-line section anchors */}
         <div className="flex items-center gap-3 min-w-0 shrink-0">
           <Link href="/" className="group flex items-center gap-2.5 text-left focus:outline-none shrink-0">
-            <span className="w-7 h-7 rounded-lg bg-[#111116] border border-white/15 flex items-center justify-center relative overflow-hidden group-hover:border-white/30 transition-colors shrink-0">
-              <span className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
-              <DriftMapMark />
-            </span>
-            <span className="font-semibold tracking-tight text-white text-sm whitespace-nowrap shrink-0">DriftMap</span>
+            <Image src="/brand/driftmap-horizontal@2x.webp" alt="DriftMap" width={96} height={28} priority />
             <span className="hidden sm:inline-flex items-center h-5 px-2 rounded text-[10px] font-mono font-medium bg-white/[0.05] text-[#9496A1] border border-white/[0.08] whitespace-nowrap shrink-0">
               SECURE TEAM CI
             </span>

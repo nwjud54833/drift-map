@@ -104,7 +104,7 @@ function SidebarContent({
     return (
       <nav className="dm-nav" aria-label="Workbench">
         <Link href="/" className="dm-brand" aria-label="DriftMap home">
-          <Image src="/logos/driftmap-icon.svg" alt="" width={28} height={28} />
+          <Image src="/brand/driftmap-icon.webp" alt="" width={28} height={28} />
         </Link>
         <IconButton label="New workspace" bordered disabled={pending} onClick={run(onNewWorkspace)}>
           <Plus size={15} aria-hidden="true" />
@@ -130,7 +130,7 @@ function SidebarContent({
   return (
     <nav className="dm-nav" aria-label="Workbench">
       <Link href="/" className="dm-brand" aria-label="DriftMap home">
-        <Image src="/logos/driftmap-icon.svg" alt="" width={28} height={28} />
+        <Image src="/brand/driftmap-icon.webp" alt="" width={28} height={28} />
         <span className="dm-brand-name">DriftMap</span>
       </Link>
 
@@ -315,7 +315,7 @@ export function WorkbenchShell(props: WorkbenchShellProps) {
           </IconButton>
 
           <Link href="/" className="dm-brand" aria-label="DriftMap home">
-            <Image src="/logos/driftmap-icon.svg" alt="" width={26} height={26} priority />
+            <Image src="/brand/driftmap-icon.webp" alt="" width={26} height={26} priority />
             <span className="dm-brand-name">DriftMap</span>
           </Link>
 

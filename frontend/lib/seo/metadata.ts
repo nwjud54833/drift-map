@@ -9,7 +9,7 @@ type SeoPage = {
 
 function pageMetadata({ title, description, canonical, noIndex = false }: SeoPage): Metadata {
   const image = {
-    url: "/opengraph-image",
+    url: "/brand/driftmap-social.png",
     width: 1200,
     height: 630,
     alt: "DriftMap API contract review with breaking, warning, safe, and informational findings",
