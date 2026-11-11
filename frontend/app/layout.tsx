@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { Geist, Geist_Mono, Inter, Instrument_Serif, JetBrains_Mono } from "next/font/google";
 import "./tokens.css";
 import "./globals.css";
@@ -94,11 +95,13 @@ export const metadata: Metadata = {
 // to its inline bootstrap scripts instead of serving nonce-less prerendered HTML.
 export const dynamic = "force-dynamic";
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
+
   return (
     <html lang="en" className="dark scroll-smooth" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body className={`${inter.variable} ${jetbrainsMono.variable} ${geist.variable} ${geistMono.variable} ${instrumentSerif.variable} obsidian-surface min-h-screen flex flex-col selection:bg-white/20 selection:text-white`}>
         <ThemeProvider>
