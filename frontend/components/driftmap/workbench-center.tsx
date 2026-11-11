@@ -15,7 +15,7 @@ import { useFloatingRowHighlight } from "./use-floating-row-highlight";
  * Ported from the reference build's `#wb-center-table-container` and
  * `#wb-center-graph-container`: the commit timeline scrubber, the Diff Radar
  * segmented percentage bar, the severity filter tabs, the path search, and the
- * segmented toggle between the Table Grid view and the 3D Force Graph view.
+ * Advanced view menu for the Table Grid and 3D Force Graph.
  */
 
 const SEVERITY_TABS: ReadonlyArray<{ key: ChangeSeverity | "all"; label: string; dot: string }> = [
@@ -92,6 +92,10 @@ export const WorkbenchCenter = forwardRef<WorkbenchCenterHandle, {
     return { breaking, warning, safe, info, total: findings.length };
   }, [counts, findings.length]);
 
+  const summary = findings.length === 0
+    ? "No changes found."
+    : `${counts.breaking} breaking, ${counts.warning} warning, and ${counts.safe} safe changes found.`;
+
   const activeRevision = revisions[activeRevisionIndex] ?? revisions[0] ?? null;
 
   useImperativeHandle(ref, () => ({
@@ -148,6 +152,8 @@ export const WorkbenchCenter = forwardRef<WorkbenchCenterHandle, {
           </div>
         )}
 
+        <p className="text-sm font-medium text-white" role="status" aria-live="polite">{summary}</p>
+
         <div className="space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-[#9496A1]">
@@ -160,25 +166,33 @@ export const WorkbenchCenter = forwardRef<WorkbenchCenterHandle, {
               </span>
             </div>
 
-            <div className="inline-flex items-center p-0.5 rounded-lg bg-[#050507] border border-white/[0.09] font-mono text-[11px]">
-              <button
-                type="button"
-                onClick={() => onModeChange("table")}
-                aria-pressed={mode === "table"}
-                className={`px-2.5 py-1 rounded-md transition-all ${mode === "table" ? "bg-white text-[#030304] font-semibold" : "text-[#9496A1] hover:text-white"}`}
+            <details className="relative shrink-0">
+              <summary
+                aria-label="Advanced view"
+                className="min-h-8 px-2.5 rounded-lg border border-white/[0.1] bg-[#050507] text-[11px] font-mono text-[#C3C4CC] hover:text-white cursor-pointer list-none inline-flex items-center gap-1.5 [&::-webkit-details-marker]:hidden"
               >
-                Table grid view
-              </button>
-              <button
-                type="button"
-                onClick={() => onModeChange("graph")}
-                aria-pressed={mode === "graph"}
-                className={`px-2.5 py-1 rounded-md transition-all flex items-center gap-1 ${mode === "graph" ? "bg-white text-[#030304] font-semibold" : "text-[#9496A1] hover:text-white"}`}
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
-                <span>3D force graph</span>
-              </button>
-            </div>
+                Advanced view
+                <svg className="w-3 h-3 text-[#9496A1]" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="m4 6 4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              </summary>
+              <div className="absolute right-0 top-full z-30 mt-2 w-48 rounded-xl border border-white/[0.12] bg-[#0A0A0D] p-2 shadow-2xl flex flex-col gap-1" role="group" aria-label="Advanced result views">
+                <button
+                  type="button"
+                  onClick={(event) => { onModeChange("table"); event.currentTarget.closest("details")?.removeAttribute("open"); }}
+                  aria-pressed={mode === "table"}
+                  className={`min-h-9 px-2.5 rounded-lg text-left text-xs font-mono transition-colors ${mode === "table" ? "bg-white text-[#030304] font-semibold" : "text-[#C3C4CC] hover:bg-white/[0.06] hover:text-white"}`}
+                >
+                  Table grid view
+                </button>
+                <button
+                  type="button"
+                  onClick={(event) => { onModeChange("graph"); event.currentTarget.closest("details")?.removeAttribute("open"); }}
+                  aria-pressed={mode === "graph"}
+                  className={`min-h-9 px-2.5 rounded-lg text-left text-xs font-mono transition-colors ${mode === "graph" ? "bg-white text-[#030304] font-semibold" : "text-[#C3C4CC] hover:bg-white/[0.06] hover:text-white"}`}
+                >
+                  3D force graph
+                </button>
+              </div>
+            </details>
           </div>
 
           <div className="w-full h-2 rounded-full bg-[#111116] border border-white/[0.07] overflow-hidden flex gap-0.5 p-0.5" role="img" aria-label={`Diff radar: ${radar.breaking}% breaking, ${radar.warning}% warning, ${radar.safe}% safe, ${radar.info}% stable`}>
@@ -190,7 +204,7 @@ export const WorkbenchCenter = forwardRef<WorkbenchCenterHandle, {
         </div>
 
         {/* Severity filter tabs */}
-        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter findings by severity">
+        <div className="flex flex-nowrap items-center gap-1.5 overflow-x-auto pb-1" role="group" aria-label="Filter findings by severity">
           {SEVERITY_TABS.map((tab) => {
             const count = tab.key === "all" ? findings.length : counts[tab.key];
             const active = severity === tab.key;
@@ -201,7 +215,7 @@ export const WorkbenchCenter = forwardRef<WorkbenchCenterHandle, {
                 onClick={() => onSeverityChange(tab.key)}
                 aria-pressed={active}
                 disabled={count === 0 && tab.key !== "all"}
-                className={`px-2.5 py-1 rounded-lg font-mono text-xs inline-flex items-center gap-1.5 transition-all disabled:opacity-40 ${
+                className={`shrink-0 whitespace-nowrap px-2.5 py-1 rounded-lg font-mono text-xs inline-flex items-center gap-1.5 transition-all disabled:opacity-40 ${
                   active ? "bg-white text-[#030304] font-semibold" : "bg-[#111116] text-[#9496A1] hover:text-white border border-white/[0.07]"
                 }`}
               >

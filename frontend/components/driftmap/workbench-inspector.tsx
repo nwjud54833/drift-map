@@ -6,6 +6,13 @@ import { presencePercent, type Finding } from "@/lib/driftmap/presentation";
 import { severityPillClass } from "@/lib/driftmap/rules";
 import { stringFormatLabel } from "@/lib/contract/formats";
 
+const CLASSIFICATION_EXPLANATION: Record<Finding["severity"], string> = {
+  breaking: "For JSON samples, a type change or a field changing from optional to required is breaking.",
+  warning: "A newly added required response field or a response field becoming nullable is a warning.",
+  safe: "Optional additions are safe.",
+  info: "Informational notes are included alongside other findings.",
+};
+
 /**
  * Deep finding inspector (right column).
  *
@@ -40,7 +47,7 @@ export function WorkbenchInspector({
         <div>
           <span className="text-[10px] font-mono uppercase tracking-wider text-[#5E606E]">FINDING INSPECTOR</span>
           <p className="mt-2 text-xs font-mono text-[#5E606E] leading-relaxed">
-            Select a finding row, or a node in the 3D force graph, to inspect its evidence.
+            Click a change to see what it means for your consumers.
           </p>
         </div>
       </div>
@@ -60,6 +67,7 @@ export function WorkbenchInspector({
             </span>
           </div>
           <div className="font-mono text-base font-semibold text-white break-all">{finding.pointer}</div>
+          <p className="text-xs text-[#C3C4CC] leading-relaxed">{CLASSIFICATION_EXPLANATION[finding.severity]}</p>
           <button
             type="button"
             onClick={() => onCopyPath(finding.pointer)}

@@ -112,7 +112,7 @@ export const WorkbenchInputPane = forwardRef<WorkbenchInputHandle, WorkbenchInpu
         <EditorBlock
           side="before"
           dotClass="bg-white/60"
-          label="Baseline sample(s) · v1"
+          label="Old response"
           hint={<>Paste a single JSON object, an array of payloads <code className="text-[#9496A1]">[sample1, sample2]</code>, or an OpenAPI 3.0 document.</>}
           value={drafts.before}
           snapshot={baseline}
@@ -127,7 +127,7 @@ export const WorkbenchInputPane = forwardRef<WorkbenchInputHandle, WorkbenchInpu
         <EditorBlock
           side="after"
           dotClass="bg-sky-400"
-          label="Candidate sample(s) · v2"
+          label="New response"
           hint={<>DriftMap normalizes array paths to <code className="text-[#9496A1]">{"/"}{"*"}</code> and compares inferred types and requiredness.</>}
           value={drafts.after}
           snapshot={candidate}

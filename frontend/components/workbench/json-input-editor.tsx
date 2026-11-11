@@ -276,17 +276,39 @@ export default function JsonInputEditor({
               <Sparkles size={13} aria-hidden="true" />{sampleAction.label}
             </Button>
           )}
-          <Button size="sm" variant="quiet" disabled={!value.trim()} onClick={() => {
+          <Button
+            size="sm"
+            variant="quiet"
+            aria-label="Format JSON"
+            title="Format JSON"
+            disabled={!value.trim()}
+            className="!px-2"
+            onClick={() => {
             try { onChange(JSON.stringify(JSON.parse(value), null, 2)); }
             catch { /* Formatting is a no-op while the document is invalid. */ }
           }}>
-            <AlignLeft size={13} aria-hidden="true" />Format
+            <AlignLeft size={13} aria-hidden="true" />
           </Button>
-          <Button size="sm" variant="quiet" onClick={() => fileInputRef.current?.click()}>
-            <FileUp size={13} aria-hidden="true" />Choose file
+          <Button
+            size="sm"
+            variant="quiet"
+            aria-label="Choose file"
+            title="Choose file"
+            className="!px-2"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <FileUp size={13} aria-hidden="true" />
           </Button>
-          <Button size="sm" variant="quiet" disabled={!value} onClick={() => { onChange(""); setImportNotice(null); setError(null); textareaRef.current?.focus(); }}>
-            <Eraser size={13} aria-hidden="true" />Clear
+          <Button
+            size="sm"
+            variant="quiet"
+            aria-label="Clear editor"
+            title="Clear editor"
+            disabled={!value}
+            className="!px-2"
+            onClick={() => { onChange(""); setImportNotice(null); setError(null); textareaRef.current?.focus(); }}
+          >
+            <Eraser size={13} aria-hidden="true" />
           </Button>
           {extraActions}
         </div>
