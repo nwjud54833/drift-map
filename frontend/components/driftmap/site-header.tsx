@@ -5,6 +5,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import { AccountMenu } from "@/components/workbench/account-menu";
 import { DriftAudioSynth } from "@/lib/driftmap/audio-synth";
 import { useSpatialUIStore } from "@/stores/spatial-ui-store";
 
@@ -76,7 +77,7 @@ const NAV_LINKS = [
  */
 export function SiteHeader() {
   const pathname = usePathname();
-  const { status } = useSession();
+  const { data: session, status } = useSession();
   const openCommandPalette = useSpatialUIStore((state) => state.openCommandPalette);
   const openModal = useSpatialUIStore((state) => state.openModal);
   const isWorkbench = pathname?.startsWith("/workbench") ?? false;
@@ -171,9 +172,9 @@ export function SiteHeader() {
         {/* Right: one account entry and a compact menu for secondary utilities. */}
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           {status === "authenticated" ? (
-            <Link href="/workbench" className="h-8 px-1 sm:px-2 inline-flex items-center text-[11px] sm:text-xs font-medium text-emerald-300 hover:text-white transition-colors">
-              Account
-            </Link>
+            // The account control signs you out; a plain link here left a signed-in
+            // session with no exit, and `/account` does not exist.
+            <AccountMenu user={session?.user ?? null} />
           ) : (
             <Link href="/signin" className="h-8 px-1 sm:px-2 inline-flex items-center text-[11px] sm:text-xs font-medium text-zinc-300 hover:text-white transition-colors">
               Sign in

@@ -2,9 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 
 export function middleware(request: NextRequest) {
   const nonce = btoa(crypto.randomUUID());
+  // `next dev` serves React Refresh, which evaluates strings to hot-reload a
+  // module. A strict script-src blocks that, and the thrown EvalError aborts
+  // hydration, so every `ssr: false` component — the workbench editors among
+  // them — never mounts. The dev server is the only thing that needs the
+  // exception; a production build has no React Refresh, so it stays strict.
+  const scriptSrc = process.env.NODE_ENV === "development"
+    ? `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-eval'`
+    : `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`;
   const contentSecurityPolicy = [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
+    scriptSrc,
     "style-src 'self' 'unsafe-inline'",
     "style-src-attr 'unsafe-inline'",
     "img-src 'self' data: blob: https://*.googleusercontent.com",

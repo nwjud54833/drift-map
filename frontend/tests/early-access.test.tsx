@@ -8,7 +8,10 @@ import { submitEarlyAccessRequest } from "@/lib/client/early-access";
 import { getProCheckoutUrl } from "@/lib/client/pro-checkout";
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/workbench" }));
-vi.mock("next-auth/react", () => ({ useSession: () => ({ status: "authenticated" }) }));
+vi.mock("next-auth/react", () => ({
+  useSession: () => ({ status: "authenticated", data: { user: { name: "Sam Rivera", email: "sam@example.com" } } }),
+  signOut: vi.fn(),
+}));
 
 afterEach(() => vi.unstubAllEnvs());
 
@@ -108,7 +111,9 @@ describe("Team Cloud early access conversion", () => {
     for (const item of ["FX Off", "Command palette", "Tokens", "Cloud ready"]) {
       expect(advancedMenu).toContain(item);
     }
-    expect(header).toContain(">Account</a>");
+    // The account control is the AccountMenu (the only sign-out path), not a dead link.
+    expect(header).toContain('aria-label="Account menu for Sam Rivera"');
+    expect(header).not.toContain(">Account</a>");
     expect(header).not.toContain("Open workbench");
   });
 
