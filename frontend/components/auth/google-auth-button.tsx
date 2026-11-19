@@ -11,6 +11,9 @@ function ProviderAuthButton({ provider, callbackUrl = "/workbench", compact = fa
   const [pending, setPending] = useState(false);
   const [error, setError] = useState(false);
   const providerName = provider === "google" ? "Google" : "GitHub";
+  const appearance = provider === "google"
+    ? "!bg-white !text-zinc-950 !border-white/90 hover:!bg-zinc-100"
+    : "!bg-zinc-900 !text-zinc-100 !border-white/10 hover:!bg-zinc-800";
 
   async function continueWithProvider() {
     if (pending) return;
@@ -33,7 +36,7 @@ function ProviderAuthButton({ provider, callbackUrl = "/workbench", compact = fa
 
   return (
     <div className={compact ? "auth-google-action auth-google-action-compact" : "auth-google-action"}>
-      <button type="button" className="auth-google-button" onClick={() => void continueWithProvider()} disabled={pending} aria-busy={pending}>
+      <button type="button" className={`auth-google-button ${appearance}`} onClick={() => void continueWithProvider()} disabled={pending} aria-busy={pending}>
         {pending ? <LoaderCircle size={16} className="auth-spinner" aria-hidden="true" /> : provider === "google" ? <span className="auth-google-mark" aria-hidden="true">G</span> : <GitBranch size={17} aria-hidden="true" />}
         <span>{pending ? "Connecting…" : `Continue with ${providerName}`}</span>
       </button>

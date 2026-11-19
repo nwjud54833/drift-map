@@ -94,6 +94,8 @@ export function SiteHeader() {
   const openModal = useSpatialUIStore((state) => state.openModal);
   const isWorkbench = pathname?.startsWith("/workbench") ?? false;
 
+  if (pathname === "/signin") return null;
+
   return (
     <header className="sticky top-0 z-50 border-b border-white/[0.08] bg-[#030304]/85 backdrop-blur-xl">
       <div className="max-w-[1440px] mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
