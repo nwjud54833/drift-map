@@ -1,7 +1,7 @@
 "use client";
 
 import { Cloud, LoaderCircle, X } from "lucide-react";
-import { GoogleAuthButton } from "@/components/auth/google-auth-button";
+import { AuthProviderButtons } from "@/components/auth/google-auth-button";
 
 export function CloudAccessPrompt({ onStayLocal }: { onStayLocal: () => void }) {
   return <div className="ca-cloud-prompt-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onStayLocal(); }}>
@@ -10,8 +10,8 @@ export function CloudAccessPrompt({ onStayLocal }: { onStayLocal: () => void }) 
       <span className="ca-cloud-prompt-icon"><Cloud size={19} aria-hidden="true" /></span>
       <span className="ca-overline">Cloud workspaces</span>
       <h2 id="ca-cloud-prompt-title">Take your contracts with you.</h2>
-      <p>Sign in with Google to save DriftMap workspaces and access them across sessions.</p>
-      <GoogleAuthButton />
+      <p>Sign in with Google or GitHub to save DriftMap workspaces and access them across sessions.</p>
+      <AuthProviderButtons />
       <button type="button" className="ca-cloud-prompt-local" onClick={onStayLocal}>Stay in Local Mode</button>
     </section>
   </div>;

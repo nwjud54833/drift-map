@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import { ChevronDown, LogOut, UserRound } from "lucide-react";
+import Link from "next/link";
 import { signOut } from "next-auth/react";
 import { Avatar } from "@/components/ui/avatar";
 import { Menu, MenuHeader, MenuItem, MenuSeparator } from "@/components/ui/menu";
 import { Skeleton } from "@/components/ui/skeleton";
-import { GoogleAuthButton } from "@/components/auth/google-auth-button";
 import { browserPreferenceStorage, writeWorkbenchMode } from "@/lib/workbench/preferences";
 
 interface AccountUser {
@@ -16,8 +16,8 @@ interface AccountUser {
 }
 
 /**
- * Account menu. Signed out it becomes a "Sign in with Google" action (cloud
- * mode only — the caller decides when to render it). The trigger shows an
+ * Account menu. Signed out it becomes a sign-in action (cloud mode only — the
+ * caller decides when to render it). The trigger shows an
  * avatar with an initials fallback, so it never depends on a remote image.
  */
 export function AccountMenu({ user }: { user: AccountUser | null }) {
@@ -25,11 +25,9 @@ export function AccountMenu({ user }: { user: AccountUser | null }) {
 
   if (!user) {
     return (
-      <GoogleAuthButton
-        callbackUrl="/workbench"
-        compact
-        beforeSignIn={() => writeWorkbenchMode(browserPreferenceStorage(), "cloud")}
-      />
+      <div className="auth-google-action auth-google-action-compact">
+        <Link href="/signin" className="auth-google-button" onClick={() => writeWorkbenchMode(browserPreferenceStorage(), "cloud")}>Sign in</Link>
+      </div>
     );
   }
 

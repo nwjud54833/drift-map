@@ -4,14 +4,14 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, ShieldCheck } from "lucide-react";
 import { useSession } from "next-auth/react";
-import { GoogleAuthButton } from "./google-auth-button";
+import { AuthProviderButtons } from "./google-auth-button";
 import { browserPreferenceStorage, writeWorkbenchMode } from "@/lib/workbench/preferences";
 
 export function AuthPage({ mode }: { mode: "signin" | "signup" }) {
   const { status } = useSession();
   const isSignUp = mode === "signup";
   const title = isSignUp ? "Create your DriftMap account" : "Sign in to DriftMap";
-  const description = isSignUp ? "Start saving workspaces and contract analysis in the cloud." : "Continue with your Google account to access cloud workspaces.";
+  const description = isSignUp ? "Start saving workspaces and contract analysis in the cloud." : "Continue with Google or GitHub to access cloud workspaces.";
 
   return (
     <main className="auth-page">
@@ -24,11 +24,11 @@ export function AuthPage({ mode }: { mode: "signin" | "signup" }) {
           <h1 id="auth-page-title">{title}</h1>
           <p>{description}</p>
         </div>
-        {status === "loading" ? <div className="auth-loading" role="status" aria-live="polite">Checking session…</div> : <GoogleAuthButton beforeSignIn={() => writeWorkbenchMode(browserPreferenceStorage(), "cloud")} />}
+        {status === "loading" ? <div className="auth-loading" role="status" aria-live="polite">Checking session…</div> : <AuthProviderButtons beforeSignIn={() => writeWorkbenchMode(browserPreferenceStorage(), "cloud")} />}
         <div className="auth-divider"><span>or</span></div>
         <Link href="/workbench" onClick={() => writeWorkbenchMode(browserPreferenceStorage(), "local")} className="auth-local-link"><span>Continue locally</span><ArrowRight size={15} aria-hidden="true" /></Link>
         <p className="auth-local-note">Your local workspace does not require an account.</p>
-        <div className="auth-trust-note"><ShieldCheck size={14} aria-hidden="true" /><span>Google sign-in authenticates you and associates your cloud workspace with your account.</span></div>
+        <div className="auth-trust-note"><ShieldCheck size={14} aria-hidden="true" /><span>Google or GitHub sign-in authenticates you and associates your cloud workspace with your account.</span></div>
         <p className="auth-switch">{isSignUp ? "Already have an account?" : "New to DriftMap?"} <Link href={isSignUp ? "/signin" : "/signup"}>{isSignUp ? "Sign in" : "Get started"}</Link></p>
       </section>
     </main>
